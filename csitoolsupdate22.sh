@@ -704,8 +704,8 @@ echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt autoremove -y
 echo "# Removing APT cache to save space"
 
 # create TorVPN environment
-echo $key | sudo -S /bin/sed -i 's/\#ControlPort/ControlPort/g' /etc/tor/torrc 
-echo $key | sudo -S /bin/sed -i 's/\#CookieAuthentication/CookieAuthentication/g' /etc/tor/torrc 
+# echo $key | sudo -S /bin/sed -i 's/\#ControlPort/ControlPort/g' /etc/tor/torrc 
+# echo $key | sudo -S /bin/sed -i 's/\#CookieAuthentication/CookieAuthentication/g' /etc/tor/torrc 
 if grep -Fxq "VirtualAddrNetworkIPv4" /etc/tor/torrc
 then
 	echo "TorVPN configured"
@@ -715,12 +715,12 @@ else
 	echo $key | sudo -S bash -c "echo 'TransPort 9040 IsolateClientAddr IsolateClientProtocol IsolateDestAddr IsolateDestPort' >> /etc/tor/torrc"
 	echo $key | sudo -S bash -c "echo 'DNSPort 5353' >> /etc/tor/torrc"
 fi
-echo $key | sudo -S groupadd tor-auth
-echo $key | sudo -S usermod -a -G tor-auth debian-tor
-echo $key | sudo -S usermod -a -G tor-auth csi
-echo $key | sudo -S chmod 644 /run/tor/control.authcookie
-echo $key | sudo -S chown root:tor-auth /run/tor/control.authcookie
-echo $key | sudo -S chmod g+r /run/tor/control.authcookie
+# echo $key | sudo -S groupadd tor-auth
+# echo $key | sudo -S usermod -a -G tor-auth debian-tor
+# echo $key | sudo -S usermod -a -G tor-auth csi
+# echo $key | sudo -S chmod 644 /run/tor/control.authcookie
+# echo $key | sudo -S chown root:tor-auth /run/tor/control.authcookie
+# echo $key | sudo -S chmod g+r /run/tor/control.authcookie
 
 # unredactedmagazine
 
