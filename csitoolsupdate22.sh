@@ -195,6 +195,11 @@ else
 	git pull
 fi
 
+if [ -f /opt/theHarvester/theHarvester.py ]; then
+	cd /opt/theHarvester/
+	git pull
+fi
+
 if [ ! -f /opt/iLEAPP/ileapp.py ]; then
 	cd /opt
 	git clone https://github.com/abrignoni/iLEAPP.git
