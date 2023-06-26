@@ -50,7 +50,7 @@ echo $key | sudo -S rm -rf /etc/resolvconf
 echo $key | sudo -S  echo "nameserver 8.8.8.8" | sudo tee /etc/resolv.conf
 
 echo $key | sudo -S snap install --edge i2pi2p
-/snap/i2pi2p/current/runplain.sh &
+
 
 echo "# Updating APT repository"
 echo $key | sudo -S dpkg --add-architecture i386
