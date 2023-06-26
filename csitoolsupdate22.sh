@@ -725,6 +725,9 @@ else
 	echo $key | sudo -S bash -c "echo 'TransPort 9040 IsolateClientAddr IsolateClientProtocol IsolateDestAddr IsolateDestPort' >> /etc/tor/torrc"
 	echo $key | sudo -S bash -c "echo 'DNSPort 5353' >> /etc/tor/torrc"
 fi
+echo $key | sudo -S service tor stop
+echo $key | sudo -S service tor start
+
 # echo $key | sudo -S groupadd tor-auth
 # echo $key | sudo -S usermod -a -G tor-auth debian-tor
 # echo $key | sudo -S usermod -a -G tor-auth csi
