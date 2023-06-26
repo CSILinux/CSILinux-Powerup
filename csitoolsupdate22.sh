@@ -50,7 +50,7 @@ echo $key | sudo -S rm -rf /etc/resolvconf
 echo $key | sudo -S  echo "nameserver 8.8.8.8" | sudo tee /etc/resolv.conf
 
 echo $key | sudo -S snap install --edge i2pi2p
-
+echo $key | sudo -S cp /etc/tor/torrc /etc/tor/torrc.back
 
 echo "# Updating APT repository"
 echo $key | sudo -S dpkg --add-architecture i386
@@ -714,7 +714,8 @@ echo "# Removing APT cache to save space"
 
 # create TorVPN environment
 # echo $key | sudo -S /bin/sed -i 's/\#ControlPort/ControlPort/g' /etc/tor/torrc 
-# echo $key | sudo -S /bin/sed -i 's/\#CookieAuthentication/CookieAuthentication/g' /etc/tor/torrc 
+# echo $key | sudo -S /bin/sed -i 's/\#CookieAuthentication\ 1/CookieAuthentication\ 0/g' /etc/tor/torrc 
+# echo $key | sudo -S /bin/sed -i 's/\#CookieAuthentication\ 1/CookieAuthentication\ 0/g' /etc/tor/torrc 
 if grep -Fxq "VirtualAddrNetworkIPv4" /etc/tor/torrc
 then
 	echo "TorVPN configured"
