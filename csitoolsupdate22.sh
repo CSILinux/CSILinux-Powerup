@@ -13,6 +13,7 @@ rm -f /opt/csitools/helper/sn0int*
 rm /opt/csitools/helper/cewl
 rm /opt/csitools/helper/sn0*
 
+echo $key | sudo -S apt purge i2p* -y
 
 echo "# Downloading CSI Tools"
 wget https://csilinux.com/downloads/csitools22.zip -O csitools22.zip
@@ -47,6 +48,9 @@ echo $key | sudo -S mv kismet.list /etc/apt/sources.list.d/kismet.list
 echo $key | sudo -S rm /etc/resolv.conf
 echo $key | sudo -S rm -rf /etc/resolvconf
 echo $key | sudo -S  echo "nameserver 8.8.8.8" | sudo tee /etc/resolv.conf
+
+sudo snap install --edge i2pi2p
+/snap/i2pi2p/current/runplain.sh
 
 echo "# Updating APT repository"
 echo $key | sudo -S dpkg --add-architecture i386
