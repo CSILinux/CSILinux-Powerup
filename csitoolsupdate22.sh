@@ -713,8 +713,8 @@ echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt autoremove -y
 echo "# Removing APT cache to save space"
 
 # create TorVPN environment
-# echo $key | sudo -S /bin/sed -i 's/\#ControlPort/ControlPort/g' /etc/tor/torrc 
-# echo $key | sudo -S /bin/sed -i 's/\#CookieAuthentication\ 1/CookieAuthentication\ 0/g' /etc/tor/torrc 
+echo $key | sudo -S /bin/sed -i 's/\#ControlPort/ControlPort/g' /etc/tor/torrc 
+echo $key | sudo -S /bin/sed -i 's/\#CookieAuthentication\ 1/CookieAuthentication\ 0/g' /etc/tor/torrc 
 # echo $key | sudo -S /bin/sed -i 's/\#CookieAuthentication\ 1/CookieAuthentication\ 0/g' /etc/tor/torrc 
 if grep -Fxq "VirtualAddrNetworkIPv4" /etc/tor/torrc
 then
