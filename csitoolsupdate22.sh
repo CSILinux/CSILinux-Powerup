@@ -715,16 +715,20 @@ echo "# Removing APT cache to save space"
 # create TorVPN environment
 echo $key | sudo -S /bin/sed -i 's/\#ControlPort/ControlPort/g' /etc/tor/torrc 
 echo $key | sudo -S /bin/sed -i 's/\#CookieAuthentication\ 1/CookieAuthentication\ 0/g' /etc/tor/torrc 
-# echo $key | sudo -S /bin/sed -i 's/\#CookieAuthentication\ 1/CookieAuthentication\ 0/g' /etc/tor/torrc 
-if grep -Fxq "VirtualAddrNetworkIPv4" /etc/tor/torrc
+echo $key | sudo -S /bin/sed -i 's/\#SocksPort\ 9050/SocksPort\ 9050/g' /etc/tor/torrc 
+echo $key | sudo -S /bin/sed -i 's/\#RunAsDaemon\ 1/RunAsDaemon\ 1/g' /etc/tor/torrc 
+
+if grep -q "VirtualAddrNetworkIPv4" /etc/tor/torrc
 then
-	echo "TorVPN configured"
+    echo "TorVPN already configured"
 else
-	echo $key | sudo -S bash -c "echo 'VirtualAddrNetworkIPv4 10.192.0.0/10' >> /etc/tor/torrc"
-	echo $key | sudo -S bash -c "echo 'AutomapHostsOnResolve 1' >> /etc/tor/torrc"
-	echo $key | sudo -S bash -c "echo 'TransPort 9040 IsolateClientAddr IsolateClientProtocol IsolateDestAddr IsolateDestPort' >> /etc/tor/torrc"
-	echo $key | sudo -S bash -c "echo 'DNSPort 5353' >> /etc/tor/torrc"
+    echo $key | sudo -S bash -c "echo 'VirtualAddrNetworkIPv4 10.192.0.0/10' >> /etc/tor/torrc"
+    echo $key | sudo -S bash -c "echo 'AutomapHostsOnResolve 1' >> /etc/tor/torrc"
+    echo $key | sudo -S bash -c "echo 'TransPort 9040 IsolateClientAddr IsolateClientProtocol IsolateDestAddr IsolateDestPort' >> /etc/tor/torrc"
+    echo $key | sudo -S bash -c "echo 'DNSPort 5353' >> /etc/tor/torrc"
+    echo "TorVPN configured"
 fi
+
 echo $key | sudo -S service tor stop
 echo $key | sudo -S service tor start
 
