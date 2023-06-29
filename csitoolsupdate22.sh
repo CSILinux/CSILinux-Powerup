@@ -13,12 +13,6 @@ rm -f /opt/csitools/helper/sn0int*
 rm /opt/csitools/helper/cewl
 rm /opt/csitools/helper/sn0*
 
-echo $key | sudo -S bash -c "cat > /etc/resolv.conf << EOF
-nameserver 8.8.8.8
-nameserver 127.0.0.53
-nameserver 127.3.2.1
-EOF"
-
 echo "resolve.conf has been updated."
 
 echo "Downloading CSI Tools"
@@ -510,6 +504,14 @@ fi
 # Dark Web
 
 cd /tmp
+
+if grep -q "nameserver 127.0.0.53" /etc/resolve.conf
+then
+    echo "Resolve already configured"
+else
+    echo $key | sudo -S bash -c "echo 'nameserver 127.0.0.53' >> /etc/resolve.conf"
+fi
+
 echo $key | sudo -S apt install lokinet-gui
 echo $key | sudo -S echo "nameserver
 if grep -q "nameserver 127.3.2.1" /etc/resolve.conf
