@@ -13,9 +13,9 @@ rm -f /opt/csitools/helper/sn0int*
 rm /opt/csitools/helper/cewl
 rm /opt/csitools/helper/sn0*
 
-echo $key | sudo -S bash -c "echo 'nameserver 8.8.8.8' | tee /etc/resolv.conf"
-echo $key | sudo -S bash -c "echo 'nameserver 127.0.0.53' | tee -a /etc/resolv.conf"
-echo $key | sudo -S bash -c "echo 'nameserver 127.3.2.1' | tee -a /etc/resolv.conf"
+echo $key | sudo -S sh -c "echo 'nameserver 8.8.8.8' >> /etc/resolv.conf"
+echo $key | sudo -S sh -c "echo 'nameserver 127.0.0.53' >> /etc/resolv.conf"
+echo $key | sudo -S sh -c "echo 'nameserver 127.3.2.1' >> /etc/resolv.conf"
 
 echo "Downloading CSI Tools"
 wget https://csilinux.com/downloads/csitools22.zip -O csitools22.zip
