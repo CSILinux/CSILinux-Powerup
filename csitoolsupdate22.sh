@@ -13,7 +13,9 @@ rm -f /opt/csitools/helper/sn0int*
 rm /opt/csitools/helper/cewl
 rm /opt/csitools/helper/sn0*
 
-echo $key | sudo -S apt purge i2p* -y
+echo $key | sudo -S rm /etc/resolv.conf
+echo $key | sudo -S rm -rf /etc/resolvconf
+echo $key | sudo -S  echo "nameserver 127.0.0.53\nnameserver 127.3.2.1\nnameserver 8.8.8.8" | sudo tee /etc/resolv.conf
 
 echo "# Downloading CSI Tools"
 wget https://csilinux.com/downloads/csitools22.zip -O csitools22.zip
@@ -33,33 +35,25 @@ mkdir /home/csi/Cases
 
 echo $key | sudo -S chmod +x /opt/csitools/powerup
 echo $key | sudo -S ln -sf /opt/csitools/powerup /usr/local/bin/powerup
-
 echo $key | sudo -S apt remove modemmanager -y
-
-wget -nc https://dl.winehq.org/wine-builds/winehq.key
+echo $key | sudo -S curl -so /etc/apt/winehq.key https://dl.winehq.org/wine-builds/winehq.key
 echo $key | sudo -S apt-key add winehq.key
-echo $key | sudo -S add-apt-repository 'deb https://dl.winehq.org/wine-builds/ubuntu/ focal main'
-
+echo $key | sudo -S bash -c "echo 'deb https://dl.winehq.org/wine-builds/ubuntu/ focal main | tee /etc/apt/sources.list.d/wine.list''
 echo $key | sudo -S rm -rfv /usr/local/bin/kismet* /usr/local/share/kismet* /usr/local/etc/kismet*
-wget -O - https://www.kismetwireless.net/repos/kismet-release.gpg.key > kismet-release.gpg.key 
-echo $key | sudo -S apt-key add kismet-release.gpg.key
-echo 'deb https://www.kismetwireless.net/repos/apt/release/jammy jammy main' > kismet.list
-echo $key | sudo -S mv kismet.list /etc/apt/sources.list.d/kismet.list
-echo $key | sudo -S rm /etc/resolv.conf
-echo $key | sudo -S rm -rf /etc/resolvconf
-echo $key | sudo -S  echo "nameserver 8.8.8.8" | sudo tee /etc/resolv.conf
-
-echo $key | sudo -S snap install --edge i2pi2p
-echo $key | sudo -S cp /etc/tor/torrc /etc/tor/torrc.back
+echo $key | sudo -S curl -so /etc/apt/kismet-release.gpg https://www.kismetwireless.net/repos/kismet-release.gpg.key
+echo $key | sudo -S bash -c "echo 'deb https://www.kismetwireless.net/repos/apt/release/jammy jammy main | tee /etc/apt/sources.list.d/kismet.list'"
+echo $key | sudo -S curl -so /etc/apt/trusted.gpg.d/oxen.gpg https://deb.oxen.io/pub.gpg
+echo $key | sudo -S bash -c "echo 'deb https://deb.oxen.io $(lsb_release -sc) main | tee /etc/apt/sources.list.d/oxen.list'"
+echo $key | sudo -S wget -O /usr/share/keyrings/element-io-archive-keyring.gpg https://packages.element.io/debian/element-io-archive-keyring.gpg
+echo $key | sudo -S bash -c "echo 'deb [signed-by=/usr/share/keyrings/element-io-archive-keyring.gpg] https://packages.element.io/debian/ default main | tee > element-io.list'"
+echo $key | sudo -S mv element-io.list /etc/apt/sources.list.d/element-io.list
 
 echo "# Updating APT repository"
 echo $key | sudo -S dpkg --add-architecture i386
 echo $key | sudo -S apt update
 echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt install postfix -y
 
-echo $key | sudo -S wget -O /usr/share/keyrings/element-io-archive-keyring.gpg https://packages.element.io/debian/element-io-archive-keyring.gpg
-echo "deb [signed-by=/usr/share/keyrings/element-io-archive-keyring.gpg] https://packages.element.io/debian/ default main" > element-io.list
-echo $key | sudo -S mv element-io.list /etc/apt/sources.list.d/element-io.list
+
 
 echo $key | sudo -S apt autoremove -y
 
@@ -68,10 +62,7 @@ rm  hunchly.deb
 wget -O hunchly.deb https://downloadmirror.hunch.ly/currentversion/hunchly.deb?csilinux_update
 echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt-get install ./hunchly.deb -y
 
-wget https://csilinux.com/downloads/apps.txt
-
 echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt install -y libmagic-dev python3-magic python3-pyregfi
-
 echo $key | sudo -S apt purge onionshare proxychains4 -y
 
 mv ~/.local/share/applications/menulibre-kvm-/-virt-manager.desktop ~/.local/share/applications/menulibre-kvm---virt-manager.desktop
@@ -87,7 +78,7 @@ echo $key | sudo -S apt install python3-pyqt5.qtsql -y
 echo $key | sudo -S apt install bash-completion -y
 echo $key | sudo -S apt install openjdk-19-jdk -y
 
-python3 -m pip install --upgrade pip
+python3 -m pip install pip --upgrade
 pip uninstall twint -y
 pip install grequests 
 pip install sublist3r
@@ -117,7 +108,7 @@ pip install libesedb-python
 pip install xmltodict
 pip install PySimpleGUI
 
-echo $key | sudo -S chown csi:csi /opt
+
 
 
 # computer Forensics
@@ -512,7 +503,50 @@ if ! which onionshare > /dev/null; then
 	echo $key | sudo -S snap install onionshare
 fi
 
+# Dark Web
 
+cd /tmp
+echo $key | sudo -S apt install lokinet-gui
+echo $key | sudo -S echo "nameserver
+if grep -q "nameserver 127.3.2.1" /etc/resolve.conf
+then
+    echo "Lokinet already configured"
+else
+    echo $key | sudo -S bash -c "echo 'nameserver 127.3.2.1' >> /etc/resolve.conf"
+fi
+
+## create TorVPN environment
+echo $key | sudo -S /bin/sed -i 's/\#ControlPort/ControlPort/g' /etc/tor/torrc 
+echo $key | sudo -S /bin/sed -i 's/\#CookieAuthentication\ 1/CookieAuthentication\ 0/g' /etc/tor/torrc 
+echo $key | sudo -S /bin/sed -i 's/\#SocksPort\ 9050/SocksPort\ 9050/g' /etc/tor/torrc 
+echo $key | sudo -S /bin/sed -i 's/\#RunAsDaemon\ 1/RunAsDaemon\ 1/g' /etc/tor/torrc 
+echo $key | sudo -S cp /etc/tor/torrc /etc/tor/torrc.back
+if grep -q "VirtualAddrNetworkIPv4" /etc/tor/torrc
+then
+    echo "TorVPN already configured"
+else
+    echo $key | sudo -S bash -c "echo 'VirtualAddrNetworkIPv4 10.192.0.0/10' >> /etc/tor/torrc"
+    echo $key | sudo -S bash -c "echo 'AutomapHostsOnResolve 1' >> /etc/tor/torrc"
+    echo $key | sudo -S bash -c "echo 'TransPort 9040 IsolateClientAddr IsolateClientProtocol IsolateDestAddr IsolateDestPort' >> /etc/tor/torrc"
+    echo $key | sudo -S bash -c "echo 'DNSPort 5353' >> /etc/tor/torrc"
+    echo "TorVPN configured"
+fi
+
+echo $key | sudo -S service tor stop
+echo $key | sudo -S service tor start
+
+# i2p
+echo $key | sudo -S apt purge i2p* -y
+echo $key | sudo -S snap install --edge i2pi2p
+
+
+
+# echo $key | sudo -S groupadd tor-auth
+# echo $key | sudo -S usermod -a -G tor-auth debian-tor
+# echo $key | sudo -S usermod -a -G tor-auth csi
+# echo $key | sudo -S chmod 644 /run/tor/control.authcookie
+# echo $key | sudo -S chown root:tor-auth /run/tor/control.authcookie
+# echo $key | sudo -S chmod g+r /run/tor/control.authcookie
 
 
 
@@ -636,9 +670,6 @@ fi
 
 
 # AppImages
-
-
-
 if [ ! -f /opt/qr-code-generator-desktop/qr-code-generator-desktop.AppImage ]; then
 	cd /opt
 	mkdir qr-code-generator-desktop
@@ -646,9 +677,6 @@ if [ ! -f /opt/qr-code-generator-desktop/qr-code-generator-desktop.AppImage ]; t
 	wget https://csilinux.com/downloads/qr-code-generator-desktop.AppImage
 	echo $key | sudo -S chmod +x qr-code-generator-desktop.AppImage
 fi
-
-
-
 
 if ! which keepassxc; then
 	echo $key | sudo -S add-apt-repository ppa:phoerious/keepassxc
@@ -711,33 +739,7 @@ echo $key | sudo -S DEBIAN_FRONTEND=noninteractive dpkg --configure -a --force-c
 echo "# Removing old software APT installs"
 echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt autoremove -y
 echo "# Removing APT cache to save space"
-
-# create TorVPN environment
-echo $key | sudo -S /bin/sed -i 's/\#ControlPort/ControlPort/g' /etc/tor/torrc 
-echo $key | sudo -S /bin/sed -i 's/\#CookieAuthentication\ 1/CookieAuthentication\ 0/g' /etc/tor/torrc 
-echo $key | sudo -S /bin/sed -i 's/\#SocksPort\ 9050/SocksPort\ 9050/g' /etc/tor/torrc 
-echo $key | sudo -S /bin/sed -i 's/\#RunAsDaemon\ 1/RunAsDaemon\ 1/g' /etc/tor/torrc 
-
-if grep -q "VirtualAddrNetworkIPv4" /etc/tor/torrc
-then
-    echo "TorVPN already configured"
-else
-    echo $key | sudo -S bash -c "echo 'VirtualAddrNetworkIPv4 10.192.0.0/10' >> /etc/tor/torrc"
-    echo $key | sudo -S bash -c "echo 'AutomapHostsOnResolve 1' >> /etc/tor/torrc"
-    echo $key | sudo -S bash -c "echo 'TransPort 9040 IsolateClientAddr IsolateClientProtocol IsolateDestAddr IsolateDestPort' >> /etc/tor/torrc"
-    echo $key | sudo -S bash -c "echo 'DNSPort 5353' >> /etc/tor/torrc"
-    echo "TorVPN configured"
-fi
-
-echo $key | sudo -S service tor stop
-echo $key | sudo -S service tor start
-
-# echo $key | sudo -S groupadd tor-auth
-# echo $key | sudo -S usermod -a -G tor-auth debian-tor
-# echo $key | sudo -S usermod -a -G tor-auth csi
-# echo $key | sudo -S chmod 644 /run/tor/control.authcookie
-# echo $key | sudo -S chown root:tor-auth /run/tor/control.authcookie
-# echo $key | sudo -S chmod g+r /run/tor/control.authcookie
+echo $key | sudo -S chown csi:csi /opt
 
 # unredactedmagazine
 
@@ -754,5 +756,4 @@ echo $key | sudo -S rm /var/crash/* > /dev/null 2>&1
 rm ~/.vbox* > /dev/null 2>&1
 
 echo $key | sudo -S updatedb
-
 echo "Please reboot when finished updating"
