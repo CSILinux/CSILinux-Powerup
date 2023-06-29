@@ -494,44 +494,43 @@ fi
 
 echo "Installing Darkweb Tools"
 cd /tmp
-if grep -q "nameserver 127.0.0.53" /etc/resolve.conf
-then
+if grep -q "nameserver 127.0.0.53" /etc/resolv.conf; then
     echo "Resolve already configured"
 else
-    echo $key | sudo -S bash -c "echo 'nameserver 127.0.0.53' >> /etc/resolve.conf"
-fi
-echo $key | sudo -S apt install lokinet-gui
-echo $key | sudo -S echo "nameserver
-if grep -q "nameserver 127.3.2.1" /etc/resolve.conf
-then
-    echo "Lokinet already configured"
-else
-    echo $key | sudo -S bash -c "echo 'nameserver 127.3.2.1' >> /etc/resolve.conf"
+    echo "$key" | sudo -S bash -c "echo 'nameserver 127.0.0.53' >> /etc/resolv.conf"
 fi
 
-## create TorVPN environment
-echo $key | sudo -S /bin/sed -i 's/\#ControlPort/ControlPort/g' /etc/tor/torrc 
-echo $key | sudo -S /bin/sed -i 's/\#CookieAuthentication\ 1/CookieAuthentication\ 0/g' /etc/tor/torrc 
-echo $key | sudo -S /bin/sed -i 's/\#SocksPort\ 9050/SocksPort\ 9050/g' /etc/tor/torrc 
-echo $key | sudo -S /bin/sed -i 's/\#RunAsDaemon\ 1/RunAsDaemon\ 1/g' /etc/tor/torrc 
-echo $key | sudo -S cp /etc/tor/torrc /etc/tor/torrc.back
-if grep -q "VirtualAddrNetworkIPv4" /etc/tor/torrc
-then
+echo "$key" | sudo -S apt install lokinet-gui
+
+if grep -q "nameserver 127.3.2.1" /etc/resolv.conf; then
+    echo "Lokinet already configured"
+else
+    echo "$key" | sudo -S bash -c "echo 'nameserver 127.3.2.1' >> /etc/resolv.conf"
+fi
+
+## Create TorVPN environment
+echo "$key" | sudo -S sed -i 's/#ControlPort/ControlPort/g' /etc/tor/torrc
+echo "$key" | sudo -S sed -i 's/#CookieAuthentication 1/CookieAuthentication 0/g' /etc/tor/torrc
+echo "$key" | sudo -S sed -i 's/#SocksPort 9050/SocksPort 9050/g' /etc/tor/torrc
+echo "$key" | sudo -S sed -i 's/#RunAsDaemon 1/RunAsDaemon 1/g' /etc/tor/torrc
+echo "$key" | sudo -S cp /etc/tor/torrc /etc/tor/torrc.back
+
+if grep -q "VirtualAddrNetworkIPv4" /etc/tor/torrc; then
     echo "TorVPN already configured"
 else
-    echo $key | sudo -S bash -c "echo 'VirtualAddrNetworkIPv4 10.192.0.0/10' >> /etc/tor/torrc"
-    echo $key | sudo -S bash -c "echo 'AutomapHostsOnResolve 1' >> /etc/tor/torrc"
-    echo $key | sudo -S bash -c "echo 'TransPort 9040 IsolateClientAddr IsolateClientProtocol IsolateDestAddr IsolateDestPort' >> /etc/tor/torrc"
-    echo $key | sudo -S bash -c "echo 'DNSPort 5353' >> /etc/tor/torrc"
+    echo "$key" | sudo -S bash -c "echo 'VirtualAddrNetworkIPv4 10.192.0.0/10' >> /etc/tor/torrc"
+    echo "$key" | sudo -S bash -c "echo 'AutomapHostsOnResolve 1' >> /etc/tor/torrc"
+    echo "$key" | sudo -S bash -c "echo 'TransPort 9040 IsolateClientAddr IsolateClientProtocol IsolateDestAddr IsolateDestPort' >> /etc/tor/torrc"
+    echo "$key" | sudo -S bash -c "echo 'DNSPort 5353' >> /etc/tor/torrc"
     echo "TorVPN configured"
 fi
 
-echo $key | sudo -S service tor stop
-echo $key | sudo -S service tor start
+echo "$key" | sudo -S service tor stop
+echo "$key" | sudo -S service tor start
 
 # i2p
-echo $key | sudo -S apt purge i2p* -y > /dev/null 2>&1
-echo $key | sudo -S snap install --edge i2pi2p
+echo "$key" | sudo -S apt purge i2p* -y > /dev/null 2>&1
+echo "$key" | sudo -S snap install --edge i2pi2p
 
 
 # echo $key | sudo -S groupadd tor-auth
