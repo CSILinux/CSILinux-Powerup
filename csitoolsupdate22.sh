@@ -9,9 +9,9 @@ rm -rf /opt/OSINT-Search > /dev/null 2>&1
 rm -rf /opt/Moriarty-Project > /dev/null 2>&1
 rm -rf /opt/csitools/helper/dcfldd > /dev/null 2>&1
 rm -rf /opt/csitools/helper/exif > /dev/null 2>&1
-rm -f /opt/csitools/helper/sn0int*
-rm /opt/csitools/helper/cewl
-rm /opt/csitools/helper/sn0*
+rm -f /opt/csitools/helper/sn0int* > /dev/null 2>&1
+rm /opt/csitools/helper/cewl > /dev/null 2>&1
+rm /opt/csitools/helper/sn0* > /dev/null 2>&1
 
 echo "Downloading CSI Tools"
 wget https://csilinux.com/downloads/csitools22.zip -O csitools22.zip
@@ -27,15 +27,13 @@ echo $key | sudo -S chown csi:csi /home/csi -R
 echo $key | sudo -S chmod +x /usr/bin/bash-wrapper 
 echo $key | sudo -S /bin/sed -i 's/http\:\/\/in./http\:\/\//g' /etc/apt/sources.list
 
-mkdir /home/csi/Cases
+mkdir /home/csi/Cases > /dev/null 2>&1
 
-echo $key | sudo -S chmod +x /opt/csitools/powerup
-echo $key | sudo -S ln -sf /opt/csitools/powerup /usr/local/bin/powerup
-echo $key | sudo -S apt remove modemmanager -y
+echo $key | sudo -S chmod +x /opt/csitools/powerup > /dev/null 2>&1
+echo $key | sudo -S ln -sf /opt/csitools/powerup /usr/local/bin/powerup > /dev/null 2>&1
 
 
-echo "# Verifying APT installs"
-echo $key | sudo -S DEBIAN_FRONTEND=noninteractive dpkg --configure -a
+
 
 
 #cleaning up apt keys
@@ -52,27 +50,28 @@ echo $key | sudo -S sudo curl -fsSL https://packages.element.io/debian/element-i
 echo $key | sudo -S bash -c "echo 'deb https://packages.element.io/debian/ default main' | tee > element-io.list"
 
 echo "# Updating APT repository"
+echo $key | sudo -S DEBIAN_FRONTEND=noninteractive dpkg --configure -a
+echo $key | sudo -S apt remove modemmanager -y > /dev/null 2>&1
 echo $key | sudo -S dpkg --add-architecture i386
 echo $key | sudo -S apt update --ignore-missing
 echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt install postfix -y
 
 echo $key | sudo -S apt autoremove -y
 
-cd /tmp
-rm  hunchly.deb
+cd /tmp > /dev/null 2>&1
+rm  hunchly.deb > /dev/null 2>&1
 wget -O hunchly.deb https://downloadmirror.hunch.ly/currentversion/hunchly.deb?csilinux_update
 echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt-get install ./hunchly.deb -y
 
 echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt install -y libmagic-dev python3-magic python3-pyregfi
-echo $key | sudo -S apt purge onionshare proxychains4 -y
+echo $key | sudo -S apt purge onionshare proxychains4 -y > /dev/null 2>&1
 
-mv ~/.local/share/applications/menulibre-kvm-/-virt-manager.desktop ~/.local/share/applications/menulibre-kvm---virt-manager.desktop
+mv ~/.local/share/applications/menulibre-kvm-/-virt-manager.desktop ~/.local/share/applications/menulibre-kvm---virt-manager.desktop > /dev/null 2>&1
 
 echo $key | sudo -S ln -s /usr/bin/python3 /usr/bin/python
 
 wget https://csilinux.com/downloads/apps.txt
 sudo apt install -y $(grep -vE "^\s*#" apps.txt | sed -e 's/#.*//'  | tr "\n" " ")
-
 
 echo $key | sudo -S apt install python3-pip -y
 echo $key | sudo -S apt install python3-pyqt5.qtsql -y
@@ -87,7 +86,7 @@ pip install sublist3r
 pip install pyngrok
 # pip install onlyfans-scraper
 pip install --upgrade git+https://github.com/twintproject/twint.git@origin/master#egg=twint
-/bin/sed -i 's/3.6/1/g' ~/.local/lib/python3.10/site-packages/twint/cli.py
+/bin/sed -i 's/3.6/1/g' ~/.local/lib/python3.10/site-packages/twint/cli.py > /dev/null 2>&1
 pip install instaloader 
 pip install dnslib 
 pip install icmplib 
@@ -545,9 +544,8 @@ echo $key | sudo -S service tor stop
 echo $key | sudo -S service tor start
 
 # i2p
-echo $key | sudo -S apt purge i2p* -y
+echo $key | sudo -S apt purge i2p* -y > /dev/null 2>&1
 echo $key | sudo -S snap install --edge i2pi2p
-
 
 
 # echo $key | sudo -S groupadd tor-auth
