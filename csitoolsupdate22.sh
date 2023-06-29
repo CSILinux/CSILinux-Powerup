@@ -13,8 +13,6 @@ rm -f /opt/csitools/helper/sn0int*
 rm /opt/csitools/helper/cewl
 rm /opt/csitools/helper/sn0*
 
-echo $key | sudo -S rm /etc/resolv.conf
-echo $key | sudo -S rm -rf /etc/resolvconf
 echo $key | sudo -S  echo "nameserver 127.0.0.53\nnameserver 127.3.2.1\nnameserver 8.8.8.8" | sudo tee /etc/resolv.conf
 
 echo "# Downloading CSI Tools"
@@ -36,24 +34,24 @@ mkdir /home/csi/Cases
 echo $key | sudo -S chmod +x /opt/csitools/powerup
 echo $key | sudo -S ln -sf /opt/csitools/powerup /usr/local/bin/powerup
 echo $key | sudo -S apt remove modemmanager -y
-echo $key | sudo -S curl -so /etc/apt/winehq.key https://dl.winehq.org/wine-builds/winehq.key
-echo $key | sudo -S apt-key add winehq.key
-echo $key | sudo -S bash -c "echo 'deb https://dl.winehq.org/wine-builds/ubuntu/ focal main | tee /etc/apt/sources.list.d/wine.list''
-echo $key | sudo -S rm -rfv /usr/local/bin/kismet* /usr/local/share/kismet* /usr/local/etc/kismet*
-echo $key | sudo -S curl -so /etc/apt/kismet-release.gpg https://www.kismetwireless.net/repos/kismet-release.gpg.key
+
+#cleaning up apt keys
+sudo apt-key del 5345B8BF43403B93
+sudo apt-key del 76F1A20FF987672F
+
+echo $key | sudo -S sudo curl -fsSL https://dl.winehq.org/wine-builds/winehq.key | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/winehq.gpg >/dev/null
+echo $key | sudo -S bash -c "echo 'deb https://dl.winehq.org/wine-builds/ubuntu/ focal main | tee /etc/apt/sources.list.d/wine.list'"
+echo $key | sudo -S sudo curl -fsSL https://www.kismetwireless.net/repos/kismet-release.gpg.key | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/kismet-release.gpg >/dev/null
 echo $key | sudo -S bash -c "echo 'deb https://www.kismetwireless.net/repos/apt/release/jammy jammy main | tee /etc/apt/sources.list.d/kismet.list'"
-echo $key | sudo -S curl -so /etc/apt/trusted.gpg.d/oxen.gpg https://deb.oxen.io/pub.gpg
+echo $key | sudo -S sudo curl -fsSL https://deb.oxen.io/pub.gpg | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/oxen.gpg >/dev/null
 echo $key | sudo -S bash -c "echo 'deb https://deb.oxen.io $(lsb_release -sc) main | tee /etc/apt/sources.list.d/oxen.list'"
-echo $key | sudo -S wget -O /usr/share/keyrings/element-io-archive-keyring.gpg https://packages.element.io/debian/element-io-archive-keyring.gpg
-echo $key | sudo -S bash -c "echo 'deb [signed-by=/usr/share/keyrings/element-io-archive-keyring.gpg] https://packages.element.io/debian/ default main | tee > element-io.list'"
-echo $key | sudo -S mv element-io.list /etc/apt/sources.list.d/element-io.list
+echo $key | sudo -S sudo curl -fsSL https://packages.element.io/debian/element-io-archive-keyring.gpg | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/element-io-archive-keyring.gpg >/dev/null
+echo $key | sudo -S bash -c "echo 'deb https://packages.element.io/debian/ default main | tee > element-io.list'"
 
 echo "# Updating APT repository"
 echo $key | sudo -S dpkg --add-architecture i386
-echo $key | sudo -S apt update
+echo $key | sudo -S apt update --ignore-missing
 echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt install postfix -y
-
-
 
 echo $key | sudo -S apt autoremove -y
 
