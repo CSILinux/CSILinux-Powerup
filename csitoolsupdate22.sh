@@ -44,7 +44,7 @@ echo $key | sudo -S bash -c "echo 'deb https://dl.winehq.org/wine-builds/ubuntu/
 echo $key | sudo -S sudo curl -fsSL https://www.kismetwireless.net/repos/kismet-release.gpg.key | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/kismet-release.gpg >/dev/null
 echo $key | sudo -S bash -c "echo 'deb https://www.kismetwireless.net/repos/apt/release/jammy jammy main' | tee /etc/apt/sources.list.d/kismet.list"
 echo $key | sudo -S sudo curl -fsSL https://deb.oxen.io/pub.gpg | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/oxen.gpg >/dev/null
-echo $key | sudo -S bash -c "echo 'deb https://deb.oxen.io $(lsb_release -sc) main' | tee /etc/apt/sources.list.d/oxen.list"
+echo $key | sudo -S bash -c "echo 'deb [arch=amd64] https://deb.oxen.io $(lsb_release -sc) main' | tee /etc/apt/sources.list.d/oxen.list"
 echo $key | sudo -S sudo curl -fsSL https://packages.element.io/debian/element-io-archive-keyring.gpg | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/element-io-archive-keyring.gpg >/dev/null
 echo $key | sudo -S bash -c "echo 'deb https://packages.element.io/debian/ default main' | tee > element-io.list"
 
