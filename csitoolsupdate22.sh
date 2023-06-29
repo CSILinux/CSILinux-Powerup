@@ -32,14 +32,14 @@ mkdir /home/csi/Cases > /dev/null 2>&1
 echo $key | sudo -S chmod +x /opt/csitools/powerup > /dev/null 2>&1
 echo $key | sudo -S ln -sf /opt/csitools/powerup /usr/local/bin/powerup > /dev/null 2>&1
 
-
-
-
-
 #cleaning up apt keys
 sudo apt-key del 5345B8BF43403B93
 sudo apt-key del 76F1A20FF987672F
+sudo apt-key del 750179FCEA62
+echo $key | sudo -S rm -rf /etc/apt/sources.list.d/archive_u*
 
+echo $key | sudo -S sudo curl -fsSL https://apt.vulns.sexy/kpcyrd.pgp | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/apt-vulns-sexy.gpg >/dev/null
+echo $key | sudo -S bash -c "echo 'deb http://apt.vulns.sexy stable main' | tee /etc/apt/sources.list.d/wine.list"
 echo $key | sudo -S sudo curl -fsSL https://dl.winehq.org/wine-builds/winehq.key | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/winehq.gpg >/dev/null
 echo $key | sudo -S bash -c "echo 'deb https://dl.winehq.org/wine-builds/ubuntu/ focal main' | tee /etc/apt/sources.list.d/wine.list"
 echo $key | sudo -S sudo curl -fsSL https://www.kismetwireless.net/repos/kismet-release.gpg.key | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/kismet-release.gpg >/dev/null
