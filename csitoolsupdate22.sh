@@ -85,33 +85,34 @@ echo $key | sudo -S apt install openjdk-19-jdk -y
 
 python3 -m pip install pip --upgrade
 pip uninstall twint -y
-pip install grequests 
-pip install sublist3r
+pip install grequests --upgrade
+pip install sublist3r --upgrade
 # pip install fb-friend-list-scraper
-pip install pyngrok
+pip install pyngrok --upgrade
 # pip install onlyfans-scraper
 pip install --upgrade git+https://github.com/twintproject/twint.git@origin/master#egg=twint
 /bin/sed -i 's/3.6/1/g' ~/.local/lib/python3.10/site-packages/twint/cli.py > /dev/null 2>&1
-pip install instaloader 
-pip install dnslib 
-pip install icmplib 
-pip install passwordmeter 
-pip install image 
-pip install ConfigParser 
-pip install pyexiv2 
-pip install urllib 
-pip install oauth2 
-pip install reload
-pip install onionsearch
-pip install telepathy
-pip install stem 
-pip install nest_asyncio 
-pip install simplekml 
-pip install magic
-pip install libregf-python
-pip install libesedb-python
-pip install xmltodict
-pip install PySimpleGUI
+pip install instaloader --upgrade 
+pip install dnslib --upgrade
+pip install icmplib --upgrade
+pip install passwordmeter --upgrade
+pip install image --upgrade
+pip install ConfigParser --upgrade
+pip install pyexiv2 --upgrade
+pip install urllib --upgrade
+pip install oauth2 --upgrade
+pip install reload --upgrade
+pip install onionsearch --upgrade
+pip install telepathy --upgrade
+pip install stem --upgrade
+pip install nest_asyncio --upgrade
+pip install simplekml --upgrade
+pip install magic --upgrade
+pip install libregf-python --upgrade
+pip install libesedb-python --upgrade
+pip install xmltodict --upgrade
+pip install PySimpleGUI --upgrade
+pip install PySide2 --upgrade
 
 echo "Installing Computer Forensic Tools"
 cd /tmp
