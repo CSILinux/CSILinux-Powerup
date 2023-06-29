@@ -32,15 +32,11 @@ mkdir /home/csi/Cases > /dev/null 2>&1
 echo $key | sudo -S chmod +x /opt/csitools/powerup > /dev/null 2>&1
 echo $key | sudo -S ln -sf /opt/csitools/powerup /usr/local/bin/powerup > /dev/null 2>&1
 
-#cleaning up apt keys
+echo "# Cleaning up apt keys"
 sudo apt-key del 5345B8BF43403B93
 sudo apt-key del 76F1A20FF987672F
 sudo apt-key del 750179FCEA62
 echo $key | sudo -S rm -rf /etc/apt/sources.list.d/archive_u*
-
-
-
-
 echo $key | sudo -S sudo curl -fsSL https://download.bell-sw.com/pki/GPG-KEY-bellsoft | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/bellsoft.gpg >/dev/null
 echo $key | sudo -S bash -c "echo 'deb [arch=amd64] https://apt.bell-sw.com/ stable main' | tee /etc/apt/sources.list.d/bellsoft.list"
 echo $key | sudo -S sudo curl -fsSL https://apt.vulns.sexy/kpcyrd.pgp | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/apt-vulns-sexy.gpg >/dev/null
@@ -113,10 +109,6 @@ pip install libesedb-python
 pip install xmltodict
 pip install PySimpleGUI
 
-
-
-
-# computer Forensics
 echo "Installing Computer Forensic Tools"
 cd /tmp
 if [ ! -f /opt/autopsy/bin/autopsy ]; then
@@ -297,18 +289,6 @@ if [ ! -f /opt/routeconverter/RouteConverterLinux.jar ]; then
 fi
 
 
-
-
-
-
-
-
-
-
-
-
-
-# Online Forensics
 echo "Installing Online Forensic Tools"
 
 if ! which discord > /dev/null; then
@@ -508,17 +488,14 @@ if ! which onionshare > /dev/null; then
 	echo $key | sudo -S snap install onionshare
 fi
 
-# Dark Web
-
+echo "Installing Darkweb Tools"
 cd /tmp
-
 if grep -q "nameserver 127.0.0.53" /etc/resolve.conf
 then
     echo "Resolve already configured"
 else
     echo $key | sudo -S bash -c "echo 'nameserver 127.0.0.53' >> /etc/resolve.conf"
 fi
-
 echo $key | sudo -S apt install lokinet-gui
 echo $key | sudo -S echo "nameserver
 if grep -q "nameserver 127.3.2.1" /etc/resolve.conf
@@ -561,11 +538,6 @@ echo $key | sudo -S snap install --edge i2pi2p
 # echo $key | sudo -S chmod g+r /run/tor/control.authcookie
 
 
-
-
-
-
-# SIGINT
 echo "Installing SIGINT Tools"
 if ! which wifipumpkin3 > /dev/null; then
 	wget  https://github.com/P0cL4bs/wifipumpkin3/releases/download/v1.1.4/wifipumpkin3_1.1.4_all.deb
