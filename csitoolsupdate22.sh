@@ -479,7 +479,7 @@ if ! which zoom; then
 	mkdir zoom
 	cd zoom
 	wget https://zoom.us/client/5.14.7.2928/zoom_amd64.deb
-	echo $key | sudo -S apt install ./zoom_amd64.deb
+	echo $key | sudo -S apt install ./zoom_amd64.deb -y
 	rm zoom_amd64.deb
 fi
 
@@ -501,7 +501,7 @@ else
     echo "$key" | sudo -S bash -c "echo 'nameserver 127.0.0.53' >> /etc/resolv.conf"
 fi
 
-echo "$key" | sudo -S apt install lokinet-gui
+echo "$key" | sudo -S apt install lokinet-gui -y
 
 if grep -q "nameserver 127.3.2.1" /etc/resolv.conf; then
     echo "Lokinet already configured"
