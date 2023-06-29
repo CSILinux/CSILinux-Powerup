@@ -13,7 +13,10 @@ rm -f /opt/csitools/helper/sn0int*
 rm /opt/csitools/helper/cewl
 rm /opt/csitools/helper/sn0*
 
-echo $key | sudo -S  echo "nameserver 127.0.0.53\nnameserver 127.3.2.1\nnameserver 8.8.8.8" | sudo tee /etc/resolv.conf
+
+echo $key | sudo -S bash -c "nameserver 8.8.8.8' | tee /etc/resolv.conf"
+echo $key | sudo -S bash -c "nameserver 127.0.0.53' | tee -a /etc/resolv.conf"
+o $key | sudo -S bash -c "nameserver 127.3.2.1' | tee -a /etc/resolv.conf"
 
 echo "# Downloading CSI Tools"
 wget https://csilinux.com/downloads/csitools22.zip -O csitools22.zip
@@ -40,13 +43,13 @@ sudo apt-key del 5345B8BF43403B93
 sudo apt-key del 76F1A20FF987672F
 
 echo $key | sudo -S sudo curl -fsSL https://dl.winehq.org/wine-builds/winehq.key | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/winehq.gpg >/dev/null
-echo $key | sudo -S bash -c "echo 'deb https://dl.winehq.org/wine-builds/ubuntu/ focal main | tee /etc/apt/sources.list.d/wine.list'"
+echo $key | sudo -S bash -c "echo 'deb https://dl.winehq.org/wine-builds/ubuntu/ focal main' | tee /etc/apt/sources.list.d/wine.list"
 echo $key | sudo -S sudo curl -fsSL https://www.kismetwireless.net/repos/kismet-release.gpg.key | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/kismet-release.gpg >/dev/null
-echo $key | sudo -S bash -c "echo 'deb https://www.kismetwireless.net/repos/apt/release/jammy jammy main | tee /etc/apt/sources.list.d/kismet.list'"
+echo $key | sudo -S bash -c "echo 'deb https://www.kismetwireless.net/repos/apt/release/jammy jammy main' | tee /etc/apt/sources.list.d/kismet.list"
 echo $key | sudo -S sudo curl -fsSL https://deb.oxen.io/pub.gpg | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/oxen.gpg >/dev/null
-echo $key | sudo -S bash -c "echo 'deb https://deb.oxen.io $(lsb_release -sc) main | tee /etc/apt/sources.list.d/oxen.list'"
+echo $key | sudo -S bash -c "echo 'deb https://deb.oxen.io $(lsb_release -sc) main' | tee /etc/apt/sources.list.d/oxen.list"
 echo $key | sudo -S sudo curl -fsSL https://packages.element.io/debian/element-io-archive-keyring.gpg | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/element-io-archive-keyring.gpg >/dev/null
-echo $key | sudo -S bash -c "echo 'deb https://packages.element.io/debian/ default main | tee > element-io.list'"
+echo $key | sudo -S bash -c "echo 'deb https://packages.element.io/debian/ default main' | tee > element-io.list"
 
 echo "# Updating APT repository"
 echo $key | sudo -S dpkg --add-architecture i386
