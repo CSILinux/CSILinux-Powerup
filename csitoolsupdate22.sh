@@ -13,8 +13,6 @@ rm -f /opt/csitools/helper/sn0int*
 rm /opt/csitools/helper/cewl
 rm /opt/csitools/helper/sn0*
 
-echo "resolve.conf has been updated."
-
 echo "Downloading CSI Tools"
 wget https://csilinux.com/downloads/csitools22.zip -O csitools22.zip
 
@@ -34,6 +32,11 @@ mkdir /home/csi/Cases
 echo $key | sudo -S chmod +x /opt/csitools/powerup
 echo $key | sudo -S ln -sf /opt/csitools/powerup /usr/local/bin/powerup
 echo $key | sudo -S apt remove modemmanager -y
+
+
+echo "# Verifying APT installs"
+echo $key | sudo -S DEBIAN_FRONTEND=noninteractive dpkg --configure -a
+
 
 #cleaning up apt keys
 sudo apt-key del 5345B8BF43403B93
@@ -739,7 +742,6 @@ echo "# Fixing broken APT installs level 4"
 echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt upgrade --fix-missing -y
 echo "# Verifying APT installs"
 echo $key | sudo -S DEBIAN_FRONTEND=noninteractive dpkg --configure -a
-echo "# Fixing broken APT installs level 5"
 echo "# Fixing broken APT installs level 6"
 echo $key | sudo -S DEBIAN_FRONTEND=noninteractive dpkg --configure -a --force-confold
 echo "# Removing old software APT installs"
