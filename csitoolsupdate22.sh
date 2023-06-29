@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 cd /tmp
-key=$(zenity --password --title "Powerup your system with an upgrade." --text "Enter your CSI password." --width 400)
+key=$(zenity --password --title "Power up your system with an upgrade." --text "Enter your CSI password." --width 400)
 echo "Installing CSI Linux Tools and Menu update"
 rm csi* > /dev/null 2>&1
 rm /opt/csitools/csitools* > /dev/null 2>&1
@@ -13,12 +13,11 @@ rm -f /opt/csitools/helper/sn0int*
 rm /opt/csitools/helper/cewl
 rm /opt/csitools/helper/sn0*
 
-
 echo $key | sudo -S bash -c "echo 'nameserver 8.8.8.8' | tee /etc/resolv.conf"
 echo $key | sudo -S bash -c "echo 'nameserver 127.0.0.53' | tee -a /etc/resolv.conf"
 echo $key | sudo -S bash -c "echo 'nameserver 127.3.2.1' | tee -a /etc/resolv.conf"
 
-echo "# Downloading CSI Tools"
+echo "Downloading CSI Tools"
 wget https://csilinux.com/downloads/csitools22.zip -O csitools22.zip
 
 echo "# Installing CSI Tools"
