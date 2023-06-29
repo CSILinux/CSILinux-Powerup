@@ -13,7 +13,7 @@ rm -f /opt/csitools/helper/sn0int*
 rm /opt/csitools/helper/cewl
 rm /opt/csitools/helper/sn0*
 
-echo $key | sudo -S bash -c "echo 'nameserver 127.0.0.53' | tee /etc/resolv.conf"
+echo $key | sudo -S tee -a /etc/resolv.conf <<< "nameserver 127.0.0.53"
 
 echo "Downloading CSI Tools"
 wget https://csilinux.com/downloads/csitools22.zip -O csitools22.zip
