@@ -33,6 +33,8 @@ echo $key | sudo -S chmod +x /opt/csitools/powerup > /dev/null 2>&1
 echo $key | sudo -S ln -sf /opt/csitools/powerup /usr/local/bin/powerup > /dev/null 2>&1
 
 echo "# Cleaning up apt keys"
+cd /tmp
+
 sudo apt-key del 5345B8BF43403B93
 sudo apt-key del 76F1A20FF987672F
 sudo apt-key del 750179FCEA62
