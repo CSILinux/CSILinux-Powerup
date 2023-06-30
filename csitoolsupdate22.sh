@@ -741,6 +741,6 @@ echo $key | sudo -S /opt/csitools/clearlogs > /dev/null 2>&1
 echo $key | sudo -S rm -rf /var/crash/* > /dev/null 2>&1
 echo $key | sudo -S rm /var/crash/* > /dev/null 2>&1
 rm ~/.vbox* > /dev/null 2>&1
-
+echo $key | sudo -S adduser $USER vboxsf
 echo $key | sudo -S updatedb
 echo "Please reboot when finished updating"
