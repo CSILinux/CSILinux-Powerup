@@ -102,7 +102,6 @@ pip install pyexiv2 --upgrade
 pip install urllib --upgrade
 pip install oauth2 --upgrade
 pip install reload --upgrade
-pip install onionsearch --upgrade
 pip install telepathy --upgrade
 pip install stem --upgrade
 pip install nest_asyncio --upgrade
@@ -439,6 +438,16 @@ if [ ! -f /opt/blackbird/blackbird.py ]; then
 	pip install -r requirements.txt
 else
 	cd /opt/blackbird
+	git pull
+fi
+
+if [ ! -f /opt/OnionSearch/setup.py ]; then
+	cd /opt
+	git clone https://github.com/CSILinux/OnionSearch.git
+        cd OnionSearch/
+        python3 setup.py install
+else
+	cd /opt/OnionSearch
 	git pull
 fi
 
