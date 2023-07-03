@@ -504,19 +504,12 @@ fi
 
 echo "Installing Darkweb Tools"
 cd /tmp
-if grep -q "nameserver 127.0.0.53" /etc/resolv.conf; then
-    echo "Resolve already configured"
-else
-    echo "$key" | sudo -S bash -c "echo 'nameserver 127.0.0.53' >> /etc/resolv.conf"
+
+
+if ! which lokinet-gui > /dev/null; then
+	echo "$key" | sudo -S apt install lokinet-gui -y
 fi
 
-echo "$key" | sudo -S apt install lokinet-gui -y
-
-if grep -q "nameserver 127.3.2.1" /etc/resolv.conf; then
-    echo "Lokinet already configured"
-else
-    echo "$key" | sudo -S bash -c "echo 'nameserver 127.3.2.1' >> /etc/resolv.conf"
-fi
 
 ## Create TorVPN environment
 echo "$key" | sudo -S sed -i 's/#ControlPort/ControlPort/g' /etc/tor/torrc
@@ -752,4 +745,20 @@ echo $key | sudo -S rm /var/crash/* > /dev/null 2>&1
 rm ~/.vbox* > /dev/null 2>&1
 echo $key | sudo -S adduser $USER vboxsf
 echo $key | sudo -S updatedb
+if grep -q "nameserver 8.8.8.8" /etc/resolv.conf; then
+    echo "Resolve already configured got 8.8.8.8"
+else
+    echo "$key" | sudo -S bash -c "echo 'nameserver 8.8.8.8' >> /etc/resolv.conf"
+fi
+
+if grep -q "nameserver 127.0.0.53" /etc/resolv.conf; then
+    echo "Resolve already configured for Tor"
+else
+    echo "$key" | sudo -S bash -c "echo 'nameserver 127.0.0.53' >> /etc/resolv.conf"
+fi
+if grep -q "nameserver 127.3.2.1" /etc/resolv.conf; then
+    echo "Resolve already configured for Lokinet"
+else
+    echo "$key" | sudo -S bash -c "echo 'nameserver 127.3.2.1' >> /etc/resolv.conf"
+fi
 echo "Please reboot when finished updating"
