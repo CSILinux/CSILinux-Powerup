@@ -509,6 +509,13 @@ cd /tmp
 if ! which lokinet-gui > /dev/null; then
 	echo "$key" | sudo -S apt install lokinet-gui -y
 fi
+if [ ! -f /opt/OxenWallet/oxen-electron-wallet-1.8.1-linux.AppImage ]; then
+	cd /opt
+	mkdir OxenWallet
+        cd OxenWallet
+	wget https://github.com/oxen-io/oxen-electron-gui-wallet/releases/download/v1.8.1/oxen-electron-wallet-1.8.1-linux.AppImage .
+        chmod +x oxen-electron-wallet-1.8.1-linux.AppImage
+fi
 
 
 ## Create TorVPN environment
