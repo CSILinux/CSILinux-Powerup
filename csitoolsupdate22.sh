@@ -768,6 +768,6 @@ fi
 if grep -q "nameserver 1.1.1.1" /etc/resolv.conf; then
     echo "Resolve already configured for 1.1.1.1"
 else
-    echo "$key" | sudo -S bash -c "echo 'nameserver 8.8.8.8' >> /etc/resolv.conf"
+    echo "$key" | sudo -S bash -c "echo 'nameserver 1.1.1.1' >> /etc/resolv.conf"
 fi
 echo "Please reboot when finished updating"
