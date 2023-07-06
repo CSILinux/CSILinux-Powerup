@@ -25,6 +25,7 @@ echo $key | sudo -S chmod +x ~/Desktop/*.desktop
 echo $key | sudo -S chown csi:csi /usr/bin/bash-wrapper
 echo $key | sudo -S chown csi:csi /home/csi -R
 echo $key | sudo -S chmod +x /usr/bin/bash-wrapper 
+
 echo $key | sudo -S /bin/sed -i 's/http\:\/\/in./http\:\/\//g' /etc/apt/sources.list
 
 mkdir /home/csi/Cases > /dev/null 2>&1
@@ -83,6 +84,7 @@ echo $key | sudo -S apt install python3-pyqt5.qtsql -y
 echo $key | sudo -S apt install bash-completion -y
 echo $key | sudo -S apt install openjdk-19-jdk -y
 echo $key | sudo -S apt install dos2unix -y
+dos2unix /opt/csitools/resetdns
 
 python3 -m pip install pip --upgrade
 pip uninstall twint -y
