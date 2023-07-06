@@ -753,6 +753,8 @@ rm ~/.vbox* > /dev/null 2>&1
 echo $key | sudo -S adduser $USER vboxsf
 echo $key | sudo -S updatedb
 
+echo "$key" | sudo -S bash -c "mv /etc/resolv.conf /etc/resolv.conf.bak"
+
 if grep -q "nameserver 127.0.0.53" /etc/resolv.conf; then
     echo "Resolve already configured for Tor"
 else
@@ -762,5 +764,10 @@ if grep -q "nameserver 127.3.2.1" /etc/resolv.conf; then
     echo "Resolve already configured for Lokinet"
 else
     echo "$key" | sudo -S bash -c "echo 'nameserver 127.3.2.1' >> /etc/resolv.conf"
+fi
+if grep -q "nameserver 1.1.1.1" /etc/resolv.conf; then
+    echo "Resolve already configured for 1.1.1.1"
+else
+    echo "$key" | sudo -S bash -c "echo 'nameserver 8.8.8.8' >> /etc/resolv.conf"
 fi
 echo "Please reboot when finished updating"
