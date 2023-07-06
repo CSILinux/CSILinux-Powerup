@@ -82,6 +82,7 @@ echo $key | sudo -S apt install python3-pip -y
 echo $key | sudo -S apt install python3-pyqt5.qtsql -y
 echo $key | sudo -S apt install bash-completion -y
 echo $key | sudo -S apt install openjdk-19-jdk -y
+echo $key | sudo -S apt install dos2unix -y
 
 python3 -m pip install pip --upgrade
 pip uninstall twint -y
@@ -396,9 +397,6 @@ if [ ! -f /opt/spiderfoot/sf.py ]; then
 	mv spiderfoot-4.0 spiderfoot
 	cd spiderfoot
 	pip install -r requirements.txt
-else
-	cd /opt/spiderfoot
-	pip install -r requirements.tx
 fi
 
 if [ ! -f /opt/Goohak/goohak ]; then
@@ -752,11 +750,6 @@ echo $key | sudo -S rm /var/crash/* > /dev/null 2>&1
 rm ~/.vbox* > /dev/null 2>&1
 echo $key | sudo -S adduser $USER vboxsf
 echo $key | sudo -S updatedb
-if grep -q "nameserver 8.8.8.8" /etc/resolv.conf; then
-    echo "Resolve already configured got 8.8.8.8"
-else
-    echo "$key" | sudo -S bash -c "echo 'nameserver 8.8.8.8' >> /etc/resolv.conf"
-fi
 
 if grep -q "nameserver 127.0.0.53" /etc/resolv.conf; then
     echo "Resolve already configured for Tor"
