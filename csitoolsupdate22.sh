@@ -85,6 +85,7 @@ echo $key | sudo -S apt install bash-completion -y
 echo $key | sudo -S apt install openjdk-19-jdk -y
 echo $key | sudo -S apt install dos2unix -y
 dos2unix /opt/csitools/resetdns
+echo $key | sudo -S apt install hexchat -y
 
 python3 -m pip install pip --upgrade
 pip uninstall twint -y
