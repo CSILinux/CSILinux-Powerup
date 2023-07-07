@@ -759,7 +759,7 @@ echo "$key" | sudo -S bash -c "mv /etc/resolv.conf /etc/resolv.conf.bak"
 if grep -q "nameserver 127.0.0.53" /etc/resolv.conf; then
     echo "Resolve already configured for Tor"
 else
-    echo "$key" | sudo -S bash -c "echo 'nameserver 127.0.0.53' >> /etc/resolv.conf"
+    echo "$key" | sudo -S bash -c "echo 'nameserver 127.0.0.53' > /etc/resolv.conf"
 fi
 if grep -q "nameserver 127.3.2.1" /etc/resolv.conf; then
     echo "Resolve already configured for Lokinet"
