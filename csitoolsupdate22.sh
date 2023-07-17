@@ -766,4 +766,7 @@ if grep -q "nameserver 127.3.2.1" /etc/resolv.conf; then
 else
     echo "$key" | sudo -S bash -c "echo 'nameserver 127.3.2.1' >> /etc/resolv.conf"
 fi
+echo $key | sudo -S DEBIAN_FRONTEND=noninteractive ubuntu-drivers install
+echo "$key" | sudo -S update-grub
+
 echo "Please reboot when finished updating"
