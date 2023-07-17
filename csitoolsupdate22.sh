@@ -766,6 +766,15 @@ if grep -q "nameserver 127.3.2.1" /etc/resolv.conf; then
 else
     echo "$key" | sudo -S bash -c "echo 'nameserver 127.3.2.1' >> /etc/resolv.conf"
 fi
+if grep -q "GRUB_DISABLE_OS_PROBER=false" /etc/default/grub; then
+    echo "$key" | sudo -S sed -i 's/#GRUB_DISABLE_OS_PROBER=false/GRUB_DISABLE_OS_PROBER=false/g' /etc/default/grub
+    echo "Grub is already configured for os-probe"
+else
+    echo "$key" | sudo -S bash -c "echo 'GRUB_DISABLE_OS_PROBER=false' >> /etc/default/grub"
+fi
+
+
+
 echo $key | sudo -S ubuntu-drivers install
 echo "$key" | sudo -S update-grub
 
