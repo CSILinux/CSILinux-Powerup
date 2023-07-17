@@ -56,36 +56,36 @@ echo $key | sudo -S curl -fsSL https://packages.element.io/debian/element-io-arc
 echo $key | sudo -S bash -c "echo 'deb [arch=amd64] https://packages.element.io/debian/ default main' | tee > element-io.list"
 
 echo "# Updating APT repository"
-echo $key | sudo -S DEBIAN_FRONTEND=noninteractive dpkg --configure -a
+echo $key | sudo -S  DEBIAN_FRONTEND=noninteractive dpkg --configure -a
 echo $key | sudo -S apt remove modemmanager -y > /dev/null 2>&1
 echo $key | sudo -S dpkg --add-architecture i386
 echo $key | sudo -S NEEDRESTART_MODE=a apt update --ignore-missing
-echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt install postfix -y
+echo $key | sudo -S apt install postfix -y
 
 echo $key | sudo -S apt autoremove -y
 
 cd /tmp > /dev/null 2>&1
 rm  hunchly.deb > /dev/null 2>&1
 wget -O hunchly.deb https://downloadmirror.hunch.ly/currentversion/hunchly.deb?csilinux_update
-echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt-get install ./hunchly.deb -y
+echo $key | sudo -S apt-get install ./hunchly.deb -y
 
-echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt install -y libmagic-dev python3-magic python3-pyregfi
-echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt purge onionshare proxychains4 -y > /dev/null 2>&1
+echo $key | sudo -S apt install -y libmagic-dev python3-magic python3-pyregfi
+echo $key | sudo -S apt purge onionshare proxychains4 -y > /dev/null 2>&1
 
 mv ~/.local/share/applications/menulibre-kvm-/-virt-manager.desktop ~/.local/share/applications/menulibre-kvm---virt-manager.desktop > /dev/null 2>&1
 
 echo $key | sudo -S ln -s /usr/bin/python3 /usr/bin/python
 
 wget https://csilinux.com/downloads/apps.txt
-sudo DEBIAN_FRONTEND=noninteractive apt install -y $(grep -vE "^\s*#" apps.txt | sed -e 's/#.*//'  | tr "\n" " ")
+sudo apt install -y $(grep -vE "^\s*#" apps.txt | sed -e 's/#.*//'  | tr "\n" " ")
 
-echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt install python3-pip -y
-echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt install python3-pyqt5.qtsql -y
-echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt install bash-completion -y
-echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt install openjdk-19-jdk -y
-echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt install dos2unix -y
+echo $key | sudo -S apt install python3-pip -y
+echo $key | sudo -S apt install python3-pyqt5.qtsql -y
+echo $key | sudo -S apt install bash-completion -y
+echo $key | sudo -S apt install openjdk-19-jdk -y
+echo $key | sudo -S apt install dos2unix -y
 dos2unix /opt/csitools/resetdns
-echo $key | sudo -S apt DEBIAN_FRONTEND=noninteractive install hexchat -y
+echo $key | sudo -S apt install hexchat -y
 
 python3 -m pip install pip --upgrade
 pip uninstall twint -y
@@ -122,7 +122,7 @@ cd /tmp
 if [ ! -f /opt/autopsy/bin/autopsy ]; then
 	wget https://github.com/sleuthkit/autopsy/releases/download/autopsy-4.20.0/autopsy-4.20.0.zip -O autopsy.zip
 	wget https://github.com/sleuthkit/sleuthkit/releases/download/sleuthkit-4.12.0/sleuthkit-java_4.12.0-1_amd64.deb -O sleuthkit-java.deb
-	echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt install ./sleuthkit-java.deb -y
+	echo $key | sudo -S apt install ./sleuthkit-java.deb -y
 	wget https://raw.githubusercontent.com/sleuthkit/autopsy/develop/linux_macos_install_scripts/install_prereqs_ubuntu.sh
 	echo $key | sudo -S bash install_prereqs_ubuntu.sh
 	wget https://raw.githubusercontent.com/sleuthkit/autopsy/develop/linux_macos_install_scripts/install_application.sh
@@ -146,12 +146,12 @@ cd /tmp
 if ! which veracrypt > /dev/null; then
 	echo "Installing veracrypt"
 	wget https://launchpad.net/veracrypt/trunk/1.25.9/+download/veracrypt-1.25.9-Ubuntu-21.10-amd64.deb
-	echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt DEBIAN_FRONTEND=noninteractive install -y ./veracrypt-1.25.9-Ubuntu-21.10-amd64.deb -y
+	echo $key | sudo -S apt install -y ./veracrypt-1.25.9-Ubuntu-21.10-amd64.deb -y
 fi
 
 if [ ! -f /opt/jd-gui/jd-gui-1.6.6-min.jar ]; then
 	wget https://github.com/java-decompiler/jd-gui/releases/download/v1.6.6/jd-gui-1.6.6.deb
-	echo $key | sudo -S apt DEBIAN_FRONTEND=noninteractive install -y ./jd-gui-1.6.6.deb
+	echo $key | sudo -S apt install -y ./jd-gui-1.6.6.deb
 fi
 
 if ! which calibre > /dev/null; then
@@ -161,7 +161,7 @@ fi
 
 if ! which xnview > /dev/null; then
 	wget  wget https://download.xnview.com/XnViewMP-linux-x64.deb
-	echo $key | sudo -S apt DEBIAN_FRONTEND=noninteractive install -y ./XnViewMP-linux-x64.deb
+	echo $key | sudo -S apt install -y ./XnViewMP-linux-x64.deb
 fi
 
 if ! which bulk_extractor > /dev/null; then
@@ -302,12 +302,12 @@ echo "Installing Online Forensic Tools"
 if ! which discord > /dev/null; then
     echo "disord"
 	wget https://dl.discordapp.net/apps/linux/0.0.27/discord-0.0.27.deb -O /tmp/discord.deb
-	echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt install -y /tmp/discord.deb
+	echo $key | sudo -S apt install -y /tmp/discord.deb
 fi
 
 if ! which google-chrome > /dev/null; then
 	wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
-	echo $key | sudo -S DEBIAN_FRONTEND=noninteractive DEBIAN_FRONTEND=noninteractive apt install -y ./google-chrome-stable_current_amd64.deb
+	echo $key | sudo -S apt install -y ./google-chrome-stable_current_amd64.deb
 fi
 
 if ! which sn0int; then
@@ -319,7 +319,7 @@ if ! which sn0int; then
 	echo $key | sudo -S echo "deb [arch=amd64] http://apt.vulns.sexy stable main" | tee apt-vulns-sexy.list
 	echo $key | sudo -S cp apt-vulns-sexy.list /etc/apt/sources.list.d/apt-vulns-sexy.list
 	echo $key | sudo -S apt update
-	echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt install -y sn0int
+	echo $key | sudo -S apt install -y sn0int
 else
 	echo "sn0int installed"
 fi
@@ -477,7 +477,7 @@ if [ ! -f /opt/Storm-Breaker/st.py ]; then
 	git clone https://github.com/ultrasecurity/Storm-Breaker.git
 	cd Storm-Breaker
 	echo $key | sudo -S bash install.sh
-	echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt install -y apache2 apache2-bin apache2-data apache2-utils libapache2-mod-php8.1 libapr1 libaprutil1 libaprutil1-dbd-sqlite3 libaprutil1-ldap php php-common php8.1 php8.1-cli php8.1-common php8.1-opcache php8.1-readline
+	echo $key | sudo -S apt install -y apache2 apache2-bin apache2-data apache2-utils libapache2-mod-php8.1 libapr1 libaprutil1 libaprutil1-dbd-sqlite3 libaprutil1-ldap php php-common php8.1 php8.1-cli php8.1-common php8.1-opcache php8.1-readline
 	pip install -r requirements.txt
 else
 	cd /opt/Storm-Breaker
@@ -489,7 +489,7 @@ if ! which zoom; then
 	mkdir zoom
 	cd zoom
 	wget https://zoom.us/client/5.14.7.2928/zoom_amd64.deb
-	echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt install ./zoom_amd64.deb -y
+	echo $key | sudo -S apt install ./zoom_amd64.deb -y
 	rm zoom_amd64.deb
 fi
 
@@ -508,7 +508,7 @@ cd /tmp
 
 
 if ! which lokinet-gui > /dev/null; then
-	echo "$key" | sudo -S DEBIAN_FRONTEND=noninteractive apt install lokinet-gui -y
+	echo "$key" | sudo -S apt install lokinet-gui -y
 fi
 if [ ! -f /opt/OxenWallet/oxen-electron-wallet-1.8.1-linux.AppImage ]; then
 	cd /opt
@@ -555,7 +555,7 @@ echo "$key" | sudo -S snap install --edge i2pi2p
 echo "Installing SIGINT Tools"
 if ! which wifipumpkin3 > /dev/null; then
 	wget  https://github.com/P0cL4bs/wifipumpkin3/releases/download/v1.1.4/wifipumpkin3_1.1.4_all.deb
-	echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt install ./wifipumpkin3_1.1.4_all.deb -y
+	echo $key | sudo -S apt install ./wifipumpkin3_1.1.4_all.deb -y
 fi
 
 
@@ -615,7 +615,7 @@ fi
 
 if [ ! -f /opt/ghidra/ghidraRun ]; then
 	cd /tmp
-	echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt-get install openjdk-19-jdk
+	echo $key | sudo -S apt-get install openjdk-19-jdk
 	wget https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_10.2.3_build/ghidra_10.2.3_PUBLIC_20230208.zip
 	unzip ghidra_10.2.3_PUBLIC_20230208.zip
 	mv ghidra_10.2.3_PUBLIC /opt/ghidra
@@ -679,7 +679,7 @@ fi
 if ! which keepassxc; then
 	echo $key | sudo -S add-apt-repository ppa:phoerious/keepassxc
 	echo $key | sudo -S apt update
-	echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt install keepassxc -y
+	echo $key | sudo -S apt install keepassxc -y
 fi
 
 if [ ! -f /opt/IMSI-catcher/simple_IMSI-catcher.py ]; then
@@ -689,7 +689,7 @@ if [ ! -f /opt/IMSI-catcher/simple_IMSI-catcher.py ]; then
 	mv IMSI-catcher-master IMSI-catcher
 	pip install docutils
 	cd IMSI-catcher
-	echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt install -y cmake \
+	echo $key | sudo -S apt install -y cmake \
     autoconf \
     libtool \
     pkg-config \
@@ -702,7 +702,7 @@ if [ ! -f /opt/IMSI-catcher/simple_IMSI-catcher.py ]; then
     gr-osmosdr \
     libosmocore-dev \
     liborc-0.4-dev
-	echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt install python3-numpy python3-scipy python3-scapy -y
+	echo $key | sudo -S apt install python3-numpy python3-scipy python3-scapy -y
 	git clone -b maint-3.8 https://github.com/velichkov/gr-gsm.git
 	cd gr-gsm
 	mkdir build
@@ -720,21 +720,21 @@ fi
 echo $key | sudo -S cp /opt/csitools/youtube.lua /usr/lib/x86_64-linux-gnu/vlc/lua/playlist/youtube.luac -rf
 echo $key | sudo -S timedatectl set-timezone UTC
 
-echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt install --fix-broken -y
+echo $key | sudo -S apt install --fix-broken -y
 echo "# Fixing broken APT installs level 2"
-echo $key | sudo -S DEBIAN_FRONTEND=noninteractive dpkg --configure -a
+echo $key | sudo -S dpkg --configure -a
 echo "# Upgrading third party tools"
-echo $key | sudo -S DEBIAN_FRONTEND=noninteractive full-upgrade -y
+echo $key | sudo -S full-upgrade -y
 echo "# Fixing broken APT installs level 3"
-echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt -f install
+echo $key | sudo -S apt -f install
 echo "# Fixing broken APT installs level 4"
-echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt upgrade --fix-missing -y
+echo $key | sudo -S apt upgrade --fix-missing -y
 echo "# Verifying APT installs"
-echo $key | sudo -S DEBIAN_FRONTEND=noninteractive dpkg --configure -a
+echo $key | sudo -S dpkg --configure -a
 echo "# Fixing broken APT installs level 6"
-echo $key | sudo -S DEBIAN_FRONTEND=noninteractive dpkg --configure -a --force-confold
+echo $key | sudo -S dpkg --configure -a --force-confold
 echo "# Removing old software APT installs"
-echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt autoremove -y
+echo $key | sudo -S apt autoremove -y
 echo "# Removing APT cache to save space"
 echo $key | sudo -S chown csi:csi /opt
 
