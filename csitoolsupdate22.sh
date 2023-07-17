@@ -56,7 +56,8 @@ echo $key | sudo -S curl -fsSL https://packages.element.io/debian/element-io-arc
 echo $key | sudo -S bash -c "echo 'deb [arch=amd64] https://packages.element.io/debian/ default main' | tee > element-io.list"
 
 echo "# Updating APT repository"
-echo $key | sudo -S  DEBIAN_FRONTEND=noninteractive dpkg --configure -a
+echo $key | sudo -S dpkg-reconfigure debconf --frontend=noninteractive
+echo $key | sudo -S DEBIAN_FRONTEND=noninteractive dpkg --configure -a
 echo $key | sudo -S apt remove modemmanager -y > /dev/null 2>&1
 echo $key | sudo -S dpkg --add-architecture i386
 echo $key | sudo -S NEEDRESTART_MODE=a apt update --ignore-missing
