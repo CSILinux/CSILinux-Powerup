@@ -27,11 +27,15 @@ echo $key | sudo -S chown csi:csi /home/csi -R
 echo $key | sudo -S chmod +x /usr/bin/bash-wrapper 
 
 echo $key | sudo -S /bin/sed -i 's/http\:\/\/in./http\:\/\//g' /etc/apt/sources.list
+echo $key | sudo -S echo "\$nrconf{restart} = 'a'" | sudo -S tee /etc/needrestart/conf.d/autorestart.conf > /dev/null
+export DEBIAN_FRONTEND=noninteractive
+export APT_LISTCHANGES_FRONTEND=none
 
 mkdir /home/csi/Cases > /dev/null 2>&1
 
 echo $key | sudo -S chmod +x /opt/csitools/powerup > /dev/null 2>&1
 echo $key | sudo -S ln -sf /opt/csitools/powerup /usr/local/bin/powerup > /dev/null 2>&1
+echo $key | sudo -S rm -rfv /usr/local/bin/kismet* /usr/local/share/kismet* /usr/local/etc/kismet*
 
 echo "# Cleaning up apt keys"
 cd /tmp
@@ -41,19 +45,18 @@ sudo apt-key del 76F1A20FF987672F
 sudo apt-key del 750179FCEA62
 echo $key | sudo -S rm -rf /etc/apt/sources.list.d/archive_u*
 
-
-echo $key | sudo -S sudo curl -fsSL https://download.bell-sw.com/pki/GPG-KEY-bellsoft | sudo gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/bellsoft.gpg >/dev/null
-echo $key | sudo -S bash -c "echo 'deb [arch=amd64] https://apt.bell-sw.com/ stable main' | tee /etc/apt/sources.list.d/bellsoft.list"
-echo $key | sudo -S sudo curl -fsSL https://apt.vulns.sexy/kpcyrd.pgp | sudo gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/apt-vulns-sexy.gpg >/dev/null
-echo $key | sudo -S bash -c "echo 'deb [arch=amd64] http://apt.vulns.sexy stable main' | tee /etc/apt/sources.list.d/apt-vulns-sexy.list"
-echo $key | sudo -S sudo curl -fsSL https://dl.winehq.org/wine-builds/winehq.key | sudo gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/winehq.gpg >/dev/null
-echo $key | sudo -S bash -c "echo 'deb https://dl.winehq.org/wine-builds/ubuntu/ focal main' | tee /etc/apt/sources.list.d/wine.list"
-echo $key | sudo -S sudo curl -fsSL https://www.kismetwireless.net/repos/kismet-release.gpg.key | sudo gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/kismet-release.gpg >/dev/null
-echo $key | sudo -S bash -c "echo 'deb [arch=amd64] https://www.kismetwireless.net/repos/apt/release/jammy jammy main' | tee /etc/apt/sources.list.d/kismet.list"
-echo $key | sudo -S sudo curl -fsSL https://deb.oxen.io/pub.gpg | sudo gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/oxen.gpg >/dev/null
-echo $key | sudo -S bash -c "echo 'deb [arch=amd64] https://deb.oxen.io $(lsb_release -sc) main' | tee /etc/apt/sources.list.d/oxen.list"
-echo $key | sudo -S curl -fsSL https://packages.element.io/debian/element-io-archive-keyring.gpg | sudo gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/element-io-archive-keyring.gpg >/dev/null
-echo $key | sudo -S bash -c "echo 'deb [arch=amd64] https://packages.element.io/debian/ default main' | tee > element-io.list"
+echo $key | sudo -S sudo curl -fsSL https://download.bell-sw.com/pki/GPG-KEY-bellsoft | sudo -S gpg --dearmor | sudo -S tee /etc/apt/trusted.gpg.d/bellsoft.gpg >/dev/null
+echo $key | sudo -S bash -c "echo 'deb [arch=amd64] https://apt.bell-sw.com/ stable main' | sudo -S tee /etc/apt/sources.list.d/bellsoft.list"
+echo $key | sudo -S sudo curl -fsSL https://apt.vulns.sexy/kpcyrd.pgp | sudo -S gpg --dearmor | sudo -S tee /etc/apt/trusted.gpg.d/apt-vulns-sexy.gpg >/dev/null
+echo $key | sudo -S bash -c "echo 'deb [arch=amd64] http://apt.vulns.sexy stable main' | sudo -S tee /etc/apt/sources.list.d/apt-vulns-sexy.list"
+echo $key | sudo -S sudo curl -fsSL https://dl.winehq.org/wine-builds/winehq.key | sudo -S gpg --dearmor | sudo -S tee /etc/apt/trusted.gpg.d/winehq.gpg >/dev/null
+echo $key | sudo -S bash -c "echo 'deb https://dl.winehq.org/wine-builds/ubuntu/ focal main' | sudo -S tee /etc/apt/sources.list.d/wine.list"
+echo $key | sudo -S sudo curl -fsSL https://www.kismetwireless.net/repos/kismet-release.gpg.key | sudo -S gpg --dearmor | sudo -S tee /etc/apt/trusted.gpg.d/kismet-release.gpg >/dev/null
+echo $key | sudo -S bash -c "echo 'deb [arch=amd64] https://www.kismetwireless.net/repos/apt/release/jammy jammy main' | sudo -S tee /etc/apt/sources.list.d/kismet.list"
+echo $key | sudo -S sudo curl -fsSL https://deb.oxen.io/pub.gpg | sudo -S gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/oxen.gpg >/dev/null
+echo $key | sudo -S bash -c "echo 'deb [arch=amd64] https://deb.oxen.io $(lsb_release -sc) main' | sudo -S tee /etc/apt/sources.list.d/oxen.list"
+echo $key | sudo -S curl -fsSL https://packages.element.io/debian/element-io-archive-keyring.gpg | sudo -S gpg --dearmor | sudo -S tee /etc/apt/trusted.gpg.d/element-io-archive-keyring.gpg >/dev/null
+echo $key | sudo -S bash -c "echo 'deb [arch=amd64] https://packages.element.io/debian/ default main' | sudo -S tee > element-io.list"
 
 echo "# Updating APT repository"
 echo $key | sudo -S dpkg-reconfigure debconf --frontend=noninteractive
@@ -774,8 +777,7 @@ else
     echo "$key" | sudo -S bash -c "echo 'GRUB_DISABLE_OS_PROBER=false' >> /etc/default/grub"
 fi
 
-
-
+echo $key | sudo -S dpkg -l linux-{image,headers}-* | awk '/^ii/{print $2}' | egrep '[0-9]+\.[0-9]+\.[0-9]+' | grep -v $(uname -r | cut -d- -f-2) | xargs sudo -S apt-get -y purge
 echo $key | sudo -S ubuntu-drivers install
 echo "$key" | sudo -S update-grub
 
