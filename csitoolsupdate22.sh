@@ -65,6 +65,8 @@ echo $key | sudo -S apt remove modemmanager -y > /dev/null 2>&1
 echo $key | sudo -S dpkg --add-architecture i386
 echo $key | sudo -S NEEDRESTART_MODE=a apt update --ignore-missing
 echo $key | sudo -S apt install postfix -y
+echo $key | sudo -S apt xfce4-cpugraph-plugin -y
+echo $key | sudo -S apt xfce4-goodies -y
 
 echo $key | sudo -S apt autoremove -y
 
@@ -800,7 +802,7 @@ rm ~/.vbox* > /dev/null 2>&1
 echo $key | sudo -S adduser $USER vboxsf
 echo $key | sudo -S updatedb
 
-echo "$key" | sudo -S bash -c "mv /etc/resolv.conf /etc/resolv.conf.bak"
+echo "$key" | sudo -S bash -c "mv /etc/resolv.conf /etc/resolv.conf.bak" > /dev/null 2>&1
 
 if grep -q "nameserver 127.0.0.53" /etc/resolv.conf; then
     echo "Resolve already configured for Tor"
