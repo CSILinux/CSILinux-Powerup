@@ -93,33 +93,75 @@ echo $key | sudo -S apt install hexchat -y
 
 python3 -m pip install pip --upgrade
 pip uninstall twint -y
-pip install grequests --upgrade
-pip install sublist3r --upgrade
-# pip install fb-friend-list-scraper
-pip install pyngrok --upgrade
-# pip install onlyfans-scraper
-pip install --upgrade git+https://github.com/twintproject/twint.git@origin/master#egg=twint
+echo "Checking Python Dependencies"
+
+if ! pip show grequests &> /dev/null; then
+    pip install grequests
+fi
+if ! pip show sublist3r &> /dev/null; then
+    pip install sublist3r
+fi
+if ! pip show pyngrok &> /dev/null; then
+    pip install pyngrok
+fi
+if ! pip show instaloader &> /dev/null; then
+    pip install instaloader
+fi
+if ! pip show dnslib &> /dev/null; then
+    pip install dnslib
+fi
+if ! pip show icmplib &> /dev/null; then
+    pip install icmplib
+fi
+if ! pip show passwordmeter &> /dev/null; then
+    pip install passwordmeter
+fi
+if ! pip show image &> /dev/null; then
+    pip install image
+fi
+if ! pip show ConfigParser &> /dev/null; then
+    pip install ConfigParser
+fi
+if ! pip show pyexiv2 &> /dev/null; then
+    pip install pyexiv2
+fi
+if ! pip show oauth2 &> /dev/null; then
+    pip install oauth2
+fi
+if ! pip show reload &> /dev/null; then
+    pip install reload
+fi
+if ! pip show telepathy &> /dev/null; then
+    pip install telepathy
+fi
+if ! pip show stem &> /dev/null; then
+    pip install stem
+fi
+if ! pip show nest_asyncio &> /dev/null; then
+    pip install nest_asyncio
+fi
+if ! pip show simplekml &> /dev/null; then
+    pip install simplekml
+fi
+if ! pip show libregf-python &> /dev/null; then
+    pip install libregf-python
+fi
+if ! pip show libesedb-python &> /dev/null; then
+    pip install libesedb-python
+fi
+if ! pip show xmltodict &> /dev/null; then
+    pip install xmltodict
+fi
+if ! pip show PySimpleGUI &> /dev/null; then
+    pip install PySimpleGUI
+fi
+if ! pip show PySide2 &> /dev/null; then
+    pip install PySide2
+fi
+
+pip install --upgrade git+https://github.com/twintproject/twint.git@origin/master#egg=twint > /dev/null
 /bin/sed -i 's/3.6/1/g' ~/.local/lib/python3.10/site-packages/twint/cli.py > /dev/null 2>&1
-pip install instaloader --upgrade 
-pip install dnslib --upgrade
-pip install icmplib --upgrade
-pip install passwordmeter --upgrade
-pip install image --upgrade
-pip install ConfigParser --upgrade
-pip install pyexiv2 --upgrade
-pip install urllib --upgrade
-pip install oauth2 --upgrade
-pip install reload --upgrade
-pip install telepathy --upgrade
-pip install stem --upgrade
-pip install nest_asyncio --upgrade
-pip install simplekml --upgrade
-pip install magic --upgrade
-pip install libregf-python --upgrade
-pip install libesedb-python --upgrade
-pip install xmltodict --upgrade
-pip install PySimpleGUI --upgrade
-pip install PySide2 --upgrade
+
 
 echo "Installing Computer Forensic Tools"
 cd /tmp
