@@ -125,6 +125,7 @@ pip install libesedb-python > /dev/null 2>&1
 pip install xmltodict > /dev/null 2>&1
 echo "80%"
 pip install PySimpleGUI > /dev/null 2>&1
+pip install pyudev > /dev/null 2>&1
 pip install PySide2 > /dev/null 2>&1
 echo "90%"
 
@@ -791,5 +792,6 @@ fi
 echo $key | sudo -S dpkg -l linux-{image,headers}-* | awk '/^ii/{print $2}' | egrep '[0-9]+\.[0-9]+\.[0-9]+' | grep -v $(uname -r | cut -d- -f-2) | xargs sudo -S apt-get -y purge
 # echo $key | sudo -S ubuntu-drivers install
 # echo "$key" | sudo -S update-grub
+echo "$key" | sudo -S systemctl disable mono-xsp4.service
 
 echo "Please reboot when finished updating"
