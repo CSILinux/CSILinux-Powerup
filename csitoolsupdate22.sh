@@ -97,73 +97,31 @@ python3 -m pip install pip --upgrade
 pip uninstall twint -y
 echo "Checking Python Dependencies"
 
-if ! pip show grequests &> /dev/null; then
-    pip install grequests
-fi
-if ! pip show sublist3r &> /dev/null; then
-    pip install sublist3r
-fi
-if ! pip show pyngrok &> /dev/null; then
-    pip install pyngrok
-fi
-if ! pip show instaloader &> /dev/null; then
-    pip install instaloader
-fi
-if ! pip show dnslib &> /dev/null; then
-    pip install dnslib
-fi
-if ! pip show icmplib &> /dev/null; then
-    pip install icmplib
-fi
-if ! pip show passwordmeter &> /dev/null; then
-    pip install passwordmeter
-fi
-if ! pip show image &> /dev/null; then
-    pip install image
-fi
-if ! pip show ConfigParser &> /dev/null; then
-    pip install ConfigParser
-fi
-if ! pip show pyexiv2 &> /dev/null; then
-    pip install pyexiv2
-fi
-if ! pip show oauth2 &> /dev/null; then
-    pip install oauth2
-fi
-if ! pip show reload &> /dev/null; then
-    pip install reload
-fi
-if ! pip show telepathy &> /dev/null; then
-    pip install telepathy
-fi
-if ! pip show stem &> /dev/null; then
-    pip install stem
-fi
-if ! pip show nest_asyncio &> /dev/null; then
-    pip install nest_asyncio
-fi
-if ! pip show simplekml &> /dev/null; then
-    pip install simplekml
-fi
-if ! pip show libregf-python &> /dev/null; then
-    pip install libregf-python
-fi
-if ! pip show libesedb-python &> /dev/null; then
-    pip install libesedb-python
-fi
-if ! pip show xmltodict &> /dev/null; then
-    pip install xmltodict
-fi
-if ! pip show PySimpleGUI &> /dev/null; then
-    pip install PySimpleGUI
-fi
-if ! pip show PySide2 &> /dev/null; then
-    pip install PySide2
-fi
 
-pip install --upgrade git+https://github.com/twintproject/twint.git@origin/master#egg=twint > /dev/null
+pip install grequests > /dev/null 2>&1
+pip install sublist3r > /dev/null 2>&1
+pip install pyngrok > /dev/null 2>&1
+pip install instaloader > /dev/null 2>&1
+pip install dnslib > /dev/null 2>&1
+pip install icmplib > /dev/null 2>&1
+pip install passwordmeter > /dev/null 2>&1
+pip install image > /dev/null 2>&1
+pip install ConfigParser > /dev/null 2>&1
+pip install pyexiv2 > /dev/null 2>&1
+pip install oauth2 > /dev/null 2>&1
+pip install reload > /dev/null 2>&1
+pip install telepathy > /dev/null 2>&1
+pip install stem > /dev/null 2>&1
+pip install nest_asyncio > /dev/null 2>&1
+pip install simplekml > /dev/null 2>&1
+pip install libregf-python > /dev/null 2>&1
+pip install libesedb-python > /dev/null 2>&1
+pip install xmltodict > /dev/null 2>&1
+pip install PySimpleGUI > /dev/null 2>&1
+pip install PySide2 > /dev/null 2>&1
+
+pip install --upgrade git+https://github.com/twintproject/twint.git@origin/master#egg=twint > /dev/null 2>&1
 /bin/sed -i 's/3.6/1/g' ~/.local/lib/python3.10/site-packages/twint/cli.py > /dev/null 2>&1
-
 
 echo "Installing Computer Forensic Tools"
 cd /tmp
