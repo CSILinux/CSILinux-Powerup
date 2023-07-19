@@ -64,7 +64,7 @@ echo $key | sudo -S DEBIAN_FRONTEND=noninteractive dpkg --configure -a
 echo $key | sudo -S apt remove modemmanager -y > /dev/null 2>&1
 echo $key | sudo -S dpkg --add-architecture i386
 echo $key | sudo -S NEEDRESTART_MODE=a apt update --ignore-missing
-debconf-set-selections <<< "postfix postfix/mailname string your.hostname.com"
+debconf-set-selections <<< "postfix postfix/mailname string hostname.com"
 debconf-set-selections <<< "postfix postfix/main_mailer_type string 'Internet Site'"
 apt-get install --assume-yes postfix
 echo $key | sudo -S apt install postfix -y
