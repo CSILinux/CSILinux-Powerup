@@ -94,34 +94,43 @@ dos2unix /opt/csitools/resetdns
 echo $key | sudo -S apt install hexchat -y
 
 python3 -m pip install pip --upgrade
-pip uninstall twint -y
+pip uninstall twint -y  > /dev/null 2>&1
 echo "Checking Python Dependencies"
-
 
 pip install grequests > /dev/null 2>&1
 pip install sublist3r > /dev/null 2>&1
 pip install pyngrok > /dev/null 2>&1
+echo "10%"
 pip install instaloader > /dev/null 2>&1
 pip install dnslib > /dev/null 2>&1
 pip install icmplib > /dev/null 2>&1
+echo "20%"
 pip install passwordmeter > /dev/null 2>&1
 pip install image > /dev/null 2>&1
 pip install ConfigParser > /dev/null 2>&1
+echo "30%"
 pip install pyexiv2 > /dev/null 2>&1
 pip install oauth2 > /dev/null 2>&1
+echo "40%"
 pip install reload > /dev/null 2>&1
 pip install telepathy > /dev/null 2>&1
+echo "50%"
 pip install stem > /dev/null 2>&1
 pip install nest_asyncio > /dev/null 2>&1
+echo "60%"
 pip install simplekml > /dev/null 2>&1
 pip install libregf-python > /dev/null 2>&1
+echo "70%"
 pip install libesedb-python > /dev/null 2>&1
 pip install xmltodict > /dev/null 2>&1
+echo "80%"
 pip install PySimpleGUI > /dev/null 2>&1
 pip install PySide2 > /dev/null 2>&1
+echo "90%"
 
 pip install --upgrade git+https://github.com/twintproject/twint.git@origin/master#egg=twint > /dev/null 2>&1
 /bin/sed -i 's/3.6/1/g' ~/.local/lib/python3.10/site-packages/twint/cli.py > /dev/null 2>&1
+echo "100%"
 
 echo "Installing Computer Forensic Tools"
 cd /tmp
