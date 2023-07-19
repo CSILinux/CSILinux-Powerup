@@ -65,8 +65,8 @@ echo $key | sudo -S apt remove modemmanager -y > /dev/null 2>&1
 echo $key | sudo -S dpkg --add-architecture i386
 echo $key | sudo -S NEEDRESTART_MODE=a apt update --ignore-missing
 echo $key | sudo -S apt install postfix -y
-echo $key | sudo -S apt xfce4-cpugraph-plugin -y
-echo $key | sudo -S apt xfce4-goodies -y
+echo $key | sudo -S apt install xfce4-cpugraph-plugin -y
+echo $key | sudo -S apt install xfce4-goodies -y
 
 echo $key | sudo -S apt autoremove -y
 
