@@ -69,7 +69,8 @@ echo $key | sudo -S curl -fsSL https://packages.element.io/debian/element-io-arc
 echo $key | sudo -S bash -c "echo 'deb [arch=amd64] https://packages.element.io/debian/ default main' | sudo -S tee > element-io.list"
 echo $key | sudo -S curl -so /etc/apt/trusted.gpg.d/oxen.gpg https://deb.oxen.io/pub.gpg
 echo $key | sudo -S bash -c " echo 'deb https://deb.oxen.io $(lsb_release -sc) main' | sudo -S tee /etc/apt/sources.list.d/oxen.list"
-echo $key | sudo -S sudo apt-add-repository ppa:i2p-maintainers/i2p -y
+echo $key | sudo -S apt-add-repository ppa:i2p-maintainers/i2p -y
+echo $key | sudo -S add-apt-repository ppa:micahflee/ppa
 
 
 echo "# Updating APT repository"
