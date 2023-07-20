@@ -25,6 +25,14 @@ echo $key | sudo -S chmod +x ~/Desktop/*.desktop
 echo $key | sudo -S chown csi:csi /usr/bin/bash-wrapper
 echo $key | sudo -S chown csi:csi /home/csi -R
 echo $key | sudo -S chmod +x /usr/bin/bash-wrapper 
+rm /opt/csitools/helper/hashcat
+rm /opt/csitools/helper/cewl
+rm /opt/csitools/helper/dc3dd
+rm /opt/csitools/helper/dcfldd
+rm /opt/csitools/helper/signal
+rm /opt/csitools/helper/sn0int
+rm /opt/csitools/helper/exif
+
 
 echo $key | sudo -S /bin/sed -i 's/http\:\/\/in./http\:\/\//g' /etc/apt/sources.list
 echo $key | sudo -S echo "\$nrconf{restart} = 'a'" | sudo -S tee /etc/needrestart/conf.d/autorestart.conf > /dev/null
@@ -36,6 +44,8 @@ mkdir /home/csi/Cases > /dev/null 2>&1
 echo $key | sudo -S chmod +x /opt/csitools/powerup > /dev/null 2>&1
 echo $key | sudo -S ln -sf /opt/csitools/powerup /usr/local/bin/powerup > /dev/null 2>&1
 echo $key | sudo -S rm -rfv /usr/local/bin/kismet* /usr/local/share/kismet* /usr/local/etc/kismet*
+
+echo $key | sudo -S apt install curl -y
 
 echo "# Cleaning up apt keys"
 cd /tmp
@@ -57,6 +67,10 @@ echo $key | sudo -S sudo curl -fsSL https://deb.oxen.io/pub.gpg | sudo -S gpg --
 echo $key | sudo -S bash -c "echo 'deb [arch=amd64] https://deb.oxen.io $(lsb_release -sc) main' | sudo -S tee /etc/apt/sources.list.d/oxen.list"
 echo $key | sudo -S curl -fsSL https://packages.element.io/debian/element-io-archive-keyring.gpg | sudo -S gpg --dearmor | sudo -S tee /etc/apt/trusted.gpg.d/element-io-archive-keyring.gpg >/dev/null
 echo $key | sudo -S bash -c "echo 'deb [arch=amd64] https://packages.element.io/debian/ default main' | sudo -S tee > element-io.list"
+echo $key | sudo -S curl -so /etc/apt/trusted.gpg.d/oxen.gpg https://deb.oxen.io/pub.gpg
+echo $key | sudo -S bash -c " echo 'deb https://deb.oxen.io $(lsb_release -sc) main' | sudo -S tee /etc/apt/sources.list.d/oxen.list"
+echo $key | sudo -S sudo apt-add-repository ppa:i2p-maintainers/i2p -y
+
 
 echo "# Updating APT repository"
 echo $key | sudo -S dpkg-reconfigure debconf --frontend=noninteractive
@@ -66,8 +80,16 @@ echo $key | sudo -S dpkg --add-architecture i386
 echo $key | sudo -S NEEDRESTART_MODE=a apt update --ignore-missing
 echo $key | sudo -S apt install xfce4-cpugraph-plugin -y
 echo $key | sudo -S apt install xfce4-goodies -y
-
+echo $key | sudo -S apt purge proxychains4 -y > /dev/null 2>&1
+echo $key | sudo -S apt purge proxychains -y > /dev/null 2>&1
+echo $key | sudo -S apt purge onionshare -y > /dev/null 2>&1
+echo $key | sudo -S apt purge openjdk-1* -y > /dev/null 2>&1
+echo $key | sudo -S apt install default-jdk -y > /dev/null 2>&1
+echo $key | sudo -S apt install default-jdk-headless -y > /dev/null 2>&1
+echo $key | sudo -S apt install dnsmasq -y > /dev/null 2>&1
 echo $key | sudo -S apt autoremove -y
+echo $key | sudo -S rm -rf /var/lib/tor/other_hidden_service/
+echo $key | sudo -S rm -rf /var/lib/tor/other_hidden_service/
 
 cd /tmp > /dev/null 2>&1
 rm  hunchly.deb > /dev/null 2>&1
@@ -75,7 +97,6 @@ wget -O hunchly.deb https://downloadmirror.hunch.ly/currentversion/hunchly.deb?c
 echo $key | sudo -S apt-get install ./hunchly.deb -y
 
 echo $key | sudo -S apt install -y libmagic-dev python3-magic python3-pyregfi
-echo $key | sudo -S apt purge onionshare proxychains4 -y > /dev/null 2>&1
 
 mv ~/.local/share/applications/menulibre-kvm-/-virt-manager.desktop ~/.local/share/applications/menulibre-kvm---virt-manager.desktop > /dev/null 2>&1
 
@@ -556,7 +577,8 @@ echo "$key" | sudo -S service tor start
 
 # i2p
 echo "$key" | sudo -S apt purge i2p* -y > /dev/null 2>&1
-echo "$key" | sudo -S snap install --edge i2pi2p
+echo "$key" | sudo -S snap remove i2pi2p > /dev/null 2>&1
+echo "$key" | sudo -S apt install i2p* -y > /dev/null 2>&1
 
 
 # echo $key | sudo -S groupadd tor-auth
