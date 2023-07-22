@@ -545,8 +545,8 @@ cd /tmp
 
 
 if ! which lokinet-gui > /dev/null; then
-	 echo "$key" | sudo -S apt install lokinet -y
-         echo "$key" | sudo -S apt install lokinet-gui -y
+	 echo $key | sudo -S apt install lokinet -y
+         echo $key | sudo -S apt install lokinet-gui -y
 fi
 if [ ! -f /opt/OxenWallet/oxen-electron-wallet-1.8.1-linux.AppImage ]; then
 	cd /opt
@@ -558,29 +558,29 @@ fi
 
 
 ## Create TorVPN environment
-echo "$key" | sudo -S sed -i 's/#ControlPort/ControlPort/g' /etc/tor/torrc
-echo "$key" | sudo -S sed -i 's/#CookieAuthentication 1/CookieAuthentication 0/g' /etc/tor/torrc
-echo "$key" | sudo -S sed -i 's/#SocksPort 9050/SocksPort 9050/g' /etc/tor/torrc
-echo "$key" | sudo -S sed -i 's/#RunAsDaemon 1/RunAsDaemon 1/g' /etc/tor/torrc
-echo "$key" | sudo -S cp /etc/tor/torrc /etc/tor/torrc.back
+echo $key | sudo -S sed -i 's/#ControlPort/ControlPort/g' /etc/tor/torrc
+echo $key | sudo -S sed -i 's/#CookieAuthentication 1/CookieAuthentication 0/g' /etc/tor/torrc
+echo $key | sudo -S sed -i 's/#SocksPort 9050/SocksPort 9050/g' /etc/tor/torrc
+echo $key | sudo -S sed -i 's/#RunAsDaemon 1/RunAsDaemon 1/g' /etc/tor/torrc
+echo $key | sudo -S cp /etc/tor/torrc /etc/tor/torrc.back
 
 if grep -q "VirtualAddrNetworkIPv4" /etc/tor/torrc; then
     echo "TorVPN already configured"
 else
-    echo "$key" | sudo -S bash -c "echo 'VirtualAddrNetworkIPv4 10.192.0.0/10' >> /etc/tor/torrc"
-    echo "$key" | sudo -S bash -c "echo 'AutomapHostsOnResolve 1' >> /etc/tor/torrc"
-    echo "$key" | sudo -S bash -c "echo 'TransPort 9040 IsolateClientAddr IsolateClientProtocol IsolateDestAddr IsolateDestPort' >> /etc/tor/torrc"
-    echo "$key" | sudo -S bash -c "echo 'DNSPort 5353' >> /etc/tor/torrc"
+    echo $key | sudo -S bash -c "echo 'VirtualAddrNetworkIPv4 10.192.0.0/10' >> /etc/tor/torrc"
+    echo $key | sudo -S bash -c "echo 'AutomapHostsOnResolve 1' >> /etc/tor/torrc"
+    echo $key | sudo -S bash -c "echo 'TransPort 9040 IsolateClientAddr IsolateClientProtocol IsolateDestAddr IsolateDestPort' >> /etc/tor/torrc"
+    echo $key | sudo -S bash -c "echo 'DNSPort 5353' >> /etc/tor/torrc"
     echo "TorVPN configured"
 fi
 
-echo "$key" | sudo -S service tor stop
-echo "$key" | sudo -S service tor start
+echo $key | sudo -S service tor stop
+echo $key | sudo -S service tor start
 
 # i2p
-echo "$key" | sudo -S apt purge i2p* -y > /dev/null 2>&1
-echo "$key" | sudo -S snap remove i2pi2p > /dev/null 2>&1
-echo "$key" | sudo -S apt install i2p* -y > /dev/null 2>&1
+echo $key | sudo -S apt purge i2p* -y > /dev/null 2>&1
+echo $key | sudo -S snap remove i2pi2p > /dev/null 2>&1
+echo $key | sudo -S apt install i2p* -y > /dev/null 2>&1
 
 
 # echo $key | sudo -S groupadd tor-auth
@@ -793,29 +793,33 @@ rm ~/.vbox* > /dev/null 2>&1
 echo $key | sudo -S adduser $USER vboxsf
 echo $key | sudo -S updatedb
 
-echo "$key" | sudo -S bash -c "mv /etc/resolv.conf /etc/resolv.conf.bak" > /dev/null 2>&1
+echo $key | sudo -S bash -c "mv /etc/resolv.conf /etc/resolv.conf.bak" > /dev/null 2>&1
 
 if grep -q "nameserver 127.0.0.53" /etc/resolv.conf; then
     echo "Resolve already configured for Tor"
 else
-    echo "$key" | sudo -S bash -c "echo 'nameserver 127.0.0.53' > /etc/resolv.conf"
+    echo $key | sudo -S bash -c "echo 'nameserver 127.0.0.53' > /etc/resolv.conf"
 fi
 if grep -q "nameserver 127.3.2.1" /etc/resolv.conf; then
     echo "Resolve already configured for Lokinet"
 else
-    echo "$key" | sudo -S bash -c "echo 'nameserver 127.3.2.1' >> /etc/resolv.conf"
+    echo $key | sudo -S bash -c "echo 'nameserver 127.3.2.1' >> /etc/resolv.conf"
 fi
 if grep -q "GRUB_DISABLE_OS_PROBER=false" /etc/default/grub; then
-    echo "$key" | sudo -S sed -i 's/#GRUB_DISABLE_OS_PROBER=false/GRUB_DISABLE_OS_PROBER=false/g' /etc/default/grub
+    echo $key | sudo -S sed -i 's/#GRUB_DISABLE_OS_PROBER=false/GRUB_DISABLE_OS_PROBER=false/g' /etc/default/grub
     echo "Grub is already configured for os-probe"
 else
-    echo "$key" | sudo -S bash -c "echo 'GRUB_DISABLE_OS_PROBER=false' >> /etc/default/grub"
+    echo $key | sudo -S bash -c "echo 'GRUB_DISABLE_OS_PROBER=false' >> /etc/default/grub"
 fi
 
 echo $key | sudo -S apt purge privoxy -y
 echo $key | sudo -S apt purge lighttpd curl -y
+echo $key | sudo -S systemctl disable mono-xsp4.service > /dev/null 2>&1
+echo $key | sudo -S update-grub &> /dev/null
+echo $key | sudo -S update-alternatives --install /usr/share/plymouth/themes/default.plymouth default.plymouth /usr/share/plymouth/themes/vortex-ubuntu/vortex-ubuntu.plymouth 100  &> /dev/null;
+echo $key | sudo -S update-alternatives --set default.plymouth /usr/share/plymouth/themes/vortex-ubuntu/vortex-ubuntu.plymouth  &> /dev/null ;
+echo $key | sudo -S update-initramfs -u &> /dev/null ;
 
-su
-echo "$key" | sudo -S systemctl disable mono-xsp4.service > /dev/null 2>&1
+
 
 echo "Please reboot when finished updating"
