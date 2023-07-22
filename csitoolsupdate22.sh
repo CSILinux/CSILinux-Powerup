@@ -103,8 +103,8 @@ mv ~/.local/share/applications/menulibre-kvm-/-virt-manager.desktop ~/.local/sha
 
 echo $key | sudo -S ln -s /usr/bin/python3 /usr/bin/python
 
-wget https://csilinux.com/downloads/apps.txt
-sudo apt install -y $(grep -vE "^\s*#" apps.txt | sed -e 's/#.*//'  | tr "\n" " ")
+#wget https://csilinux.com/downloads/apps.txt
+#sudo apt install -y $(grep -vE "^\s*#" apps.txt | sed -e 's/#.*//'  | tr "\n" " ")
 
 echo $key | sudo -S apt install python3-pip -y
 echo $key | sudo -S apt install python3-pyqt5.qtsql -y
@@ -815,9 +815,7 @@ fi
 echo $key | sudo -S apt purge privoxy -y
 echo $key | sudo -S apt purge lighttpd curl -y
 
-echo $key | sudo -S dpkg -l linux-{image,headers}-* | awk '/^ii/{print $2}' | egrep '[0-9]+\.[0-9]+\.[0-9]+' | grep -v $(uname -r | cut -d- -f-2) | xargs sudo -S apt-get -y purge
-# echo $key | sudo -S ubuntu-drivers install
-# echo "$key" | sudo -S update-grub
-echo "$key" | sudo -S systemctl disable mono-xsp4.service
+su
+echo "$key" | sudo -S systemctl disable mono-xsp4.service > /dev/null 2>&1
 
 echo "Please reboot when finished updating"
