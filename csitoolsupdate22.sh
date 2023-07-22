@@ -812,6 +812,9 @@ else
     echo "$key" | sudo -S bash -c "echo 'GRUB_DISABLE_OS_PROBER=false' >> /etc/default/grub"
 fi
 
+echo $key | sudo -S apt purge privoxy -y
+echo $key | sudo -S apt purge lighttpd curl -y
+
 echo $key | sudo -S dpkg -l linux-{image,headers}-* | awk '/^ii/{print $2}' | egrep '[0-9]+\.[0-9]+\.[0-9]+' | grep -v $(uname -r | cut -d- -f-2) | xargs sudo -S apt-get -y purge
 # echo $key | sudo -S ubuntu-drivers install
 # echo "$key" | sudo -S update-grub
