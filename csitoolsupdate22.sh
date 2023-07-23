@@ -375,6 +375,7 @@ if [ ! -f /opt/Blackbird/blackbird.py ]; then
 	git clone https://github.com/worldofcyberskills/Blackbird.git
 	cd /opt/Blackbird
 	pip install -r requirements.txt
+        echo $key | sudo -S chmod +x blackbird.py
         mkdir results
 else
 	cd /opt/Blackbird
