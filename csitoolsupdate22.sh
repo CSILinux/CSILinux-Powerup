@@ -587,7 +587,6 @@ echo $key | sudo -S service tor stop
 echo $key | sudo -S service tor start
 
 # i2p
-echo $key | sudo -S apt purge i2p* -y > /dev/null 2>&1
 echo $key | sudo -S snap remove i2pi2p > /dev/null 2>&1
 echo $key | sudo -S apt install i2p* -y > /dev/null 2>&1
 
