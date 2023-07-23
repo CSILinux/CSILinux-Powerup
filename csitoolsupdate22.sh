@@ -375,8 +375,10 @@ if [ ! -f /opt/Blackbird/blackbird.py ]; then
 	git clone https://github.com/worldofcyberskills/Blackbird.git
 	cd /opt/Blackbird
 	pip install -r requirements.txt
+        mkdir results
 else
 	cd /opt/Blackbird
+        mkdir results
 	git pull
 fi
 
