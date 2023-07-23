@@ -592,6 +592,8 @@ echo $key | sudo -S service tor start
 # i2p
 echo $key | sudo -S snap remove i2pi2p > /dev/null 2>&1
 echo $key | sudo -S apt install i2p* -y > /dev/null 2>&1
+echo $key | sudo -S update-java-alternatives -s /usr/lib/jvm/java-1.19.0-openjdk-amd64
+
 
 
 # echo $key | sudo -S groupadd tor-auth
