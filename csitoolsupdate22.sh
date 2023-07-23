@@ -304,7 +304,6 @@ else
 	git pull
 fi
 
-
 if [ ! -f /opt/RecuperaBit/main.py ]; then
 	cd /opt
 	git clone https://github.com/Lazza/RecuperaBit.git
@@ -368,6 +367,16 @@ if [ ! -f /opt/sherlock/sherlock/sherlock.py ]; then
 	pip install -r requirements.txt
 else
 	cd /opt/sherlock
+	git pull
+fi
+
+if [ ! -f /opt/Blackbird/blackbird.py ]; then
+	cd /opt
+	git clone https://github.com/worldofcyberskills/Blackbird.git
+	cd /opt/Blackbird
+	pip install -r requirements.txt
+else
+	cd /opt/Blackbird
 	git pull
 fi
 
