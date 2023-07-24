@@ -75,25 +75,25 @@ echo $key | sudo -S sudo curl -so /etc/apt/trusted.gpg.d/oxen.gpg https://deb.ox
 echo $key | sudo -S bash -c " echo 'deb [arch=amd64] https://deb.oxen.io $(lsb_release -sc) main' | sudo -S tee /etc/apt/sources.list.d/oxen.list"
 echo $key | sudo -S apt-add-repository ppa:i2p-maintainers/i2p -y
 #echo $key | sudo -S sudo -S add-apt-repository ppa:micahflee/ppa
-echo $key | sudo -Sadd-apt-repository ppa:danielrichter2007/grub-customizer
+echo $key | sudo -S add-apt-repository ppa:danielrichter2007/grub-customizer
 
 echo "# Updating APT repository"
 echo $key | sudo -S dpkg-reconfigure debconf --frontend=noninteractive
 echo $key | sudo -S DEBIAN_FRONTEND=noninteractive dpkg --configure -a
 echo $key | sudo -S NEEDRESTART_MODE=a apt update --ignore-missing
-echo $key | sudo -S apt install xfce4-cpugraph-plugin -y
-echo $key | sudo -S apt install xfce4-goodies -y
+echo $key | sudo -S apt install xfce4-cpugraph-plugin -y > /dev/null 2>&1
+echo $key | sudo -S apt install xfce4-goodies -y > /dev/null 2>&1
 echo $key | sudo -S apt remove proxychains4 -y > /dev/null 2>&1
 echo $key | sudo -S apt remove proxychains -y > /dev/null 2>&1
-echo $key | sudo -S rm -rf /var/lib/tor/hidden_service/
-echo $key | sudo -S rm -rf /var/lib/tor/other_hidden_service/
+echo $key | sudo -S rm -rf /var/lib/tor/hidden_service/ > /dev/null 2>&1
+echo $key | sudo -S rm -rf /var/lib/tor/other_hidden_service/ > /dev/null 2>&1
 
 cd /tmp > /dev/null 2>&1
 rm  hunchly.deb > /dev/null 2>&1
 wget -O hunchly.deb https://downloadmirror.hunch.ly/currentversion/hunchly.deb?csilinux_update
 echo $key | sudo -S apt-get install ./hunchly.deb -y
 
-echo $key | sudo -S apt install -y libmagic-dev python3-magic python3-pyregfi
+echo $key | sudo -S apt install -y libmagic-dev python3-magic python3-pyregfi > /dev/null 2>&1
 
 mv ~/.local/share/applications/menulibre-kvm-/-virt-manager.desktop ~/.local/share/applications/menulibre-kvm---virt-manager.desktop > /dev/null 2>&1
 
@@ -102,15 +102,15 @@ echo $key | sudo -S ln -s /usr/bin/python3 /usr/bin/python
 #wget https://csilinux.com/downloads/apps.txt
 #sudo apt install -y $(grep -vE "^\s*#" apps.txt | sed -e 's/#.*//'  | tr "\n" " ")
 
-echo $key | sudo -S apt install python3-pip -y
-echo $key | sudo -S apt install python3-pyqt5.qtsql -y
-echo $key | sudo -S apt install bash-completion -y
-echo $key | sudo -S apt install openjdk-19-jdk -y
-echo $key | sudo -S apt install dos2unix -y
-dos2unix /opt/csitools/resetdns
+echo $key | sudo -S apt install python3-pip -y > /dev/null 2>&1
+echo $key | sudo -S apt install python3-pyqt5.qtsql -y > /dev/null 2>&1
+echo $key | sudo -S apt install bash-completion -y > /dev/null 2>&1
+echo $key | sudo -S apt install openjdk-19-jdk -y > /dev/null 2>&1
+echo $key | sudo -S apt install dos2unix -y > /dev/null 2>&1
+dos2unix /opt/csitools/resetdns > /dev/null 2>&1
 echo $key | sudo -S apt install hexchat -y
 
-python3 -m pip install pip --upgrade
+python3 -m pip install pip --upgrade > /dev/null 2>&1
 pip uninstall twint -y  > /dev/null 2>&1
 echo "Checking Python Dependencies"
 
@@ -376,7 +376,7 @@ if [ ! -f /opt/Blackbird/blackbird.py ]; then
 else
 	cd /opt/Blackbird
         mkdir results
-	git pull
+	git pull > /dev/null 2>&1
 fi
 
 if [ ! -f /opt/Moriarty-Project/run.sh ]; then
