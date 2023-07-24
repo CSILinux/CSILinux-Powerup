@@ -74,8 +74,8 @@ echo $key | sudo -S bash -c "echo 'deb [arch=amd64] https://packages.element.io/
 echo $key | sudo -S curl -so /etc/apt/trusted.gpg.d/oxen.gpg https://deb.oxen.io/pub.gpg
 echo $key | sudo -S bash -c " echo 'deb [arch=amd64] https://deb.oxen.io $(lsb_release -sc) main' | sudo -S tee /etc/apt/sources.list.d/oxen.list"
 echo $key | sudo -S apt-add-repository ppa:i2p-maintainers/i2p -y
-#echo $key | sudo -S add-apt-repository ppa:micahflee/ppa
-sudo add-apt-repository ppa:danielrichter2007/grub-customizer
+echo $key | sudo -S sudo -S add-apt-repository ppa:micahflee/ppa
+echo $key | sudo -Sadd-apt-repository ppa:danielrichter2007/grub-customizer
 
 echo "# Updating APT repository"
 echo $key | sudo -S dpkg-reconfigure debconf --frontend=noninteractive
@@ -826,13 +826,11 @@ else
 fi
 
 echo $key | sudo -S apt purge privoxy -y
-echo $key | sudo -S apt purge lighttpd curl -y
+echo $key | sudo -S apt purge lighttpd -y
 echo $key | sudo -S systemctl disable mono-xsp4.service > /dev/null 2>&1
 echo $key | sudo -S update-grub &> /dev/null
 echo $key | sudo -S update-alternatives --install /usr/share/plymouth/themes/default.plymouth default.plymouth /usr/share/plymouth/themes/vortex-ubuntu/vortex-ubuntu.plymouth 100  &> /dev/null;
 echo $key | sudo -S update-alternatives --set default.plymouth /usr/share/plymouth/themes/vortex-ubuntu/vortex-ubuntu.plymouth  &> /dev/null ;
 echo $key | sudo -S update-initramfs -u &> /dev/null ;
-
-
 
 echo "Please reboot when finished updating"
