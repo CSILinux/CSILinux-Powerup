@@ -557,7 +557,6 @@ cd /tmp
 
 
 if ! which lokinet-gui > /dev/null; then
-	 echo $key | sudo -S apt install lokinet -y
          echo $key | sudo -S apt install lokinet-gui -y
 fi
 if [ ! -f /opt/OxenWallet/oxen-electron-wallet-1.8.1-linux.AppImage ]; then
