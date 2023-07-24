@@ -356,6 +356,17 @@ else
 	echo "sn0int installed"
 fi
 
+if [ ! -f /opt/ghunt/ghunt.py ]; then
+	cd /opt
+	git https://github.com/mxrch/GHunt.git
+        mv Ghunt ghunt
+	cd /ghunt 
+	pip install -r requirements.txt
+else
+	cd /opt/ghunt 
+	git pull
+fi
+
 if [ ! -f /opt/sherlock/sherlock/sherlock.py ]; then
 	cd /opt
 	git clone https://github.com/sherlock-project/sherlock.git
