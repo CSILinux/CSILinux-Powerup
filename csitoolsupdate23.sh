@@ -29,15 +29,13 @@ echo $key | sudo -S echo "\$nrconf{restart} = 'a'" | sudo -S tee /etc/needrestar
 echo $key | sudo -S chmod +x /opt/csitools/powerup > /dev/null 2>&1
 echo $key | sudo -S ln -sf /opt/csitools/powerup /usr/local/bin/powerup > /dev/null 2>&1
 
-echo $key | sudo -S apt install curl -y
-
 echo "# Cleaning up apt keys"
 cd /tmp
 
 sudo apt-key del 5345B8BF43403B93
 sudo apt-key del 76F1A20FF987672F
 sudo apt-key del 750179FCEA62
-echo $key | sudo -S rm -rf /etc/apt/sources.list.d/archive_u*
+echo $key | sudo -S apt install curl -y
 
 echo $key | sudo -S sudo curl -fsSL https://download.bell-sw.com/pki/GPG-KEY-bellsoft | sudo -S gpg --dearmor | sudo -S tee /etc/apt/trusted.gpg.d/bellsoft.gpg >/dev/null
 echo $key | sudo -S bash -c "echo 'deb [arch=amd64] https://apt.bell-sw.com/ stable main' | sudo -S tee /etc/apt/sources.list.d/bellsoft.list"
