@@ -21,6 +21,7 @@ echo $key | sudo -S chown csi:csi /home/csi -R
 echo $key | sudo -S chmod +x /usr/bin/bash-wrapper 
 echo $key | sudo -S mkdir /iso
 echo $key | sudo -S chown csi:csi /iso -R
+tar -xf /opt/csitools/assets/Win11-blue.tar.xz --directory /home/csi/.icons/
 
 echo $key | sudo -S /bin/sed -i 's/http\:\/\/in./http\:\/\//g' /etc/apt/sources.list
 echo $key | sudo -S echo "\$nrconf{restart} = 'a'" | sudo -S tee /etc/needrestart/conf.d/autorestart.conf > /dev/null
