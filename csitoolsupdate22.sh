@@ -735,7 +735,7 @@ if [ ! -f /opt/IMSI-catcher/simple_IMSI-catcher.py ]; then
 	wget https://github.com/Oros42/IMSI-catcher/archive/master.zip && unzip -q master.zip
 	mv IMSI-catcher-master IMSI-catcher
 	pip install docutils
-	cd IMSI-catcher
+	cd IMSI-catcherc
 	echo $key | sudo -S apt install -y cmake \
     autoconf \
     libtool \
