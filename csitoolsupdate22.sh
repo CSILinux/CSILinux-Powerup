@@ -6,6 +6,7 @@ echo "Installing CSI Linux Tools and Menu update"
 rm csi* > /dev/null 2>&1
 rm /opt/csitools/csitools* > /dev/null 2>&1
 rm -rf /opt/OSINT-Search > /dev/null 2>&1
+rm -rf /opt/OnionSearch > /dev/null 2>&1
 rm -rf /opt/Moriarty-Project > /dev/null 2>&1
 rm -rf /opt/csitools/helper/dcfldd > /dev/null 2>&1
 rm -rf /opt/csitools/helper/exif > /dev/null 2>&1
