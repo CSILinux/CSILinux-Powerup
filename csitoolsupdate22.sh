@@ -88,12 +88,9 @@ echo $key | sudo -S apt install xfce4-goodies -y
 echo $key | sudo -S apt purge proxychains4 -y > /dev/null 2>&1
 echo $key | sudo -S apt purge proxychains -y > /dev/null 2>&1
 echo $key | sudo -S apt purge onionshare -y > /dev/null 2>&1
-echo $key | sudo -S apt purge openjdk-1* -y > /dev/null 2>&1
-echo $key | sudo -S apt install default-jdk -y > /dev/null 2>&1
-echo $key | sudo -S apt install default-jdk-headless -y > /dev/null 2>&1
 echo $key | sudo -S apt install dnsmasq -y > /dev/null 2>&1
 echo $key | sudo -S apt autoremove -y
-echo $key | sudo -S rm -rf /var/lib/tor/other_hidden_service/
+echo $key | sudo -S rm -rf /var/lib/tor/hidden_service/
 echo $key | sudo -S rm -rf /var/lib/tor/other_hidden_service/
 
 cd /tmp > /dev/null 2>&1
