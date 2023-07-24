@@ -85,7 +85,6 @@ echo $key | sudo -S apt install xfce4-cpugraph-plugin -y
 echo $key | sudo -S apt install xfce4-goodies -y
 echo $key | sudo -S apt remove proxychains4 -y > /dev/null 2>&1
 echo $key | sudo -S apt remove proxychains -y > /dev/null 2>&1
-echo $key | sudo -S apt autoremove -y
 echo $key | sudo -S rm -rf /var/lib/tor/hidden_service/
 echo $key | sudo -S rm -rf /var/lib/tor/other_hidden_service/
 
@@ -768,23 +767,6 @@ fi
 echo $key | sudo -S cp /opt/csitools/youtube.lua /usr/lib/x86_64-linux-gnu/vlc/lua/playlist/youtube.luac -rf
 echo $key | sudo -S timedatectl set-timezone UTC
 
-echo $key | sudo -S apt install --fix-broken -y
-echo "# Fixing broken APT installs level 2"
-echo $key | sudo -S dpkg --configure -a
-echo "# Upgrading third party tools"
-echo $key | sudo -S full-upgrade -y
-echo "# Fixing broken APT installs level 3"
-echo $key | sudo -S apt -f install
-echo "# Fixing broken APT installs level 4"
-echo $key | sudo -S apt upgrade --fix-missing -y
-echo "# Verifying APT installs"
-echo $key | sudo -S dpkg --configure -a
-echo "# Fixing broken APT installs level 6"
-echo $key | sudo -S dpkg --configure -a --force-confold
-echo "# Removing old software APT installs"
-echo $key | sudo -S apt autoremove -y
-echo "# Removing APT cache to save space"
-echo $key | sudo -S chown csi:csi /opt
 
 # unredactedmagazine
 
@@ -824,5 +806,25 @@ echo $key | sudo -S update-grub &> /dev/null
 echo $key | sudo -S update-alternatives --install /usr/share/plymouth/themes/default.plymouth default.plymouth /usr/share/plymouth/themes/vortex-ubuntu/vortex-ubuntu.plymouth 100  &> /dev/null;
 echo $key | sudo -S update-alternatives --set default.plymouth /usr/share/plymouth/themes/vortex-ubuntu/vortex-ubuntu.plymouth  &> /dev/null 
 echo $key | sudo -S update-initramfs -u &> /dev/null 
+
+
+echo $key | sudo -S apt install --fix-broken -y
+echo "# Fixing broken APT installs level 2"
+echo $key | sudo -S dpkg --configure -a
+echo "# Upgrading third party tools"
+echo $key | sudo -S full-upgrade -y
+echo "# Fixing broken APT installs level 3"
+echo $key | sudo -S apt -f install
+echo "# Fixing broken APT installs level 4"
+echo $key | sudo -S apt upgrade --fix-missing -y
+echo "# Verifying APT installs"
+echo $key | sudo -S dpkg --configure -a
+echo "# Fixing broken APT installs level 6"
+echo $key | sudo -S dpkg --configure -a --force-confold
+echo "# Removing old software APT installs"
+echo $key | sudo -S apt autoremove -y
+echo "# Removing APT cache to save space"
+echo $key | sudo -S apt autoclean -y
+echo $key | sudo -S chown csi:csi /opt
 
 echo "Please reboot when finished updating"
