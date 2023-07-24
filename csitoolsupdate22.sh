@@ -69,9 +69,9 @@ echo $key | sudo -S sudo curl -fsSL https://www.kismetwireless.net/repos/kismet-
 echo $key | sudo -S bash -c "echo 'deb [arch=amd64] https://www.kismetwireless.net/repos/apt/release/jammy jammy main' | sudo -S tee /etc/apt/sources.list.d/kismet.list"
 echo $key | sudo -S sudo curl -fsSL https://deb.oxen.io/pub.gpg | sudo -S gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/oxen.gpg >/dev/null
 echo $key | sudo -S bash -c "echo 'deb [arch=amd64] https://deb.oxen.io $(lsb_release -sc) main' | sudo -S tee /etc/apt/sources.list.d/oxen.list"
-echo $key | sudo -S curl -fsSL https://packages.element.io/debian/element-io-archive-keyring.gpg | sudo -S gpg --dearmor | sudo -S tee /etc/apt/trusted.gpg.d/element-io-archive-keyring.gpg >/dev/null
+echo $key | sudo -S sudo curl -fsSL https://packages.element.io/debian/element-io-archive-keyring.gpg | sudo -S gpg --dearmor | sudo -S tee /etc/apt/trusted.gpg.d/element-io-archive-keyring.gpg >/dev/null
 echo $key | sudo -S bash -c "echo 'deb [arch=amd64] https://packages.element.io/debian/ default main' | sudo -S tee > element-io.list"
-echo $key | sudo -S curl -so /etc/apt/trusted.gpg.d/oxen.gpg https://deb.oxen.io/pub.gpg
+echo $key | sudo -S sudo curl -so /etc/apt/trusted.gpg.d/oxen.gpg https://deb.oxen.io/pub.gpg
 echo $key | sudo -S bash -c " echo 'deb [arch=amd64] https://deb.oxen.io $(lsb_release -sc) main' | sudo -S tee /etc/apt/sources.list.d/oxen.list"
 echo $key | sudo -S apt-add-repository ppa:i2p-maintainers/i2p -y
 #echo $key | sudo -S sudo -S add-apt-repository ppa:micahflee/ppa
@@ -87,8 +87,6 @@ echo $key | sudo -S apt install xfce4-cpugraph-plugin -y
 echo $key | sudo -S apt install xfce4-goodies -y
 echo $key | sudo -S apt purge proxychains4 -y > /dev/null 2>&1
 echo $key | sudo -S apt purge proxychains -y > /dev/null 2>&1
-echo $key | sudo -S apt purge onionshare -y > /dev/null 2>&1
-echo $key | sudo -S apt install dnsmasq -y > /dev/null 2>&1
 echo $key | sudo -S apt autoremove -y
 echo $key | sudo -S rm -rf /var/lib/tor/hidden_service/
 echo $key | sudo -S rm -rf /var/lib/tor/other_hidden_service/
