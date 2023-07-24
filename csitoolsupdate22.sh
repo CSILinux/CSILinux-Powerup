@@ -80,13 +80,11 @@ echo $key | sudo -Sadd-apt-repository ppa:danielrichter2007/grub-customizer
 echo "# Updating APT repository"
 echo $key | sudo -S dpkg-reconfigure debconf --frontend=noninteractive
 echo $key | sudo -S DEBIAN_FRONTEND=noninteractive dpkg --configure -a
-echo $key | sudo -S apt remove modemmanager -y > /dev/null 2>&1
-echo $key | sudo -S dpkg --add-architecture i386
 echo $key | sudo -S NEEDRESTART_MODE=a apt update --ignore-missing
 echo $key | sudo -S apt install xfce4-cpugraph-plugin -y
 echo $key | sudo -S apt install xfce4-goodies -y
-echo $key | sudo -S apt purge proxychains4 -y > /dev/null 2>&1
-echo $key | sudo -S apt purge proxychains -y > /dev/null 2>&1
+echo $key | sudo -S apt remove proxychains4 -y > /dev/null 2>&1
+echo $key | sudo -S apt remove proxychains -y > /dev/null 2>&1
 echo $key | sudo -S apt autoremove -y
 echo $key | sudo -S rm -rf /var/lib/tor/hidden_service/
 echo $key | sudo -S rm -rf /var/lib/tor/other_hidden_service/
