@@ -33,7 +33,7 @@ rm /opt/csitools/helper/signal
 rm /opt/csitools/helper/sn0int
 rm /opt/csitools/helper/exif
 echo $key | sudo -S mkdir /iso
-echo $key | sudo -S chmod csi:csi /iso -R
+echo $key | sudo -S chown csi:csi /iso -R
 
 echo $key | sudo -S /bin/sed -i 's/http\:\/\/in./http\:\/\//g' /etc/apt/sources.list
 echo $key | sudo -S echo "\$nrconf{restart} = 'a'" | sudo -S tee /etc/needrestart/conf.d/autorestart.conf > /dev/null
