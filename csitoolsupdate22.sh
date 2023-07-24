@@ -819,16 +819,12 @@ fi
 if grep -q "GRUB_DISABLE_OS_PROBER=false" /etc/default/grub; then
     echo $key | sudo -S sed -i 's/#GRUB_DISABLE_OS_PROBER=false/GRUB_DISABLE_OS_PROBER=false/g' /etc/default/grub
     echo "Grub is already configured for os-probe"
-else
-    echo $key | sudo -S bash -c "echo 'GRUB_DISABLE_OS_PROBER=false' >> /etc/default/grub"
 fi
 
-echo $key | sudo -S apt purge privoxy -y
-echo $key | sudo -S apt purge lighttpd -y
 echo $key | sudo -S systemctl disable mono-xsp4.service > /dev/null 2>&1
 echo $key | sudo -S update-grub &> /dev/null
 echo $key | sudo -S update-alternatives --install /usr/share/plymouth/themes/default.plymouth default.plymouth /usr/share/plymouth/themes/vortex-ubuntu/vortex-ubuntu.plymouth 100  &> /dev/null;
-echo $key | sudo -S update-alternatives --set default.plymouth /usr/share/plymouth/themes/vortex-ubuntu/vortex-ubuntu.plymouth  &> /dev/null ;
-echo $key | sudo -S update-initramfs -u &> /dev/null ;
+echo $key | sudo -S update-alternatives --set default.plymouth /usr/share/plymouth/themes/vortex-ubuntu/vortex-ubuntu.plymouth  &> /dev/null 
+echo $key | sudo -S update-initramfs -u &> /dev/null 
 
 echo "Please reboot when finished updating"
