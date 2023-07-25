@@ -819,6 +819,10 @@ echo $key | sudo -S update-alternatives --install /usr/share/plymouth/themes/def
 echo $key | sudo -S update-alternatives --set default.plymouth /usr/share/plymouth/themes/vortex-ubuntu/vortex-ubuntu.plymouth  &> /dev/null 
 echo $key | sudo -S update-initramfs -u &> /dev/null 
 
+cd /tmp	
+echo $key | sudo -S sudo apt install -y zram-config
+echo $key | sudo -S wget -O - https://teejeetech.com/scripts/jammy/disable_swapfile | bash
+wget -O - https://teejeetech.com/scripts/jammy/tweak_terminal | bash
 
 echo $key | sudo -S apt install --fix-broken -y
 echo "# Fixing broken APT installs level 2"
