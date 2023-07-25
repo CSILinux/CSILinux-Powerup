@@ -26,17 +26,17 @@ echo $key | sudo -S chmod +x ~/Desktop/*.desktop
 echo $key | sudo -S chown csi:csi /usr/bin/bash-wrapper
 echo $key | sudo -S chown csi:csi /home/csi -R
 echo $key | sudo -S chmod +x /usr/bin/bash-wrapper 
-rm /opt/csitools/helper/hashcat
-rm /opt/csitools/helper/cewl
-rm /opt/csitools/helper/dc3dd
-rm /opt/csitools/helper/dcfldd
-rm /opt/csitools/helper/signal
-rm /opt/csitools/helper/sn0int
-rm /opt/csitools/helper/exif
-echo $key | sudo -S mkdir /iso
-echo $key | sudo -S chown csi:csi /iso -R
+rm /opt/csitools/helper/hashcat > /dev/null 2>&1
+rm /opt/csitools/helper/cewl > /dev/null 2>&1
+rm /opt/csitools/helper/dc3dd > /dev/null 2>&1
+rm /opt/csitools/helper/dcfldd > /dev/null 2>&1
+rm /opt/csitools/helper/signal > /dev/null 2>&1
+rm /opt/csitools/helper/sn0int > /dev/null 2>&1
+rm /opt/csitools/helper/exif > /dev/null 2>&1
+echo $key | sudo -S mkdir /iso > /dev/null 2>&1
+echo $key | sudo -S chown csi:csi /iso -R > /dev/null 2>&1
 echo $key | sudo -S chmod +x /etc/grub.d/39_iso
-tar -xf /opt/csitools/assets/Win11-blue.tar.xz --directory /home/csi/.icons/
+tar -xf /opt/csitools/assets/Win11-blue.tar.xz --directory /home/csi/.icons/ > /dev/null 2>&1
 
 
 echo $key | sudo -S /bin/sed -i 's/http\:\/\/in./http\:\/\//g' /etc/apt/sources.list
@@ -68,8 +68,6 @@ echo $key | sudo -S sudo curl -fsSL https://dl.winehq.org/wine-builds/winehq.key
 echo $key | sudo -S bash -c "echo 'deb https://dl.winehq.org/wine-builds/ubuntu/ focal main' | sudo -S tee /etc/apt/sources.list.d/wine.list"
 echo $key | sudo -S sudo curl -fsSL https://www.kismetwireless.net/repos/kismet-release.gpg.key | sudo -S gpg --dearmor | sudo -S tee /etc/apt/trusted.gpg.d/kismet-release.gpg >/dev/null
 echo $key | sudo -S bash -c "echo 'deb [arch=amd64] https://www.kismetwireless.net/repos/apt/release/jammy jammy main' | sudo -S tee /etc/apt/sources.list.d/kismet.list"
-echo $key | sudo -S sudo curl -fsSL https://deb.oxen.io/pub.gpg | sudo -S gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/oxen.gpg >/dev/null
-echo $key | sudo -S bash -c "echo 'deb [arch=amd64] https://deb.oxen.io $(lsb_release -sc) main' | sudo -S tee /etc/apt/sources.list.d/oxen.list"
 echo $key | sudo -S sudo curl -fsSL https://packages.element.io/debian/element-io-archive-keyring.gpg | sudo -S gpg --dearmor | sudo -S tee /etc/apt/trusted.gpg.d/element-io-archive-keyring.gpg >/dev/null
 echo $key | sudo -S bash -c "echo 'deb [arch=amd64] https://packages.element.io/debian/ default main' | sudo -S tee > element-io.list"
 echo $key | sudo -S sudo curl -so /etc/apt/trusted.gpg.d/oxen.gpg https://deb.oxen.io/pub.gpg
