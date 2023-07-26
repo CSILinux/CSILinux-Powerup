@@ -804,10 +804,10 @@ fi
 
 echo $key | sudo -S sed -i "/recordfail_broken=/{s/1/0/}" /etc/grub.d/00_header
 echo $key | sudo -S systemctl disable mono-xsp4.service > /dev/null 2>&1
-echo $key | sudo -S update-grub &> /dev/null
+echo $key | sudo -S update-grub > /dev/null 2>&1
 echo $key | sudo -S update-alternatives --install /usr/share/plymouth/themes/default.plymouth default.plymouth /usr/share/plymouth/themes/vortex-ubuntu/vortex-ubuntu.plymouth 100  &> /dev/null;
-echo $key | sudo -S update-alternatives --set default.plymouth /usr/share/plymouth/themes/vortex-ubuntu/vortex-ubuntu.plymouth  &> /dev/null 
-echo $key | sudo -S update-initramfs -u &> /dev/null 
+echo $key | sudo -S update-alternatives --set default.plymouth /usr/share/plymouth/themes/vortex-ubuntu/vortex-ubuntu.plymouth > /dev/null 2>&1
+echo $key | sudo -S update-initramfs -u  > /dev/null 2>&1
 
 cd /tmp	
 echo $key | sudo -S sudo apt install -y zram-config
