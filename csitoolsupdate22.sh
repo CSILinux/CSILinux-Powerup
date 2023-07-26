@@ -829,8 +829,8 @@ echo "# Fixing broken APT installs level 6"
 echo $key | sudo -S dpkg --configure -a --force-confold
 echo "# Removing old software APT installs"
 echo $key | sudo -S apt autoremove -y
-echo "# Removing APT cache to save space"
-echo $key | sudo -S apt autoclean -y
+# echo "# Removing APT cache to save space"
+# echo $key | sudo -S apt autoclean -y
 echo $key | sudo -S chown csi:csi /opt
 
 echo "Please reboot when finished updating"
