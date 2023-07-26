@@ -376,15 +376,16 @@ else
 	git pull
 fi
 
-if [ ! -f /opt/Blackbird/blackbird.py ]; then
+if [ ! -f /opt/blackbird/blackbird.py ]; then
 	cd /opt
 	git clone https://github.com/worldofcyberskills/Blackbird.git
-	cd /opt/Blackbird
+	cp /opt/Blackbird /opt/blackbird
+        cd /opt/Blackbird
 	pip install -r requirements.txt
         echo $key | sudo -S chmod +x blackbird.py
         mkdir results
 else
-	cd /opt/Blackbird
+	cd /opt/blackbird
         mkdir results
 	git pull > /dev/null 2>&1
 fi
@@ -484,16 +485,6 @@ if [ ! -f /opt/InstagramOSINT/main.py ]; then
 	pip install -r requirements.txt
 else
 	cd /opt/InstagramOSINT
-	git pull
-fi
-
-if [ ! -f /opt/blackbird/blackbird.py ]; then
-	cd /opt
-	git clone https://github.com/p1ngul1n0/blackbird
-	cd blackbird
-	pip install -r requirements.txt
-else
-	cd /opt/blackbird
 	git pull
 fi
 
