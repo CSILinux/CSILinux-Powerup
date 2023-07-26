@@ -797,7 +797,7 @@ if grep -q "nameserver 127.3.2.1" /etc/resolv.conf; then
 else
     echo $key | sudo -S bash -c "echo 'nameserver 127.3.2.1' >> /etc/resolv.conf"
 fi
-if grep -q "GRUB_DISABLE_OS_PROBER=false" /etc/default/grub; then
+if echo $key | sudo -S grep -q "GRUB_DISABLE_OS_PROBER=false" /etc/default/grub; then
     echo $key | sudo -S sed -i 's/#GRUB_DISABLE_OS_PROBER=false/GRUB_DISABLE_OS_PROBER=false/g' /etc/default/grub
     echo "Grub is already configured for os-probe"
 fi
