@@ -7,6 +7,7 @@ rm csi* > /dev/null 2>&1
 rm /opt/csitools/csitools* > /dev/null 2>&1
 rm -rf /opt/OSINT-Search > /dev/null 2>&1
 rm -rf /opt/OnionSearch > /dev/null 2>&1
+rm -rf /opt/Blackbird > /dev/null 2>&1
 rm -rf /opt/Moriarty-Project > /dev/null 2>&1
 rm -rf /opt/csitools/helper/dcfldd > /dev/null 2>&1
 rm -rf /opt/csitools/helper/exif > /dev/null 2>&1
@@ -378,9 +379,8 @@ fi
 
 if [ ! -f /opt/blackbird/blackbird.py ]; then
 	cd /opt
-	git clone https://github.com/worldofcyberskills/Blackbird.git
-	cp /opt/Blackbird /opt/blackbird
-        cd /opt/Blackbird
+	git clone https://github.com/p1ngul1n0/blackbird.git
+        cd /opt/blackbird
 	pip install -r requirements.txt
         echo $key | sudo -S chmod +x blackbird.py
         mkdir results
