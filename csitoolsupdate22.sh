@@ -786,6 +786,8 @@ echo $key | sudo -S rm -rf /var/crash/* > /dev/null 2>&1
 echo $key | sudo -S rm /var/crash/* > /dev/null 2>&1
 rm ~/.vbox* > /dev/null 2>&1
 echo $key | sudo -S adduser $USER vboxsf
+echo $key | sudo -S adduser $USER libvirt
+echo $key | sudo -S adduser $USER kvm
 echo $key | sudo -S updatedb
 
 echo $key | sudo -S bash -c "mv /etc/resolv.conf /etc/resolv.conf.bak" > /dev/null 2>&1
