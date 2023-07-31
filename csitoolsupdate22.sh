@@ -730,6 +730,11 @@ if ! which keepassxc; then
 	echo $key | sudo -S apt install keepassxc -y
 fi
 
+rm /opt/FlipperZero/qFlipperZero.AppImage
+wget -0 /opt/FlipperZero/qFlipperZero.AppImage https://update.flipperzero.one/builds/qFlipper/1.3.2/qFlipper-x86_64-1.3.2.AppImage
+chmod +x /opt/FlipperZero/qFlipperZero.AppImage
+
+
 if [ ! -f /opt/IMSI-catcher/simple_IMSI-catcher.py ]; then
 	# fix later.  gnradio 3.9 issue with  Unknown CMake command "GR_SWIG_MAKE".
 	cd /opt
