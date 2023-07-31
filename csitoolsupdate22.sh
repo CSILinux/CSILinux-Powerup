@@ -731,7 +731,7 @@ if ! which keepassxc; then
 fi
 
 rm /opt/FlipperZero/qFlipperZero.AppImage
-wget -0 /opt/FlipperZero/qFlipperZero.AppImage https://update.flipperzero.one/builds/qFlipper/1.3.2/qFlipper-x86_64-1.3.2.AppImage
+wget -O /opt/FlipperZero/qFlipperZero.AppImage https://update.flipperzero.one/builds/qFlipper/1.3.2/qFlipper-x86_64-1.3.2.AppImage
 chmod +x /opt/FlipperZero/qFlipperZero.AppImage
 
 
