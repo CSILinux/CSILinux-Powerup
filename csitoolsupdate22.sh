@@ -16,7 +16,7 @@ rm /opt/csitools/helper/cewl > /dev/null 2>&1
 rm /opt/csitools/helper/sn0* > /dev/null 2>&1
 
 echo "Downloading CSI Tools"
-wget https://csilinux.com/downloads/csitools22.zip -O csitools22.zip
+wget https://csilinux.com/download/csitools22.zip -O csitools22.zip
 
 echo "# Installing CSI Tools"
 echo $key | sudo -S unzip -o -d / csitools22.zip
