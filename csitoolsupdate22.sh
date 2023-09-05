@@ -153,25 +153,26 @@ echo "100%"
 echo "Installing Computer Forensic Tools"
 cd /tmp
 if [ ! -f /opt/autopsy/bin/autopsy ]; then
-	wget https://github.com/sleuthkit/autopsy/releases/download/autopsy-4.20.0/autopsy-4.20.0.zip -O autopsy.zip
-	wget https://github.com/sleuthkit/sleuthkit/releases/download/sleuthkit-4.12.0/sleuthkit-java_4.12.0-1_amd64.deb -O sleuthkit-java.deb
+	cd /tmp
+	wget https://github.com/sleuthkit/autopsy/releases/download/autopsy-4.21.0/autopsy-4.21.0.zip -O autopsy.zip
+	wget https://github.com/sleuthkit/sleuthkit/releases/download/sleuthkit-4.12.1/sleuthkit-java_4.12.1-1_amd64.deb -O sleuthkit-java.deb
 	echo $key | sudo -S apt install ./sleuthkit-java.deb -y
 	wget https://raw.githubusercontent.com/sleuthkit/autopsy/develop/linux_macos_install_scripts/install_prereqs_ubuntu.sh
 	echo $key | sudo -S bash install_prereqs_ubuntu.sh
 	wget https://raw.githubusercontent.com/sleuthkit/autopsy/develop/linux_macos_install_scripts/install_application.sh
-	bash install_application.sh -z ./autopsy.zip -i /tmp/autopsy -j /usr/lib/jvm/bellsoft-java8-full-amd64
-	mv /tmp/autopsy/autopsy-4.20.0 /opt/autopsy
-	echo $key | sudo -S chmod +x /opt/autopsy/bin/autopsy
-	sed -i -e 's/\#jdkhome=\"\/path\/to\/jdk\"/jdkhome=\"\/usr\/lib\/jvm\/bellsoft-java8-full-amd64\/jre\"/g' /opt/autopsy/etc/autopsy.conf
+	bash install_application.sh -z ./autopsy.zip -i /tmp/ -j /usr/lib/jvm/java-1.17.0-openjdk-amd64
+ 	rm -rf /opt/autopsyold
+	mv /opt/autopsy /opt/autopsyold
+	mv /tmp/autopsy/autopsy-4.21.0 /opt/autopsy
+	sed -i -e 's/\#jdkhome=\"\/path\/to\/jdk\"/jdkhome=\"\/usr\/lib\/jvm\/java-17-openjdk-amd64\"/g' /opt/autopsy/etc/autopsy.conf
 	cd /opt/autopsy
-	if [ "$JAVA_HOME" == "" ]; then
-		export JAVA_HOME="/usr/lib/jvm/bellsoft-java8-full-amd64/jre"
-	fi
-	echo $key | sudo -S bash linux_macos_install_scripts/install_prereqs_ubuntu.sh
+	export JAVA_HOME="/usr/lib/jvm/java-17-openjdk-amd64"
+	echo $key | sudo -S chmod +x /opt/autopsy/bin/autopsy
+	echo $key | sudo -S chown csi:csi /opt/autopsy -R
 	bash unix_setup.sh
-	# /opt/autopsy/bin/autopsy --nosplash
 	cd ~/Downloads
 	git clone https://github.com/sleuthkit/autopsy_addon_modules.git
+	# /opt/autopsy/bin/autopsy --nosplash
 fi
 
 cd /tmp
