@@ -105,7 +105,7 @@ echo $key | sudo -S ln -s /usr/bin/python3 /usr/bin/python
 echo $key | sudo -S apt install python3-pip -y > /dev/null 2>&1
 echo $key | sudo -S apt install python3-pyqt5.qtsql -y > /dev/null 2>&1
 echo $key | sudo -S apt install bash-completion -y > /dev/null 2>&1
-echo $key | sudo -S apt install openjdk-19-jdk -y > /dev/null 2>&1
+# echo $key | sudo -S apt install openjdk-19-jdk -y > /dev/null 2>&1
 echo $key | sudo -S apt install dos2unix -y > /dev/null 2>&1
 dos2unix /opt/csitools/resetdns > /dev/null 2>&1
 echo $key | sudo -S apt install hexchat -y
@@ -117,6 +117,7 @@ echo "Checking Python Dependencies"
 pip install grequests > /dev/null 2>&1
 pip install sublist3r > /dev/null 2>&1
 pip install pyngrok > /dev/null 2>&1
+pip install phonefy > /dev/null 2>&1
 echo "10%"
 pip install instaloader > /dev/null 2>&1
 pip install dnslib > /dev/null 2>&1
