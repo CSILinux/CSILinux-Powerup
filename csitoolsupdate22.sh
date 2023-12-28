@@ -452,7 +452,6 @@ else
 	git pull
 fi
 
-rm -rf /opt/Osintgram
 if [ ! -f /opt/Osintgram/main.py ]; then
 	cd /opt
 	git clone https://github.com/Datalux/Osintgram.git
@@ -465,6 +464,9 @@ if [ ! -f /opt/Osintgram/main.py ]; then
 else
 	cd /opt/Osintgram
 	git pull
+	mv src/* .
+	find . -type f -exec sed -i 's/from\ src\ //g' {} +
+	find . -type f -exec sed -i 's/src.Osintgram/Osintgram/g' {} +
 fi
 
 if [ ! -f /opt/InstagramOSINT/main.py ]; then
