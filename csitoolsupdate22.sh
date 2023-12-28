@@ -510,7 +510,7 @@ if [ ! -f /opt/Storm-Breaker/st.py ]; then
 	cd Storm-Breaker
 	echo $key | sudo -S bash install.sh
 	echo $key | sudo -S apt install -y apache2 apache2-bin apache2-data apache2-utils libapache2-mod-php8.1 libapr1 libaprutil1 libaprutil1-dbd-sqlite3 libaprutil1-ldap php php-common php8.1 php8.1-cli php8.1-common php8.1-opcache php8.1-readline
-	pip install -r requirements.txt --quiet
+	pip install -r requirments.txt --quiet
 else
 	cd /opt/Storm-Breaker
 	git pull
@@ -518,7 +518,7 @@ fi
 
 if ! which zoom; then
 	cd /opt
-	mkdir zoom
+	mkdir zoom > /dev/null 2>&1
 	cd zoom
 	wget https://zoom.us/client/5.14.7.2928/zoom_amd64.deb
 	echo $key | sudo -S apt install ./zoom_amd64.deb -y
@@ -795,23 +795,23 @@ echo $key | sudo -S update-initramfs -u  > /dev/null 2>&1
 cd /tmp	
 
 
-echo $key | sudo -S apt install --fix-broken -y
+echo $key | sudo -S apt install --fix-broken -y > /dev/null 2>&1
 echo "# Fixing broken APT installs level 2"
-echo $key | sudo -S dpkg --configure -a
+echo $key | sudo -S dpkg --configure -a > /dev/null 2>&1
 echo "# Upgrading third party tools"
-echo $key | sudo -S full-upgrade -y
+echo $key | sudo -S full-upgrade -y > /dev/null 2>&1
 echo "# Fixing broken APT installs level 3"
-echo $key | sudo -S apt -f install
+echo $key | sudo -S apt -f install > /dev/null 2>&1
 echo "# Fixing broken APT installs level 4"
-echo $key | sudo -S apt upgrade --fix-missing -y
+echo $key | sudo -S apt upgrade --fix-missing -y > /dev/null 2>&1
 echo "# Verifying APT installs"
-echo $key | sudo -S dpkg --configure -a
+echo $key | sudo -S dpkg --configure -a > /dev/null 2>&1
 echo "# Fixing broken APT installs level 6"
-echo $key | sudo -S dpkg --configure -a --force-confold
+echo $key | sudo -S dpkg --configure -a --force-confold > /dev/null 2>&1
 echo "# Removing old software APT installs"
-echo $key | sudo -S apt autoremove -y
+echo $key | sudo -S apt autoremove -y > /dev/null 2>&1
 echo "# Removing APT cache to save space"
-echo $key | sudo -S apt autoclean -y
+echo $key | sudo -S apt autoclean -y > /dev/null 2>&1
 echo $key | sudo -S chown csi:csi /opt
 echo $key | sudo -S updatedb
 echo "Please reboot when finished updating"
