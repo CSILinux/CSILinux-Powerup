@@ -71,13 +71,12 @@ echo $key | sudo -S apt install python3-pip -y > /dev/null 2>&1
 echo $key | sudo -S apt install python3-pyqt5.qtsql -y > /dev/null 2>&1
 echo $key | sudo -S apt install bash-completion -y > /dev/null 2>&1
 dos2unix /opt/csitools/resetdns > /dev/null 2>&1
-echo $key | sudo -S apt install hexchat -y
 wget https://csilinux.com/downloads/apps.txt
 sudo apt install -y $(grep -vE "^\s*#" apps.txt | sed -e 's/#.*//'  | tr "\n" " ")
-echo $key | sudo -S ln -s /usr/bin/python3 /usr/bin/python
-echo $key | sudo -S adduser $USER vboxsf
-echo $key | sudo -S adduser $USER libvirt
-echo $key | sudo -S adduser $USER kvm
+echo $key | sudo -S ln -s /usr/bin/python3 /usr/bin/python > /dev/null 2>&1
+echo $key | sudo -S adduser $USER vboxsf > /dev/null 2>&1
+echo $key | sudo -S adduser $USER libvirt > /dev/null 2>&1
+echo $key | sudo -S adduser $USER kvm > /dev/null 2>&1
 
 xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg
 xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitorVirtual1/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg
@@ -459,6 +458,10 @@ if [ ! -f /opt/Osintgram/main.py ]; then
 	git clone https://github.com/Datalux/Osintgram.git
 	cd Osintgram
 	pip install -r requirements.txt --quiet
+	mv src/* .
+	find . -type f -exec sed -i 's/from\ src\ //g' {} +
+	find . -type f -exec sed -i 's/src.Osintgram/Osintgram/g' {} +
+	
 else
 	cd /opt/Osintgram
 	git pull
@@ -477,8 +480,8 @@ fi
 if [ ! -f /opt/OnionSearch/setup.py ]; then
 	cd /opt
 	git clone https://github.com/CSILinux/OnionSearch.git
-        cd OnionSearch/
-        python3 setup.py install
+    cd OnionSearch/
+    python3 setup.py install
 else
 	cd /opt/OnionSearch
 	git pull
@@ -516,15 +519,6 @@ else
 	git pull
 fi
 
-if ! which zoom; then
-	cd /opt
-	mkdir zoom > /dev/null 2>&1
-	cd zoom
-	wget https://zoom.us/client/5.14.7.2928/zoom_amd64.deb
-	echo $key | sudo -S apt install ./zoom_amd64.deb -y
-	rm zoom_amd64.deb
-fi
-
 if ! which maltego; then
 	cd /tmp
 	wget https://csilinux.com/downloads/Maltego.deb
@@ -539,9 +533,6 @@ echo "Installing Darkweb Tools"
 cd /tmp
 
 
-if ! which lokinet-gui > /dev/null; then
-    echo $key | sudo -S apt install lokinet-gui -y
-fi
 if [ ! -f /opt/OxenWallet/oxen-electron-wallet-1.8.1-linux.AppImage ]; then
 	cd /opt
 	mkdir OxenWallet
@@ -575,9 +566,8 @@ echo $key | sudo -S service tor start
 # i2p
 echo $key | sudo -S snap remove i2pi2p > /dev/null 2>&1
 echo $key | sudo -S apt install i2p* -y > /dev/null 2>&1
+echo $key | sudo -S apt install openjdk-19-jdk
 echo $key | sudo -S update-java-alternatives -s /usr/lib/jvm/java-1.19.0-openjdk-amd64
-
-
 
 # echo $key | sudo -S groupadd tor-auth
 # echo $key | sudo -S usermod -a -G tor-auth debian-tor
