@@ -385,6 +385,16 @@ else
 	git pull
 fi
 
+if [ ! -f /opt/Rock-ON/rockon.sh ]; then
+	cd /opt
+	git clone https://github.com/SilverPoision/Rock-ON.git
+	cd Rock-ON
+	chmod +x rockon.sh
+else
+	cd /opt/Rock-ON
+	git pull
+fi
+
 if [ ! -f /opt/Carbon14/carbon14.py ]; then
 	cd /opt
 	git clone https://github.com/Lazza/Carbon14.git
@@ -449,6 +459,17 @@ if [ ! -f /opt/Goohak/goohak ]; then
 	echo $key | sudo -S chmod +x /opt/Goohak/goohak
 else
 	cd /opt/Goohak
+	git pull
+fi
+
+if [ ! -f /opt/LittleBrother/LittleBrother.py ]; then
+	cd /opt
+	git clone https://github.com/Lulz3xploit/LittleBrother
+	cd LittleBrother
+	pip install -r requirements.txt --quiet
+	echo $key | sudo -S chmod +x LittleBrother.py
+else
+	cd /opt/LittleBrother
 	git pull
 fi
 
@@ -669,7 +690,18 @@ fi
 
 
 
-
+# Network
+echo "Installing Network Tools"
+if [ ! -f /opt/NetworkMiner/NetworkMiner.exe ]; then
+	cd /tmp
+	wget https://www.netresec.com/?download=NetworkMiner -O networkminer.zip
+    unzip networkminer.zip
+	rm -rf /opt/NetworkMiner
+	mv NetworkMiner* /opt/NetworkMiner
+else
+	cd /opt/exploitdb
+	git pull
+fi
 
 
 
