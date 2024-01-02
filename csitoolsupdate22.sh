@@ -818,7 +818,7 @@ echo $key | sudo -S update-initramfs -u  > /dev/null 2>&1
 
 cd /tmp	
 
-
+echo $key | sudo -S ubuntu-drivers autoinstall
 echo $key | sudo -S apt install --fix-broken -y > /dev/null 2>&1
 echo "# Fixing broken APT installs level 2"
 echo $key | sudo -S dpkg --configure -a > /dev/null 2>&1
