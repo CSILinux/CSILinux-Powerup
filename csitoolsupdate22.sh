@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 
 cd /tmp
-key=$(zenity --password --title "Power up your system with an upgrade." --text "Enter your CSI password." --width 400)
+if [ -z "$1" ]; then
+    key=$(zenity --password --title "Power up your system with an upgrade." --text "Enter your CSI password." --width 400)
+    # You can use the 'key' variable for further processing
+else
+    key=$1
+fi
 echo "Installing CSI Linux Tools and Menu update"
 rm csi* > /dev/null 2>&1
 
