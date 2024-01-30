@@ -72,7 +72,7 @@ echo $key | sudo -S apt install python3-pyqt5.qtsql -y > /dev/null 2>&1
 echo $key | sudo -S apt install bash-completion -y > /dev/null 2>&1
 dos2unix /opt/csitools/resetdns > /dev/null 2>&1
 wget https://csilinux.com/downloads/apps.txt
-sudo apt install -y $(grep -vE "^\s*#" apps.txt | sed -e 's/#.*//'  | tr "\n" " ")
+echo $key | sudo -S apt install -y $(grep -vE "^\s*#" apps.txt | sed -e 's/#.*//'  | tr "\n" " ")
 echo $key | sudo -S ln -s /usr/bin/python3 /usr/bin/python > /dev/null 2>&1
 echo $key | sudo -S adduser $USER vboxsf > /dev/null 2>&1
 echo $key | sudo -S adduser $USER libvirt > /dev/null 2>&1
