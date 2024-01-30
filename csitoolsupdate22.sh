@@ -53,7 +53,7 @@ echo $key | sudo -S bash -c "echo 'deb https://packages.element.io/debian/ defau
 echo $key | sudo -S sudo curl -so /etc/apt/trusted.gpg.d/oxen.gpg https://deb.oxen.io/pub.gpg
 echo $key | sudo -S bash -c "echo 'deb https://deb.oxen.io $(lsb_release -sc) main' | sudo -S tee /etc/apt/sources.list.d/oxen.list"
 echo $key | sudo -S sudo curl -fsSL https://updates.signal.org/desktop/apt/keys.asc | sudo -S gpg --dearmor | sudo -S tee /etc/apt/trusted.gpg.d/element-io-archive-keyring.gpg >/dev/null
-echo $key | sudo -S bash -c "echo 'deb [signed-by=/usr/share/keyrings/signal-desktop-keyring.gpg] https://updates.signal.org/desktop/apt xenial main' | sudo -S tee /etc/apt/sources.list.d/signal-desktop-keyring.list"
+echo $key | sudo -S bash -c "echo 'deb [signed-by=/etc/apt/trusted.gpg.d/signal-desktop-keyring.gpg] https://updates.signal.org/desktop/apt xenial main' | sudo -S tee /etc/apt/sources.list.d/signal-desktop-keyring.list"
 echo $key | sudo -S curl -fsSLo /usr/share/keyrings/brave-browser-archive-keyring.gpg https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg
 echo $key | sudo -S bash -c "deb [signed-by=/usr/share/keyrings/brave-browser-archive-keyring.gpg] https://brave-browser-apt-release.s3.brave.com/ stable main" | sudo -S tee /etc/apt/sources.list.d/brave-browser-release.list
 echo $key | sudo -S sudo curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | sudo -S gpg --dearmor | sudo -S tee /etc/apt/trusted.gpg.d/packages.microsoft.gpg >/dev/null
