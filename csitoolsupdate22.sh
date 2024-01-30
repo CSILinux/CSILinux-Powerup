@@ -14,7 +14,13 @@ echo "Downloading CSI Tools"
 wget https://csilinux.com/download/csitools22.zip -O csitools22.zip
 
 echo "# Installing CSI Tools"
-echo $key | sudo -S unzip -o -d / csitools22.zip
+# echo $key | sudo -S unzip -o -d / csitools22.zip
+unzip -o -d / csitools22.zip && find /csitools22 -type f -exec sh -c '
+  for file do
+    target_file="/${file#/csitools22/}"
+    [ ! -e "$target_file" ] || [ "$file" -nt "$target_file" ] && sudo cp "$file" "$target_file"
+  done
+' sh {} + && sudo rm -r /csitools22
 echo $key | sudo -S chown csi:csi -R /opt/csitools 
 echo $key | sudo -S chmod +x /opt/csitools/* -R
 echo $key | sudo -S chmod +x /opt/csitools/*
