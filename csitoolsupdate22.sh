@@ -618,9 +618,9 @@ fi
 
 if [ ! -f /opt/FlipperZero/qFlipperZero.AppImage ]; then
 	cd /tmp
-	wget https://update.flipperzero.one/builds/qFlipper/1.3.1-rc1/qFlipper-x86_64-1.3.1-rc1.AppImage
+	wget https://update.flipperzero.one/builds/qFlipper/1.3.3/qFlipper-x86_64-1.3.3.AppImage
 	mkdir /opt/FlipperZero
-	mv ./qFlipper-x86_64-1.3.1-rc1.AppImage /opt/FlipperZero/qFlipperZero.AppImage
+	mv ./qFlipper-x86_64-1.3.3.AppImage /opt/FlipperZero/qFlipperZero.AppImage
 	cd /opt/FlipperZero/
 	echo $key | sudo -S chmod +x /opt/FlipperZero/qFlipperZero.AppImage
 	echo $key | sudo -S ln -sf /opt/FlipperZero/qFlipperZero.AppImage /usr/local/bin/qFlipperZero
