@@ -791,8 +791,9 @@ echo $key | sudo -S rm -rf /var/crash/* > /dev/null 2>&1
 echo $key | sudo -S rm /var/crash/* > /dev/null 2>&1
 rm ~/.vbox* > /dev/null 2>&1
 
-
+echo $key | sudo -S touch /etc/resolv.conf
 echo $key | sudo -S bash -c "mv /etc/resolv.conf /etc/resolv.conf.bak" > /dev/null 2>&1
+
 
 if grep -q "nameserver 127.0.0.53" /etc/resolv.conf; then
     echo "Resolve already configured for Tor"
@@ -818,7 +819,7 @@ echo $key | sudo -S update-initramfs -u  > /dev/null 2>&1
 
 cd /tmp	
 
-echo $key | sudo -S ubuntu-drivers autoinstall
+# echo $key | sudo -S ubuntu-drivers autoinstall
 echo $key | sudo -S apt install --fix-broken -y > /dev/null 2>&1
 echo "# Fixing broken APT installs level 2"
 echo $key | sudo -S dpkg --configure -a > /dev/null 2>&1
