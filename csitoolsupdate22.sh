@@ -31,7 +31,6 @@ export APT_LISTCHANGES_FRONTEND=none
 tar -xf /opt/csitools/assets/Win11-blue.tar.xz --directory /home/csi/.icons/ > /dev/null 2>&1
 echo $key | sudo -S apt-get remove --purge --allow-remove-essential -y `dpkg --get-selections | awk '/i386/{print $1}'`
 echo $key | sudo -S dpkg --remove-architecture i386
-
 echo $key | sudo -S rm -rfv /usr/local/bin/kismet* /usr/local/share/kismet* /usr/local/etc/kismet*
 
 echo "# Cleaning up apt keys"
@@ -52,17 +51,21 @@ echo $key | sudo -S bash -c "echo 'deb https://www.kismetwireless.net/repos/apt/
 echo $key | sudo -S sudo curl -fsSL https://packages.element.io/debian/element-io-archive-keyring.gpg | sudo -S gpg --dearmor | sudo -S tee /etc/apt/trusted.gpg.d/element-io-archive-keyring.gpg >/dev/null
 echo $key | sudo -S bash -c "echo 'deb https://packages.element.io/debian/ default main' | sudo -S tee > element-io.list"
 echo $key | sudo -S sudo curl -so /etc/apt/trusted.gpg.d/oxen.gpg https://deb.oxen.io/pub.gpg
-echo $key | sudo -S bash -c " echo 'deb https://deb.oxen.io $(lsb_release -sc) main' | sudo -S tee /etc/apt/sources.list.d/oxen.list"
+echo $key | sudo -S bash -c "echo 'deb https://deb.oxen.io $(lsb_release -sc) main' | sudo -S tee /etc/apt/sources.list.d/oxen.list"
 echo $key | sudo -S sudo curl -fsSL https://updates.signal.org/desktop/apt/keys.asc | sudo -S gpg --dearmor | sudo -S tee /etc/apt/trusted.gpg.d/element-io-archive-keyring.gpg >/dev/null
-echo $key | sudo -S bash -c " echo 'deb [signed-by=/usr/share/keyrings/signal-desktop-keyring.gpg] https://updates.signal.org/desktop/apt xenial main' | sudo -S tee /etc/apt/sources.list.d/signal-desktop-keyring.list"
+echo $key | sudo -S bash -c "echo 'deb [signed-by=/usr/share/keyrings/signal-desktop-keyring.gpg] https://updates.signal.org/desktop/apt xenial main' | sudo -S tee /etc/apt/sources.list.d/signal-desktop-keyring.list"
 echo $key | sudo -S curl -fsSLo /usr/share/keyrings/brave-browser-archive-keyring.gpg https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg
-echo "deb [signed-by=/usr/share/keyrings/brave-browser-archive-keyring.gpg] https://brave-browser-apt-release.s3.brave.com/ stable main" | sudo -S tee /etc/apt/sources.list.d/brave-browser-release.list
+echo $key | sudo -S bash -c "deb [signed-by=/usr/share/keyrings/brave-browser-archive-keyring.gpg] https://brave-browser-apt-release.s3.brave.com/ stable main" | sudo -S tee /etc/apt/sources.list.d/brave-browser-release.list
+echo $key | sudo -S sudo curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | sudo -S gpg --dearmor | sudo -S tee /etc/apt/trusted.gpg.d/packages.microsoft.gpg >/dev/null
+echo $key | sudo -S bash -c " echo 'deb [signed-by=/etc/apt/trusted.gpg.d/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main' | sudo -S tee /etc/apt/sources.list.d/vscode.list"
 echo $key | sudo -S apt-add-repository ppa:i2p-maintainers/i2p -y
 echo $key | sudo -S add-apt-repository ppa:danielrichter2007/grub-customizer
 
 
 echo $key | sudo -S apt remove proxychains4 -y > /dev/null 2>&1
 echo $key | sudo -S apt remove proxychains -y > /dev/null 2>&1
+echo $key | sudo -S apt install apt-transport-https -y > /dev/null 2>&1
+echo $key | sudo -S apt install code -y > /dev/null 2>&1
 echo $key | sudo -S rm -rf /var/lib/tor/hidden_service/ > /dev/null 2>&1
 echo $key | sudo -S rm -rf /var/lib/tor/other_hidden_service/ > /dev/null 2>&1
 echo $key | sudo -S wget -O - https://teejeetech.com/scripts/jammy/disable_swapfile | bash
@@ -73,6 +76,8 @@ echo $key | sudo -S apt install xfce4-goodies -y > /dev/null 2>&1
 echo $key | sudo -S apt install -y libmagic-dev python3-magic python3-pyregfi > /dev/null 2>&1
 echo $key | sudo -S apt install python3-pip -y > /dev/null 2>&1
 echo $key | sudo -S apt install python3-pyqt5.qtsql -y > /dev/null 2>&1
+echo $key | sudo -S apt install python3-pyqt5.qtsql -y > /dev/null 2>&1
+echo $key | sudo -S apt install libc6 libstdc++6 ca-certificates tar -y > /dev/null 2>&1
 echo $key | sudo -S apt install bash-completion -y > /dev/null 2>&1
 dos2unix /opt/csitools/resetdns > /dev/null 2>&1
 rm apps.txt
@@ -103,6 +108,7 @@ echo $key | sudo -S apt-get install ./hunchly.deb -y
 
 python3 -m pip install pip --upgrade > /dev/null 2>&1
 echo "Checking Python Dependencies"
+pip install pyside6 --quiet > /dev/null 2>&1
 pip install grequests --quiet > /dev/null 2>&1
 pip install sublist3r --quiet > /dev/null 2>&1
 pip install pyngrok --quiet > /dev/null 2>&1
