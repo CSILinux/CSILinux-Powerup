@@ -14,13 +14,8 @@ echo "Downloading CSI Tools"
 wget https://csilinux.com/download/csitools22.zip -O csitools22.zip
 
 echo "# Installing CSI Tools"
-# echo $key | sudo -S unzip -o -d / csitools22.zip
-unzip -o -d / csitools22.zip && find /csitools22 -type f -exec sh -c '
-  for file do
-    target_file="/${file#/csitools22/}"
-    [ ! -e "$target_file" ] || [ "$file" -nt "$target_file" ] && sudo cp "$file" "$target_file"
-  done
-' sh {} + && sudo rm -r /csitools22
+echo $key | sudo -S unzip -o -d / csitools22.zip
+
 echo $key | sudo -S chown csi:csi -R /opt/csitools 
 echo $key | sudo -S chmod +x /opt/csitools/* -R
 echo $key | sudo -S chmod +x /opt/csitools/*
@@ -69,6 +64,7 @@ echo $key | sudo -S curl -fsSLo /usr/share/keyrings/brave-browser-archive-keyrin
 echo $key | sudo -S bash -c "deb [signed-by=/usr/share/keyrings/brave-browser-archive-keyring.gpg] https://brave-browser-apt-release.s3.brave.com/ stable main" | sudo -S tee /etc/apt/sources.list.d/brave-browser-release.list
 echo $key | sudo -S sudo curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | sudo -S gpg --dearmor | sudo -S tee /etc/apt/trusted.gpg.d/packages.microsoft.gpg >/dev/null
 echo $key | sudo -S bash -c " echo 'deb [signed-by=/etc/apt/trusted.gpg.d/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main' | sudo -S tee /etc/apt/sources.list.d/vscode.list"
+
 echo $key | sudo -S apt-add-repository ppa:i2p-maintainers/i2p -y
 echo $key | sudo -S add-apt-repository ppa:danielrichter2007/grub-customizer
 
@@ -116,6 +112,25 @@ rm  hunchly.deb > /dev/null 2>&1
 wget -O hunchly.deb https://downloadmirror.hunch.ly/currentversion/hunchly.deb?csilinux_update
 echo $key | sudo -S apt-get install ./hunchly.deb -y
 
+echo $key | sudo -S apt install maltego -y > /dev/null 2>&1
+echo $key | sudo -S apt install python3-shodan -y > /dev/null 2>&1
+echo $key | sudo -S apt install webhttrack -y > /dev/null 2>&1
+echo $key | sudo -S apt install outguess -y > /dev/null 2>&1
+echo $key | sudo -S apt install stegosuite -y > /dev/null 2>&1
+echo $key | sudo -S apt install wireshark -y > /dev/null 2>&1
+echo $key | sudo -S apt install exifprobe -y > /dev/null 2>&1
+echo $key | sudo -S apt install ruby-bundler -y > /dev/null 2>&1
+echo $key | sudo -S apt install recon-ng -y > /dev/null 2>&1
+echo $key | sudo -S apt install cherrytree -y > /dev/null 2>&1
+echo $key | sudo -S apt install drawing -y > /dev/null 2>&1
+echo $key | sudo -S apt install cargo -y > /dev/null 2>&1
+echo $key | sudo -S apt install pkg-config -y > /dev/null 2>&1
+echo $key | sudo -S apt install npm -y > /dev/null 2>&1
+echo $key | sudo -S apt install curl -y > /dev/null 2>&1
+echo $key | sudo -S apt install pipx -y > /dev/null 2>&1
+echo $key | sudo -S apt install python3-tweepy -y > /dev/null 2>&1
+echo $key | sudo -S apt install python3-exifread -y > /dev/null 2>&1
+echo $key | sudo -S apt install yt-dlp -y > /dev/null 2>&1
 
 python3 -m pip install pip --upgrade > /dev/null 2>&1
 echo "Checking Python Dependencies"
@@ -124,14 +139,21 @@ pip install grequests --quiet > /dev/null 2>&1
 pip install sublist3r --quiet > /dev/null 2>&1
 pip install pyngrok --quiet > /dev/null 2>&1
 pip install phonefy --quiet > /dev/null 2>&1
+pip install fake-useragent --quiet > /dev/null 2>&1
 echo "10%"
 pip install instaloader --quiet > /dev/null 2>&1
+pip install osrframework --quiet > /dev/null 2>&1
+pip install osrframework --upgrade --quiet > /dev/null 2>&1
 pip install dnslib --quiet > /dev/null 2>&1
 pip install icmplib --quiet > /dev/null 2>&1
 echo "20%"
 pip install passwordmeter --quiet > /dev/null 2>&1
 pip install image --quiet > /dev/null 2>&1
 pip install ConfigParser --quiet > /dev/null 2>&1
+pip install youtube-dl --quiet > /dev/null 2>&1
+pip install dnsdumpster --quiet > /dev/null 2>&1
+pip install h8mail --quiet > /dev/null 2>&1
+pip install toutatis --quiet > /dev/null 2>&1
 echo "30%"
 pip install pyexiv2 --quiet > /dev/null 2>&1
 pip install oauth2 --quiet > /dev/null 2>&1
@@ -349,6 +371,11 @@ fi
 if ! which google-chrome > /dev/null; then
 	wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
 	echo $key | sudo -S apt install -y ./google-chrome-stable_current_amd64.deb
+fi
+
+if [ ! -f ~/.joplin/Joplin.AppImage ]; then
+	wget -O – https://raw.githubusercontent.com/laurent22/joplin/master/
+	Joplin_install_and_update.sh | bash
 fi
 
 if ! which sn0int; then
