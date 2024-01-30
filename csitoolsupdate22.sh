@@ -61,7 +61,6 @@ echo $key | sudo -S bash -c " echo 'deb [signed-by=/etc/apt/trusted.gpg.d/packag
 echo $key | sudo -S apt-add-repository ppa:i2p-maintainers/i2p -y
 echo $key | sudo -S add-apt-repository ppa:danielrichter2007/grub-customizer
 
-
 echo $key | sudo -S apt remove proxychains4 -y > /dev/null 2>&1
 echo $key | sudo -S apt remove proxychains -y > /dev/null 2>&1
 echo $key | sudo -S apt install apt-transport-https -y > /dev/null 2>&1
@@ -69,7 +68,7 @@ echo $key | sudo -S apt install code -y > /dev/null 2>&1
 echo $key | sudo -S rm -rf /var/lib/tor/hidden_service/ > /dev/null 2>&1
 echo $key | sudo -S rm -rf /var/lib/tor/other_hidden_service/ > /dev/null 2>&1
 echo $key | sudo -S wget -O - https://teejeetech.com/scripts/jammy/disable_swapfile | bash
-wget -O - https://teejeetech.com/scripts/jammy/tweak_terminal | bash
+wget -O - https://raw.githubusercontent.com/CSILinux/CSILinux-Powerup/main/csi-linux-terminal.sh | bash
 echo $key | sudo -S apt install -y zram-config
 echo $key | sudo -S apt install xfce4-cpugraph-plugin -y > /dev/null 2>&1
 echo $key | sudo -S apt install xfce4-goodies -y > /dev/null 2>&1
@@ -80,13 +79,14 @@ echo $key | sudo -S apt install python3-pyqt5.qtsql -y > /dev/null 2>&1
 echo $key | sudo -S apt install libc6 libstdc++6 ca-certificates tar -y > /dev/null 2>&1
 echo $key | sudo -S apt install bash-completion -y > /dev/null 2>&1
 dos2unix /opt/csitools/resetdns > /dev/null 2>&1
-rm apps.txt
-wget https://csilinux.com/downloads/apps.txt
+rm apps.txt; wget https://csilinux.com/downloads/apps.txt
 echo $key | sudo -S apt install -y $(grep -vE "^\s*#" apps.txt | sed -e 's/#.*//'  | tr "\n" " ")
 echo $key | sudo -S ln -s /usr/bin/python3 /usr/bin/python > /dev/null 2>&1
-echo $key | sudo -S adduser $USER vboxsf > /dev/null 2>&1
-echo $key | sudo -S adduser $USER libvirt > /dev/null 2>&1
-echo $key | sudo -S adduser $USER kvm > /dev/null 2>&1
+USERNAME=csi
+useradd -m $USERNAME -G sudo -s /bin/bash && echo -e "$USERNAME\N$USERNAME\n" | passwd $USERNAME > /dev/null 2>&1
+echo $key | sudo -S adduser $USERNAME vboxsf > /dev/null 2>&1
+echo $key | sudo -S adduser $USERNAME libvirt > /dev/null 2>&1
+echo $key | sudo -S adduser $USERNAME kvm > /dev/null 2>&1
 
 xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg
 xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitorVirtual1/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg
