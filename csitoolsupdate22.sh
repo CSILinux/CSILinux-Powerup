@@ -53,6 +53,10 @@ echo $key | sudo -S sudo curl -fsSL https://packages.element.io/debian/element-i
 echo $key | sudo -S bash -c "echo 'deb https://packages.element.io/debian/ default main' | sudo -S tee > element-io.list"
 echo $key | sudo -S sudo curl -so /etc/apt/trusted.gpg.d/oxen.gpg https://deb.oxen.io/pub.gpg
 echo $key | sudo -S bash -c " echo 'deb https://deb.oxen.io $(lsb_release -sc) main' | sudo -S tee /etc/apt/sources.list.d/oxen.list"
+echo $key | sudo -S sudo curl -fsSL https://updates.signal.org/desktop/apt/keys.asc | sudo -S gpg --dearmor | sudo -S tee /etc/apt/trusted.gpg.d/element-io-archive-keyring.gpg >/dev/null
+echo $key | sudo -S bash -c " echo 'deb [signed-by=/usr/share/keyrings/signal-desktop-keyring.gpg] https://updates.signal.org/desktop/apt xenial main' | sudo -S tee /etc/apt/sources.list.d/signal-desktop-keyring.list"
+echo $key | sudo -S curl -fsSLo /usr/share/keyrings/brave-browser-archive-keyring.gpg https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg
+echo "deb [signed-by=/usr/share/keyrings/brave-browser-archive-keyring.gpg] https://brave-browser-apt-release.s3.brave.com/ stable main" | sudo -S tee /etc/apt/sources.list.d/brave-browser-release.list
 echo $key | sudo -S apt-add-repository ppa:i2p-maintainers/i2p -y
 echo $key | sudo -S add-apt-repository ppa:danielrichter2007/grub-customizer
 
@@ -71,6 +75,7 @@ echo $key | sudo -S apt install python3-pip -y > /dev/null 2>&1
 echo $key | sudo -S apt install python3-pyqt5.qtsql -y > /dev/null 2>&1
 echo $key | sudo -S apt install bash-completion -y > /dev/null 2>&1
 dos2unix /opt/csitools/resetdns > /dev/null 2>&1
+rm apps.txt
 wget https://csilinux.com/downloads/apps.txt
 echo $key | sudo -S apt install -y $(grep -vE "^\s*#" apps.txt | sed -e 's/#.*//'  | tr "\n" " ")
 echo $key | sudo -S ln -s /usr/bin/python3 /usr/bin/python > /dev/null 2>&1
@@ -554,7 +559,10 @@ fi
 
 echo "Installing Darkweb Tools"
 cd /tmp
-
+if ! which orjail > /dev/null; then
+        wget https://github.com/orjail/orjail/releases/download/v1.1/orjail_1.1-1_all.deb
+	echo $key | sudo -S apt install ./orjail_1.1-1_all.deb
+fi
 
 if [ ! -f /opt/OxenWallet/oxen-electron-wallet-1.8.1-linux.AppImage ]; then
 	cd /opt
