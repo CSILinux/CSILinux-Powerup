@@ -793,9 +793,9 @@ rm ~/.vbox* > /dev/null 2>&1
 
 echo $key | sudo -S touch /etc/resolv.conf
 echo $key | sudo -S bash -c "mv /etc/resolv.conf /etc/resolv.conf.bak" > /dev/null 2>&1
+echo $key | sudo -S touch /etc/resolv.conf
 
-
-if grep -q "nameserver 127.0.0.53" /etc/resolv.conf; then
+if grep -q "nameserver 127.0.0.53" /etc/resolv.conf > /dev/null 2>&1; then
     echo "Resolve already configured for Tor"
 else
     echo $key | sudo -S bash -c "echo 'nameserver 127.0.0.53' > /etc/resolv.conf"
