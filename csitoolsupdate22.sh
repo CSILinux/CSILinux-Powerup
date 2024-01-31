@@ -742,6 +742,7 @@ if [ ! -f /opt/ghidra/VERSION ]; then
 	cd /tmp
 	wget https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_11.0_build/ghidra_11.0_PUBLIC_20231222.zip
 	unzip ghidra_11.0_PUBLIC_20231222.zip
+ 	rm -rf /opt/ghidra
 	mv ghidra_11.0_PUBLIC /opt/ghidra
 	cd /opt/ghidra
  	cat "11.0" > VERSION
