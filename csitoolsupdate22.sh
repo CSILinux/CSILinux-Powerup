@@ -76,7 +76,8 @@ echo $key | sudo -S bash -c "echo 'deb https://deb.oxen.io $(lsb_release -sc) ma
 echo $key | sudo -S curl -fsSL https://updates.signal.org/desktop/apt/keys.asc | sudo -S gpg --dearmor | sudo -S tee /etc/apt/trusted.gpg.d/signal-desktop-keyring.gpg > /dev/null
 echo $key | sudo -S bash -c "echo 'deb [signed-by=/etc/apt/trusted.gpg.d/signal-desktop-keyring.gpg] https://updates.signal.org/desktop/apt xenial main' | sudo -S tee /etc/apt/sources.list.d/signal-desktop-keyring.list"
 echo $key | sudo -S curl -fsSL https://brave-browser-apt-release.s3.brave.com/brave-core.asc | sudo -S gpg --dearmor | sudo -S tee /etc/apt/trusted.gpg.d/brave-browser-archive-keyring.gpg > /dev/null
-echo $key | sudo -S bash -c " echo 'deb [signed-by=/etc/apt/trusted.gpg.d/brave-browser-archive-keyring.gpg] https://brave-browser-apt-release.s3.brave.com/ stable main' | sudo -S tee /etc/apt/sources.list.d/brave-browser-release.list"echo $key | sudo -S curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | sudo -S gpg --dearmor | sudo -S tee /etc/apt/trusted.gpg.d/packages.microsoft.gpg > /dev/null
+echo $key | sudo -S bash -c " echo 'deb [signed-by=/etc/apt/trusted.gpg.d/brave-browser-archive-keyring.gpg] https://brave-browser-apt-release.s3.brave.com/ stable main' | sudo -S tee /etc/apt/sources.list.d/brave-browser-release.list"
+echo $key | sudo -S curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | sudo -S gpg --dearmor | sudo -S tee /etc/apt/trusted.gpg.d/packages.microsoft.gpg > /dev/null
 echo $key | sudo -S bash -c " echo 'deb [signed-by=/etc/apt/trusted.gpg.d/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main' | sudo -S tee /etc/apt/sources.list.d/vscode.list"
 echo $key | sudo -S apt-add-repository ppa:i2p-maintainers/i2p -y
 echo $key | sudo -S add-apt-repository ppa:danielrichter2007/grub-customizer
