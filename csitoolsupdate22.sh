@@ -151,60 +151,57 @@ echo $key | sudo -S apt install python3-tweepy -y > /dev/null 2>&1
 echo $key | sudo -S apt install python3-exifread -y > /dev/null 2>&1
 echo $key | sudo -S apt install yt-dlp -y > /dev/null 2>&1
 
-# List of Python packages to install
-tool_packages=(
-    "pip"
-    "grequests"
-    "sublist3r"
-    "pyngrok"
-    "phonefy"
-    "fake-useragent"
-    "instaloader"
-    "osrframework"
-    "osrframework --upgrade"
-    "dnslib"
-    "icmplib"
-    "passwordmeter"
-    "image"
-    "ConfigParser"
-    "youtube-dl"
-    "dnsdumpster"
-    "h8mail"
-    "toutatis"
-    "pyexiv2"
-    "oauth2"
-    "reload"
-    "telepathy"
-    "stem"
-    "nest_asyncio"
-    "simplekml"
-    "libregf-python"
-    "libesedb-python"
-    "xmltodict"
-    "PySimpleGUI"
-    "pyudev"
-    "PySide2"
-    "PySide6"
-)
-
-sorted_packages=($(for pkg in "${tool_packages[@]}"; do echo "$pkg"; done | sort))
-total_packages=${#sorted_packages[@]}
-percentage=0
-
-echo "# Pip update"
-python3 -m pip install pip --upgrade > /dev/null 2>&1
-((percentage++))
-
 echo "# Checking Python Dependencies"
-
-for package in "${sorted_packages[@]}"; do
-    echo "  $((percentage * 100 / total_packages))%"
-    pip install $package --quiet > /dev/null 2>&1
-    ((percentage++))
-done
-
-echo "  100%"
-
+pip install pyside6 --quiet > /dev/null 2>&1
+pip install grequests --quiet > /dev/null 2>&1
+pip install sublist3r --quiet > /dev/null 2>&1
+echo "  5%"
+pip install pyngrok --quiet > /dev/null 2>&1
+pip install phonefy --quiet > /dev/null 2>&1
+pip install fake-useragent --quiet > /dev/null 2>&1
+echo "  10%"
+pip install instaloader --quiet > /dev/null 2>&1
+pip install osrframework --quiet > /dev/null 2>&1
+pip install osrframework --upgrade --quiet > /dev/null 2>&1
+echo "  15%"
+pip install dnslib --quiet > /dev/null 2>&1
+pip install icmplib --quiet > /dev/null 2>&1
+echo "  20%"
+pip install passwordmeter --quiet > /dev/null 2>&1
+pip install image --quiet > /dev/null 2>&1
+pip install ConfigParser --quiet > /dev/null 2>&1
+echo "  25%"
+pip install youtube-dl --quiet > /dev/null 2>&1
+pip install dnsdumpster --quiet > /dev/null 2>&1
+pip install h8mail --quiet > /dev/null 2>&1
+pip install toutatis --quiet > /dev/null 2>&1
+echo "  30%"
+pip install pyexiv2 --quiet > /dev/null 2>&1
+echo "  35%"
+pip install oauth2 --quiet > /dev/null 2>&1
+echo "  40%"
+pip install reload --quiet > /dev/null 2>&1
+echo "  45%"
+pip install telepathy --quiet > /dev/null 2>&1
+echo "  50%"
+pip install stem --quiet > /dev/null 2>&1
+echo "  55%"
+pip install nest_asyncio --quiet > /dev/null 2>&1
+echo "  60%"
+pip install simplekml --quiet > /dev/null 2>&1
+echo "  65%"
+pip install libregf-python --quiet > /dev/null 2>&1
+echo "  70%"
+pip install libesedb-python --quiet > /dev/null 2>&1
+echo "  75%"
+pip install xmltodict --quiet > /dev/null 2>&1
+echo "  80%"
+pip install PySimpleGUI --quiet > /dev/null 2>&1
+pip install pyudev --quiet > /dev/null 2>&1
+echo "  85%"
+pip install PySide2 --quiet > /dev/null 2>&1
+pip install PySide6 --quiet > /dev/null 2>&1
+echo "  90%"
 
 pip install --upgrade git+https://github.com/twintproject/twint.git@origin/master#egg=twint --quiet > /dev/null 2>&1
 /bin/sed -i 's/3.6/1/g' ~/.local/lib/python3.10/site-packages/twint/cli.py > /dev/null 2>&1
