@@ -60,6 +60,7 @@ echo $key | sudo -S dpkg-reconfigure debconf --frontend=noninteractive > /dev/nu
 echo $key | sudo -S DEBIAN_FRONTEND=noninteractive dpkg --configure -a > /dev/null 2>&1
 echo $key | sudo -S NEEDRESTART_MODE=a apt update --ignore-missing > /dev/null 2>&1
 echo $key | sudo -S rm -rf /etc/apt/sources.list.d/archive_u* > /dev/null 2>&1
+echo $key | sudo -S apt update > /dev/null 2>&1
 echo $key | sudo -S apt install curl -y > /dev/null 2>&1
 echo $key | sudo -S curl -fsSL https://download.bell-sw.com/pki/GPG-KEY-bellsoft | sudo -S gpg --dearmor | sudo -S tee /etc/apt/trusted.gpg.d/bellsoft.gpg > /dev/null
 echo $key | sudo -S bash -c "echo 'deb https://apt.bell-sw.com/ stable main' | sudo -S tee /etc/apt/sources.list.d/bellsoft.list"
@@ -79,8 +80,10 @@ echo $key | sudo -S curl -fsSL https://brave-browser-apt-release.s3.brave.com/br
 echo $key | sudo -S bash -c " echo 'deb [signed-by=/etc/apt/trusted.gpg.d/brave-browser-archive-keyring.gpg] https://brave-browser-apt-release.s3.brave.com/ stable main' | sudo -S tee /etc/apt/sources.list.d/brave-browser-release.list"
 echo $key | sudo -S curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | sudo -S gpg --dearmor | sudo -S tee /etc/apt/trusted.gpg.d/packages.microsoft.gpg > /dev/null
 echo $key | sudo -S bash -c " echo 'deb [signed-by=/etc/apt/trusted.gpg.d/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main' | sudo -S tee /etc/apt/sources.list.d/vscode.list"
-echo $key | sudo -S apt-add-repository ppa:i2p-maintainers/i2p -y
-echo $key | sudo -S add-apt-repository ppa:danielrichter2007/grub-customizer
+echo $key | sudo -S apt-add-repository ppa:i2p-maintainers/i2p -y > /dev/null 2>&1
+echo $key | sudo -S add-apt-repository ppa:danielrichter2007/grub-customizer > /dev/null 2>&1
+echo $key | sudo -S add-apt-repository ppa:phoerious/keepassxc > /dev/null 2>&1
+
 echo "# Cleaning old tools"
 echo $key | sudo -S apt remove proxychains4 -y > /dev/null 2>&1
 echo $key | sudo -S apt remove proxychains -y > /dev/null 2>&1
@@ -406,8 +409,8 @@ if ! which google-chrome > /dev/null; then
 	echo $key | sudo -S apt install -y ./google-chrome-stable_current_amd64.deb
 fi
 
-if ! which sn0int; then
-	echo $key | sudo -S apt install -y sn0int
+if ! which sn0int > /dev/null 2>&1; then
+	echo $key | sudo -S apt install -y sn0int > /dev/null 2>&1
 else
 	echo "sn0int installed"
 fi
@@ -437,12 +440,12 @@ if [ ! -f /opt/blackbird/blackbird.py ]; then
     cd /opt
     git clone https://github.com/p1ngul1n0/blackbird.git
     cd /opt/blackbird
-    pip install -r requirements.txt --quiet
+    pip install -r requirements.txt --quiet > /dev/null 2>&1
     echo $key | sudo -S chmod +x blackbird.py
-    mkdir results
+    mkdir results > /dev/null 2>&1
 else
     cd /opt/blackbird
-    mkdir results
+    mkdir results > /dev/null 2>&1
     git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1 > /dev/null 2>&1
 fi
 
@@ -574,8 +577,8 @@ fi
 if [ ! -f /opt/OnionSearch/setup.py ]; then
 	cd /opt
 	git clone https://github.com/CSILinux/OnionSearch.git
-    cd OnionSearch/
-    python3 setup.py install
+        cd OnionSearch/
+        python3 setup.py install
 else
 	cd /opt/OnionSearch
 	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
@@ -615,7 +618,7 @@ else
   	echo $key | sudo -S bash install.sh > /dev/null 2>&1
 fi
 
-if ! which maltego; then
+if ! which maltego > /dev/null 2>&1; then
 	cd /tmp
 	wget https://csilinux.com/downloads/Maltego.deb
 	echo $key | sudo -S apt install ./Maltego.deb -y
@@ -809,9 +812,7 @@ if [ ! -f /opt/qr-code-generator-desktop/qr-code-generator-desktop.AppImage ]; t
 	echo $key | sudo -S chmod +x qr-code-generator-desktop.AppImage
 fi
 
-if ! which keepassxc; then
-	echo $key | sudo -S add-apt-repository ppa:phoerious/keepassxc
-	echo $key | sudo -S apt update
+if ! which keepassxc > /dev/null 2>&1; then
 	echo $key | sudo -S apt install keepassxc -y
 fi
 
