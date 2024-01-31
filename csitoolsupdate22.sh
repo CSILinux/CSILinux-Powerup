@@ -18,6 +18,13 @@ else
     key=$1
 fi
 
+echo "# Setting up users"
+USERNAME=csi
+useradd -m $USERNAME -G sudo -s /bin/bash && echo -e "$USERNAME\N$USERNAME\n" | passwd $USERNAME > /dev/null 2>&1
+echo $key | sudo -S adduser $USERNAME vboxsf > /dev/null 2>&1
+echo $key | sudo -S adduser $USERNAME libvirt > /dev/null 2>&1
+echo $key | sudo -S adduser $USERNAME kvm > /dev/null 2>&1
+
 echo "Installing CSI Linux Tools and Menu update"
 rm csi* > /dev/null 2>&1
 echo "Downloading CSI Tools"
@@ -97,11 +104,7 @@ echo "# Configuring tools 2"
 rm apps.txt; wget https://csilinux.com/downloads/apps.txt > /dev/null 2>&1
 echo $key | sudo -S apt install -y $(grep -vE "^\s*#" apps.txt | sed -e 's/#.*//'  | tr "\n" " ") > /dev/null 2>&1
 echo $key | sudo -S ln -s /usr/bin/python3 /usr/bin/python > /dev/null 2>&1
-USERNAME=csi
-useradd -m $USERNAME -G sudo -s /bin/bash && echo -e "$USERNAME\N$USERNAME\n" | passwd $USERNAME > /dev/null 2>&1
-echo $key | sudo -S adduser $USERNAME vboxsf > /dev/null 2>&1
-echo $key | sudo -S adduser $USERNAME libvirt > /dev/null 2>&1
-echo $key | sudo -S adduser $USERNAME kvm > /dev/null 2>&1
+
 echo "# Configuring Background"
 xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg > /dev/null 2>&1
 xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitorVirtual1/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg > /dev/null 2>&1
@@ -142,6 +145,7 @@ echo $key | sudo -S apt install python3-tweepy -y > /dev/null 2>&1
 echo $key | sudo -S apt install python3-exifread -y > /dev/null 2>&1
 echo $key | sudo -S apt install yt-dlp -y > /dev/null 2>&1
 
+echo "# Pip update"
 python3 -m pip install pip --upgrade > /dev/null 2>&1
 echo "# Checking Python Dependencies"
 pip install pyside6 --quiet > /dev/null 2>&1
@@ -405,14 +409,6 @@ if ! which google-chrome > /dev/null; then
 fi
 
 if ! which sn0int; then
-	echo "sn0int NOT installed"
-    cd tmp
-	echo $key | sudo -S apt install -y curl sq
-	curl -sSf https://apt.vulns.sexy/kpcyrd.pgp | sq dearmor | tee apt-vulns-sexy.gpg 
-	echo $key | sudo -S cp apt-vulns-sexy.gpg /etc/apt/trusted.gpg.d/apt-vulns-sexy.gpg > /dev/null
-	echo $key | sudo -S echo "deb http://apt.vulns.sexy stable main" | tee apt-vulns-sexy.list
-	echo $key | sudo -S cp apt-vulns-sexy.list /etc/apt/sources.list.d/apt-vulns-sexy.list
-	echo $key | sudo -S apt update
 	echo $key | sudo -S apt install -y sn0int
 else
 	echo "sn0int installed"
@@ -438,16 +434,16 @@ else
 fi
 
 if [ ! -f /opt/blackbird/blackbird.py ]; then
-	cd /opt
-	git clone https://github.com/p1ngul1n0/blackbird.git
+    cd /opt
+    git clone https://github.com/p1ngul1n0/blackbird.git
     cd /opt/blackbird
-	pip install -r requirements.txt --quiet
+    pip install -r requirements.txt --quiet
     echo $key | sudo -S chmod +x blackbird.py
     mkdir results
 else
-	cd /opt/blackbird
+    cd /opt/blackbird
     mkdir results
-	git pull > /dev/null 2>&1
+    git pull > /dev/null 2>&1
 fi
 
 if [ ! -f /opt/Moriarty-Project/run.sh ]; then
