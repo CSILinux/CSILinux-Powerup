@@ -738,17 +738,15 @@ if [ ! -f /opt/ImHex/imhex.AppImage ]; then
 	echo $key | sudo -S chmod +x imhex.AppImage
 fi
 
-if [ ! -f /opt/ghidra/ghidraRun ]; then
+if [ ! -f /opt/ghidra/VERSION ]; then
 	cd /tmp
-	echo $key | sudo -S apt-get install openjdk-19-jdk
 	wget https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_11.0_build/ghidra_11.0_PUBLIC_20231222.zip
 	unzip ghidra_11.0_PUBLIC_20231222.zip
 	mv ghidra_11.0_PUBLIC /opt/ghidra
 	cd /opt/ghidra
+ 	cat "11.0" > VERSION
 	echo $key | sudo -S chmod +x ghidraRun
 	/bin/sed -i 's/JAVA\_HOME\_OVERRIDE\=/JAVA\_HOME\_OVERRIDE\=\/opt\/ghidra\/amazon-corretto-11.0.19.7.1-linux-x64/g' ./support/launch.properties
-else
-	cd /opt/ghidra
 fi
 
 if [ ! -f /opt/cutter/cutter.AppImage ]; then
