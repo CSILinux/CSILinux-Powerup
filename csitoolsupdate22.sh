@@ -29,7 +29,6 @@ echo $key | sudo -S mkdir /iso > /dev/null 2>&1
 echo $key | sudo -S chown csi:csi /iso -R > /dev/null 2>&1
 echo $key | sudo -S chmod +x /etc/grub.d/39_iso > /dev/null 2>&1
 
-
 ###  System setup
 echo $key | sudo -S echo "\$nrconf{restart} = 'a'" | sudo -S tee /etc/needrestart/conf.d/autorestart.conf > /dev/null
 export DEBIAN_FRONTEND=noninteractive
@@ -46,23 +45,22 @@ echo $key | sudo -S DEBIAN_FRONTEND=noninteractive dpkg --configure -a
 echo $key | sudo -S NEEDRESTART_MODE=a apt update --ignore-missing
 echo $key | sudo -S rm -rf /etc/apt/sources.list.d/archive_u*
 echo $key | sudo -S apt install curl -y
-echo $key | sudo -S sudo curl -fsSL https://download.bell-sw.com/pki/GPG-KEY-bellsoft | sudo -S gpg --dearmor | sudo -S tee /etc/apt/trusted.gpg.d/bellsoft.gpg >/dev/null
+echo $key | sudo -S curl -fsSL https://download.bell-sw.com/pki/GPG-KEY-bellsoft | sudo -S gpg --dearmor | sudo -S tee /etc/apt/trusted.gpg.d/bellsoft.gpg >/dev/null
 echo $key | sudo -S bash -c "echo 'deb https://apt.bell-sw.com/ stable main' | sudo -S tee /etc/apt/sources.list.d/bellsoft.list"
-echo $key | sudo -S sudo curl -fsSL https://apt.vulns.sexy/kpcyrd.pgp | sudo -S gpg --dearmor | sudo -S tee /etc/apt/trusted.gpg.d/apt-vulns-sexy.gpg >/dev/null
+echo $key | sudo -S curl -fsSL https://apt.vulns.sexy/kpcyrd.pgp | sudo -S gpg --dearmor | sudo -S tee /etc/apt/trusted.gpg.d/apt-vulns-sexy.gpg >/dev/null
 echo $key | sudo -S bash -c "echo 'deb http://apt.vulns.sexy stable main' | sudo -S tee /etc/apt/sources.list.d/apt-vulns-sexy.list"
-echo $key | sudo -S sudo curl -fsSL https://dl.winehq.org/wine-builds/winehq.key | sudo -S gpg --dearmor | sudo -S tee /etc/apt/trusted.gpg.d/winehq.gpg >/dev/null
+echo $key | sudo -S curl -fsSL https://dl.winehq.org/wine-builds/winehq.key | sudo -S gpg --dearmor | sudo -S tee /etc/apt/trusted.gpg.d/winehq.gpg >/dev/null
 echo $key | sudo -S bash -c "echo 'deb https://dl.winehq.org/wine-builds/ubuntu/ focal main' | sudo -S tee /etc/apt/sources.list.d/wine.list"
-echo $key | sudo -S sudo curl -fsSL https://www.kismetwireless.net/repos/kismet-release.gpg.key | sudo -S gpg --dearmor | sudo -S tee /etc/apt/trusted.gpg.d/kismet-release.gpg >/dev/null
+echo $key | sudo -S curl -fsSL https://www.kismetwireless.net/repos/kismet-release.gpg.key | sudo -S gpg --dearmor | sudo -S tee /etc/apt/trusted.gpg.d/kismet-release.gpg >/dev/null
 echo $key | sudo -S bash -c "echo 'deb https://www.kismetwireless.net/repos/apt/release/jammy jammy main' | sudo -S tee /etc/apt/sources.list.d/kismet.list"
-echo $key | sudo -S sudo curl -fsSL https://packages.element.io/debian/element-io-archive-keyring.gpg | sudo -S gpg --dearmor | sudo -S tee /etc/apt/trusted.gpg.d/element-io-archive-keyring.gpg >/dev/null
+echo $key | sudo -S curl -fsSL https://packages.element.io/debian/element-io-archive-keyring.gpg | sudo -S gpg --dearmor | sudo -S tee /etc/apt/trusted.gpg.d/element-io-archive-keyring.gpg >/dev/null
 echo $key | sudo -S bash -c "echo 'deb https://packages.element.io/debian/ default main' | sudo -S tee > element-io.list"
-echo $key | sudo -S sudo curl -so /etc/apt/trusted.gpg.d/oxen.gpg https://deb.oxen.io/pub.gpg
+echo $key | sudo -S curl -fsSL /etc/apt/trusted.gpg.d/oxen.gpg https://deb.oxen.io/pub.gpg
 echo $key | sudo -S bash -c "echo 'deb https://deb.oxen.io $(lsb_release -sc) main' | sudo -S tee /etc/apt/sources.list.d/oxen.list"
-echo $key | sudo -S sudo curl -fsSL https://updates.signal.org/desktop/apt/keys.asc | sudo -S gpg --dearmor | sudo -S tee /etc/apt/trusted.gpg.d/signal-desktop-keyring.gpg >/dev/null
+echo $key | sudo -S curl -fsSL https://updates.signal.org/desktop/apt/keys.asc | sudo -S gpg --dearmor | sudo -S tee /etc/apt/trusted.gpg.d/signal-desktop-keyring.gpg >/dev/null
 echo $key | sudo -S bash -c "echo 'deb [signed-by=/etc/apt/trusted.gpg.d/signal-desktop-keyring.gpg] https://updates.signal.org/desktop/apt xenial main' | sudo -S tee /etc/apt/sources.list.d/signal-desktop-keyring.list"
-echo $key | sudo -S curl -fsSLo /usr/share/keyrings/brave-browser-archive-keyring.gpg https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg
-echo $key | sudo -S bash -c "deb [signed-by=/usr/share/keyrings/brave-browser-archive-keyring.gpg] https://brave-browser-apt-release.s3.brave.com/ stable main" | sudo -S tee /etc/apt/sources.list.d/brave-browser-release.list
-echo $key | sudo -S sudo curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | sudo -S gpg --dearmor | sudo -S tee /etc/apt/trusted.gpg.d/packages.microsoft.gpg >/dev/null
+echo $key | sudo -S curl -fsSL https://brave-browser-apt-release.s3.brave.com/brave-core.asc | sudo -S gpg --dearmor | sudo -S tee /etc/apt/trusted.gpg.d/brave-browser-archive-keyring.gpg >/dev/null
+echo $key | sudo -S bash -c " echo 'deb [signed-by=/etc/apt/trusted.gpg.d/brave-browser-archive-keyring.gpg] https://brave-browser-apt-release.s3.brave.com/ stable main' | sudo -S tee /etc/apt/sources.list.d/brave-browser-release.list"echo $key | sudo -S curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | sudo -S gpg --dearmor | sudo -S tee /etc/apt/trusted.gpg.d/packages.microsoft.gpg >/dev/null
 echo $key | sudo -S bash -c " echo 'deb [signed-by=/etc/apt/trusted.gpg.d/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main' | sudo -S tee /etc/apt/sources.list.d/vscode.list"
 
 echo $key | sudo -S apt-add-repository ppa:i2p-maintainers/i2p -y
