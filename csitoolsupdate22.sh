@@ -71,7 +71,7 @@ echo $key | sudo -S curl -fsSL https://www.kismetwireless.net/repos/kismet-relea
 echo $key | sudo -S bash -c "echo 'deb https://www.kismetwireless.net/repos/apt/release/jammy jammy main' | sudo -S tee /etc/apt/sources.list.d/kismet.list"
 echo $key | sudo -S curl -fsSL https://packages.element.io/debian/element-io-archive-keyring.gpg | sudo -S gpg --dearmor | sudo -S tee /etc/apt/trusted.gpg.d/element-io-archive-keyring.gpg > /dev/null
 echo $key | sudo -S bash -c "echo 'deb https://packages.element.io/debian/ default main' | sudo -S tee > element-io.list" > /dev/null
-echo $key | sudo -S curl -fsSL /etc/apt/trusted.gpg.d/oxen.gpg https://deb.oxen.io/pub.gpg > /dev/null
+echo $key | sudo -S curl -fsSL https://deb.oxen.io/pub.gpg | sudo -S gpg --dearmor | sudo -S tee /etc/apt/trusted.gpg.d/oxen.gpg > /dev/null
 echo $key | sudo -S bash -c "echo 'deb https://deb.oxen.io $(lsb_release -sc) main' | sudo -S tee /etc/apt/sources.list.d/oxen.list"
 echo $key | sudo -S curl -fsSL https://updates.signal.org/desktop/apt/keys.asc | sudo -S gpg --dearmor | sudo -S tee /etc/apt/trusted.gpg.d/signal-desktop-keyring.gpg > /dev/null
 echo $key | sudo -S bash -c "echo 'deb [signed-by=/etc/apt/trusted.gpg.d/signal-desktop-keyring.gpg] https://updates.signal.org/desktop/apt xenial main' | sudo -S tee /etc/apt/sources.list.d/signal-desktop-keyring.list"
@@ -281,7 +281,7 @@ if [ ! -f /opt/WLEAPP/wleappGUI.py ]; then
 	pip install -r requirements.txt --quiet
 else
 	cd /opt/WLEAPP
-	git pull
+	git reset --hard HEAD; git pull
 fi
 
 if [ ! -f /opt/ALEAPP/aleappGUI.py ]; then
@@ -291,12 +291,12 @@ if [ ! -f /opt/ALEAPP/aleappGUI.py ]; then
 	pip install -r requirements.txt --quiet
 else
 	cd /opt/ALEAPP
-	git pull
+	git reset --hard HEAD; git pull
 fi
 
 if [ -f /opt/theHarvester/theHarvester.py ]; then
 	cd /opt/theHarvester/
-	git pull
+	git reset --hard HEAD; git pull
 fi
 
 if [ ! -f /opt/iLEAPP/ileapp.py ]; then
@@ -306,7 +306,7 @@ if [ ! -f /opt/iLEAPP/ileapp.py ]; then
 	pip install -r requirements.txt --quiet
 else
 	cd /opt/iLEAPP
-	git pull
+	git reset --hard HEAD; git pull
 fi
 
 if [ ! -f /opt/VLEAPP/vleapp.py ]; then
@@ -316,7 +316,7 @@ if [ ! -f /opt/VLEAPP/vleapp.py ]; then
 	pip install -r requirements.txt --quiet
 else
 	cd /opt/VLEAPP
-	git pull
+	git reset --hard HEAD; git pull
 fi
 
 if [ ! -f /opt/iOS-Snapshot-Triage-Parser/SnapshotImageFinder.py ]; then
@@ -325,7 +325,7 @@ if [ ! -f /opt/iOS-Snapshot-Triage-Parser/SnapshotImageFinder.py ]; then
 	cd iOS-Snapshot-Triage-Parser
 else
 	cd /opt/iOS-Snapshot-Triage-Parser
-	git pull
+	git reset --hard HEAD; git pull
 fi
 
 if [ ! -f /opt/DumpsterDiver/DumpsterDiver.py ]; then
@@ -335,7 +335,7 @@ if [ ! -f /opt/DumpsterDiver/DumpsterDiver.py ]; then
 	pip install -r requirements.txt --quiet
 else
 	cd /opt/DumpsterDiver
-	git pull
+	git reset --hard HEAD; git pull
 fi
 
 if [ ! -f /opt/dumpzilla/dumpzilla.py ]; then
@@ -344,7 +344,7 @@ if [ ! -f /opt/dumpzilla/dumpzilla.py ]; then
 	cd dumpzilla
 else
 	cd /opt/dumpzilla
-	git pull
+	git reset --hard HEAD; git pull
 fi
 
 if [ ! -f /opt/volatility3/vol.py ]; then
@@ -354,7 +354,7 @@ if [ ! -f /opt/volatility3/vol.py ]; then
 	pip install -r requirements.txt --quiet
 else
 	cd /opt/volatility3
-	git pull
+	git reset --hard HEAD; git pull
 fi
 
 if [ ! -f /opt/autotimeliner/autotimeline.py ]; then
@@ -363,7 +363,7 @@ if [ ! -f /opt/autotimeliner/autotimeline.py ]; then
 	cd autotimeliner
 else
 	cd /opt/autotimeliner
-	git pull
+	git reset --hard HEAD; git pull
 fi
 
 if [ ! -f /opt/RecuperaBit/main.py ]; then
@@ -372,7 +372,7 @@ if [ ! -f /opt/RecuperaBit/main.py ]; then
 	cd RecuperaBit
 else
 	cd /opt/RecuperaBit
-	git pull
+	git reset --hard HEAD; git pull
 fi
 
 
@@ -384,7 +384,7 @@ if [ ! -f /opt/dronetimeline/src/dtgui.py ]; then
 	echo $key | sudo -S python setup.py install
 else
 	cd /opt/dronetimeline
-	git pull
+	git reset --hard HEAD; git pull
 fi 
 
 if [ ! -f /opt/routeconverter/RouteConverterLinux.jar ]; then
@@ -420,7 +420,7 @@ if [ ! -f /opt/ghunt/ghunt.py ]; then
 	cd /ghunt 
 else
 	cd /opt/ghunt 
-	git pull
+	git reset --hard HEAD; git pull
 fi
 
 if [ ! -f /opt/sherlock/sherlock/sherlock.py ]; then
@@ -430,7 +430,7 @@ if [ ! -f /opt/sherlock/sherlock/sherlock.py ]; then
 	pip install -r requirements.txt --quiet
 else
 	cd /opt/sherlock
-	git pull
+	git reset --hard HEAD; git pull
 fi
 
 if [ ! -f /opt/blackbird/blackbird.py ]; then
@@ -443,7 +443,7 @@ if [ ! -f /opt/blackbird/blackbird.py ]; then
 else
     cd /opt/blackbird
     mkdir results
-    git pull > /dev/null 2>&1
+    git reset --hard HEAD; git pull > /dev/null 2>&1
 fi
 
 if [ ! -f /opt/Moriarty-Project/run.sh ]; then
@@ -453,7 +453,7 @@ if [ ! -f /opt/Moriarty-Project/run.sh ]; then
 	echo $key | sudo -S bash install.sh
 else
 	cd /opt/Moriarty-Project
-	git pull
+	git reset --hard HEAD; git pull
 fi
 
 if [ ! -f /opt/Rock-ON/rockon.sh ]; then
@@ -463,7 +463,7 @@ if [ ! -f /opt/Rock-ON/rockon.sh ]; then
 	chmod +x rockon.sh
 else
 	cd /opt/Rock-ON
-	git pull
+	git reset --hard HEAD; git pull
 fi
 
 if [ ! -f /opt/Carbon14/carbon14.py ]; then
@@ -473,7 +473,7 @@ if [ ! -f /opt/Carbon14/carbon14.py ]; then
 	pip install -r requirements.txt --quiet
 else
 	cd /opt/Carbon14
-	git pull
+	git reset --hard HEAD; git pull
 fi
 
 if [ ! -f /opt/PhoneInfoga/phoneinfoga ]; then
@@ -492,7 +492,7 @@ if [ ! -f /opt/email2phonenumber/email2phonenumber.py ]; then
 	pip install -r requirements.txt --quiet
 else
 	cd /opt/email2phonenumber
-	git pull
+	git reset --hard HEAD; git pull
 fi
 
 if [ ! -f /opt/Masto/masto.py ]; then
@@ -502,7 +502,7 @@ if [ ! -f /opt/Masto/masto.py ]; then
 	pip install -r requirements.txt --quiet
 else
 	cd /opt/Masto
-	git pull
+	git reset --hard HEAD; git pull
 fi
 
 if [ ! -f /opt/FinalRecon/finalrecon.py ]; then
@@ -512,7 +512,7 @@ if [ ! -f /opt/FinalRecon/finalrecon.py ]; then
 	pip install -r requirements.txt --quiet
 else
 	cd /opt/FinalRecon
-	git pull
+	git reset --hard HEAD; git pull
 fi
 
 if [ ! -f /opt/spiderfoot/sf.py ]; then
@@ -530,7 +530,7 @@ if [ ! -f /opt/Goohak/goohak ]; then
 	echo $key | sudo -S chmod +x /opt/Goohak/goohak
 else
 	cd /opt/Goohak
-	git pull
+	git reset --hard HEAD; git pull
 fi
 
 if [ ! -f /opt/LittleBrother/LittleBrother.py ]; then
@@ -541,7 +541,7 @@ if [ ! -f /opt/LittleBrother/LittleBrother.py ]; then
 	echo $key | sudo -S chmod +x LittleBrother.py
 else
 	cd /opt/LittleBrother
-	git pull
+	git reset --hard HEAD; git pull
 fi
 
 if [ ! -f /opt/Osintgram/main.py ]; then
@@ -555,7 +555,7 @@ if [ ! -f /opt/Osintgram/main.py ]; then
 	
 else
 	cd /opt/Osintgram
-	git pull
+	git reset --hard HEAD; git pull
 	mv src/* .
 	find . -type f -exec sed -i 's/from\ src\ //g' {} +
 	find . -type f -exec sed -i 's/src.Osintgram/Osintgram/g' {} +
@@ -568,7 +568,7 @@ if [ ! -f /opt/InstagramOSINT/main.py ]; then
 	pip install -r requirements.txt --quiet
 else
 	cd /opt/InstagramOSINT
-	git pull
+	git reset --hard HEAD; git pull
 fi
 
 if [ ! -f /opt/OnionSearch/setup.py ]; then
@@ -578,7 +578,7 @@ if [ ! -f /opt/OnionSearch/setup.py ]; then
     python3 setup.py install
 else
 	cd /opt/OnionSearch
-	git pull
+	git reset --hard HEAD; git pull
 fi
 
 if [ ! -f /opt/Photon/photon.py ]; then
@@ -588,7 +588,7 @@ if [ ! -f /opt/Photon/photon.py ]; then
 	pip install -r requirements.txt --quiet
 else
 	cd /opt/Photon
-	git pull
+	git reset --hard HEAD; git pull
 fi
 
 if [ ! -f /opt/ReconDog/dog ]; then
@@ -598,7 +598,7 @@ if [ ! -f /opt/ReconDog/dog ]; then
 	pip install -r requirements.txt --quiet
 else
 	cd /opt/ReconDog
-	git pull
+	git reset --hard HEAD; git pull
 fi
 
 if [ ! -f /opt/Storm-Breaker/st.py ]; then
@@ -610,7 +610,7 @@ if [ ! -f /opt/Storm-Breaker/st.py ]; then
 	pip install -r requirments.txt --quiet
 else
 	cd /opt/Storm-Breaker
-	git pull
+	git reset --hard HEAD; git pull
 fi
 
 if ! which maltego; then
@@ -774,7 +774,7 @@ if [ ! -f /opt/NetworkMiner/NetworkMiner.exe ]; then
 	mv NetworkMiner* /opt/NetworkMiner
 else
 	cd /opt/exploitdb
-	git pull
+	git reset --hard HEAD; git pull
 fi
 
 
@@ -787,7 +787,7 @@ if [ ! -f /opt/exploitdb/searchsploit ]; then
 	git clone https://gitlab.com/exploit-database/exploitdb.git
 else
 	cd /opt/exploitdb
-	git pull
+	git reset --hard HEAD; git pull
 fi
 
 
