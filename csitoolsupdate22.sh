@@ -44,6 +44,8 @@ echo $key | sudo -S echo "\$nrconf{restart} = 'a'" | sudo -S tee /etc/needrestar
 export DEBIAN_FRONTEND=noninteractive > /dev/null 2>&1
 export APT_LISTCHANGES_FRONTEND=none > /dev/null 2>&1
 echo "# Building CSI XFCE Theme"
+update_current_time
+calculate_duration
 echo "Duration: $duration seconds"
 tar -xf /opt/csitools/assets/Win11-blue.tar.xz --directory /home/csi/.icons/ > /dev/null 2>&1
 echo $key | sudo -S apt-get remove --purge --allow-remove-essential -y `dpkg --get-selections | awk '/i386/{print $1}'` > /dev/null 2>&1
@@ -51,6 +53,8 @@ echo $key | sudo -S dpkg --remove-architecture i386 > /dev/null 2>&1
 echo $key | sudo -S rm -rfv /usr/local/bin/kismet* /usr/local/share/kismet* /usr/local/etc/kismet* > /dev/null 2>&1
 
 echo "# Setting up APT Repos"
+update_current_time
+calculate_duration
 echo "Duration: $duration seconds"
 cd /tmp
 echo $key | sudo -S dpkg-reconfigure debconf --frontend=noninteractive > /dev/null 2>&1
@@ -78,6 +82,8 @@ echo $key | sudo -S bash -c " echo 'deb [signed-by=/etc/apt/trusted.gpg.d/packag
 echo $key | sudo -S apt-add-repository ppa:i2p-maintainers/i2p -y
 echo $key | sudo -S add-apt-repository ppa:danielrichter2007/grub-customizer
 echo "# Cleaning old tools"
+update_current_time
+calculate_duration
 echo "Duration: $duration seconds"
 echo $key | sudo -S apt remove proxychains4 -y > /dev/null 2>&1
 echo $key | sudo -S apt remove proxychains -y > /dev/null 2>&1
@@ -88,6 +94,8 @@ echo $key | sudo -S rm -rf /var/lib/tor/other_hidden_service/ > /dev/null 2>&1
 echo "Reconfiguring Swap"; echo $key | sudo -S wget -O - https://teejeetech.com/scripts/jammy/disable_swapfile | bash > /dev/null 2>&1
 echo "Reconfiguring Terminal"; wget -O - https://raw.githubusercontent.com/CSILinux/CSILinux-Powerup/main/csi-linux-terminal.sh | bash > /dev/null 2>&1
 echo "# Configuring tools 1"
+update_current_time
+calculate_duration
 echo "Duration: $duration seconds"
 echo $key | sudo -S apt install -y zram-config > /dev/null 2>&1
 echo $key | sudo -S apt install xfce4-cpugraph-plugin -y > /dev/null 2>&1
@@ -100,6 +108,8 @@ echo $key | sudo -S apt install libc6 libstdc++6 ca-certificates tar -y > /dev/n
 echo $key | sudo -S apt install bash-completion -y > /dev/null 2>&1
 dos2unix /opt/csitools/resetdns > /dev/null 2>&1
 echo "# Configuring tools 2"
+update_current_time
+calculate_duration
 echo "Duration: $duration seconds"
 rm apps.txt; wget https://csilinux.com/downloads/apps.txt > /dev/null 2>&1
 echo $key | sudo -S apt install -y $(grep -vE "^\s*#" apps.txt | sed -e 's/#.*//'  | tr "\n" " ") > /dev/null 2>&1
@@ -110,6 +120,8 @@ echo $key | sudo -S adduser $USERNAME vboxsf > /dev/null 2>&1
 echo $key | sudo -S adduser $USERNAME libvirt > /dev/null 2>&1
 echo $key | sudo -S adduser $USERNAME kvm > /dev/null 2>&1
 echo "# Configuring Background"
+update_current_time
+calculate_duration
 echo "Duration: $duration seconds"
 xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg > /dev/null 2>&1
 xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitorVirtual1/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg > /dev/null 2>&1
@@ -127,9 +139,13 @@ rm  hunchly.deb > /dev/null 2>&1
 echo "Checking Hunchly.  If updating, you may need to reinstall the browser extension"
 wget -O hunchly.deb https://downloadmirror.hunch.ly/currentversion/hunchly.deb?csilinux_update
 echo "# Configuring Hunchly"
+update_current_time
+calculate_duration
 echo "Duration: $duration seconds"
 echo $key | sudo -S apt-get install ./hunchly.deb -y > /dev/null 2>&1
 echo "# Configuring tools 3"
+update_current_time
+calculate_duration
 echo "Duration: $duration seconds"
 echo $key | sudo -S apt install maltego -y > /dev/null 2>&1
 echo $key | sudo -S apt install python3-shodan -y > /dev/null 2>&1
@@ -142,6 +158,8 @@ echo $key | sudo -S apt install ruby-bundler -y > /dev/null 2>&1
 echo $key | sudo -S apt install recon-ng -y > /dev/null 2>&1
 echo $key | sudo -S apt install cherrytree -y > /dev/null 2>&1
 echo "#  Configuring tools 4"
+update_current_time
+calculate_duration
 echo "Duration: $duration seconds"
 echo $key | sudo -S apt install drawing -y > /dev/null 2>&1
 echo $key | sudo -S apt install cargo -y > /dev/null 2>&1
@@ -155,6 +173,8 @@ echo $key | sudo -S apt install yt-dlp -y > /dev/null 2>&1
 
 python3 -m pip install pip --upgrade > /dev/null 2>&1
 echo "# Checking Python Dependencies"
+update_current_time
+calculate_duration
 echo "Duration: $duration seconds"
 pip install pyside6 --quiet > /dev/null 2>&1
 pip install grequests --quiet > /dev/null 2>&1
@@ -201,7 +221,8 @@ echo "90%"
 pip install --upgrade git+https://github.com/twintproject/twint.git@origin/master#egg=twint --quiet > /dev/null 2>&1
 /bin/sed -i 's/3.6/1/g' ~/.local/lib/python3.10/site-packages/twint/cli.py > /dev/null 2>&1
 echo "100%"
-
+update_current_time
+calculate_duration
 echo "Duration: $duration seconds"
 
 if [[ "$INCLUDE_PRE_RELEASE" == true ]]; then
