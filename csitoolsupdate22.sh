@@ -745,7 +745,7 @@ if [ ! -f /opt/ghidra/VERSION ]; then
  	rm -rf /opt/ghidra
 	mv ghidra_11.0_PUBLIC /opt/ghidra
 	cd /opt/ghidra
- 	cat "11.0" > VERSION
+ 	echo "11.0" > VERSION
 	echo $key | sudo -S chmod +x ghidraRun
 	/bin/sed -i 's/JAVA\_HOME\_OVERRIDE\=/JAVA\_HOME\_OVERRIDE\=\/opt\/ghidra\/amazon-corretto-11.0.19.7.1-linux-x64/g' ./support/launch.properties
 fi
