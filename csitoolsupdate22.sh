@@ -7,6 +7,7 @@ if [ -z "$1" ]; then
 else
     key=$1
 fi
+
 echo "Installing CSI Linux Tools and Menu update"
 rm csi* > /dev/null 2>&1
 
@@ -62,10 +63,12 @@ echo $key | sudo -S bash -c "echo 'deb [signed-by=/etc/apt/trusted.gpg.d/signal-
 echo $key | sudo -S curl -fsSL https://brave-browser-apt-release.s3.brave.com/brave-core.asc | sudo -S gpg --dearmor | sudo -S tee /etc/apt/trusted.gpg.d/brave-browser-archive-keyring.gpg >/dev/null
 echo $key | sudo -S bash -c " echo 'deb [signed-by=/etc/apt/trusted.gpg.d/brave-browser-archive-keyring.gpg] https://brave-browser-apt-release.s3.brave.com/ stable main' | sudo -S tee /etc/apt/sources.list.d/brave-browser-release.list"echo $key | sudo -S curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | sudo -S gpg --dearmor | sudo -S tee /etc/apt/trusted.gpg.d/packages.microsoft.gpg >/dev/null
 echo $key | sudo -S bash -c " echo 'deb [signed-by=/etc/apt/trusted.gpg.d/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main' | sudo -S tee /etc/apt/sources.list.d/vscode.list"
+echo "# Installing I2P repo"
 echo $key | sudo -S apt-add-repository ppa:i2p-maintainers/i2p -y
+echo "# Installing grub-customizer repo"
 echo $key | sudo -S add-apt-repository ppa:danielrichter2007/grub-customizer
-
-echo $key | sudo -S apt remove proxychains4 -y > /dev/null 2>&1
+echo "# Cleaning old tools"
+echo $key | sudo S apt remove proxychains4 -y > /dev/null 2>&1
 echo $key | sudo -S apt remove proxychains -y > /dev/null 2>&1
 echo $key | sudo -S apt install apt-transport-https -y > /dev/null 2>&1
 echo $key | sudo -S apt install code -y > /dev/null 2>&1
@@ -73,6 +76,7 @@ echo $key | sudo -S rm -rf /var/lib/tor/hidden_service/ > /dev/null 2>&1
 echo $key | sudo -S rm -rf /var/lib/tor/other_hidden_service/ > /dev/null 2>&1
 echo "Reconfiguring Swapl"; echo $key | sudo -S wget -O - https://teejeetech.com/scripts/jammy/disable_swapfile | bash > /dev/null 2>&1
 echo "Reconfiguring Terminal"; wget -O - https://raw.githubusercontent.com/CSILinux/CSILinux-Powerup/main/csi-linux-terminal.sh | bash > /dev/null 2>&1
+echo "# Configuring tools 1"
 echo $key | sudo -S apt install -y zram-config > /dev/null 2>&1
 echo $key | sudo -S apt install xfce4-cpugraph-plugin -y > /dev/null 2>&1
 echo $key | sudo -S apt install xfce4-goodies -y > /dev/null 2>&1
@@ -83,6 +87,7 @@ echo $key | sudo -S apt install python3-pyqt5.qtsql -y > /dev/null 2>&1
 echo $key | sudo -S apt install libc6 libstdc++6 ca-certificates tar -y > /dev/null 2>&1
 echo $key | sudo -S apt install bash-completion -y > /dev/null 2>&1
 dos2unix /opt/csitools/resetdns > /dev/null 2>&1
+echo "# Configuring tools 2"
 rm apps.txt; wget https://csilinux.com/downloads/apps.txt > /dev/null 2>&1
 echo $key | sudo -S apt install -y $(grep -vE "^\s*#" apps.txt | sed -e 's/#.*//'  | tr "\n" " ") > /dev/null 2>&1
 echo $key | sudo -S ln -s /usr/bin/python3 /usr/bin/python > /dev/null 2>&1
@@ -91,7 +96,7 @@ useradd -m $USERNAME -G sudo -s /bin/bash && echo -e "$USERNAME\N$USERNAME\n" | 
 echo $key | sudo -S adduser $USERNAME vboxsf > /dev/null 2>&1
 echo $key | sudo -S adduser $USERNAME libvirt > /dev/null 2>&1
 echo $key | sudo -S adduser $USERNAME kvm > /dev/null 2>&1
-
+echo "# Configuring Background"
 xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg > /dev/null 2>&1
 xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitorVirtual1/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg > /dev/null 2>&1
 xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitorVirtual-1/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg > /dev/null 2>&1
@@ -103,6 +108,7 @@ xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitoreDP-2/workspace0/last-
 xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitorHDMI-A-1/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg > /dev/null 2>&1
 
 # ---
+echo "# Configuring tools 3"
 cd /tmp > /dev/null 2>&1
 rm  hunchly.deb > /dev/null 2>&1
 echo "Checking Hunchly.  If updated, you may need to reinstall the browser extension"
