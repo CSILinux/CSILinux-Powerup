@@ -152,7 +152,7 @@ echo $key | sudo -S apt install python3-exifread -y > /dev/null 2>&1
 echo $key | sudo -S apt install yt-dlp -y > /dev/null 2>&1
 
 # List of Python packages to install
-python_packages=(
+tool_packages=(
     "pip"
     "grequests"
     "sublist3r"
@@ -187,7 +187,7 @@ python_packages=(
     "PySide6"
 )
 
-sorted_packages=($(for pkg in "${python_packages[@]}"; do echo "$pkg"; done | sort))
+sorted_packages=($(for pkg in "${tool_packages[@]}"; do echo "$pkg"; done | sort))
 total_packages=${#sorted_packages[@]}
 percentage=0
 
@@ -535,10 +535,10 @@ if [ ! -f /opt/spiderfoot/sf.py ]; then
 	tar zxvf v4.0.tar.gz
 	mv spiderfoot-4.0 spiderfoot
 	cd spiderfoot
-	pip install -r requirements.txt --quiet
+	pip install -r requirements.txt --quiet > /dev/null 2>&1
 else
 	cd /opt/spiderfoot
- 	pip install -r requirements.txt --quiet
+ 	pip install -r requirements.txt --quiet > /dev/null 2>&1
 fi
 
 if [ ! -f /opt/Goohak/goohak ]; then
@@ -554,11 +554,12 @@ if [ ! -f /opt/LittleBrother/LittleBrother.py ]; then
 	cd /opt
 	git clone https://github.com/Lulz3xploit/LittleBrother
 	cd LittleBrother
-	pip install -r requirements.txt --quiet
+	pip install -r requirements.txt --quiet > /dev/null 2>&1
 	echo $key | sudo -S chmod +x LittleBrother.py
 else
 	cd /opt/LittleBrother
-	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
+	git reset --hard HEAD > /dev/null 2>&1
+ 	git pull > /dev/null 2>&1
 fi
 
 if [ ! -f /opt/Osintgram/main.py ]; then
@@ -582,40 +583,44 @@ if [ ! -f /opt/InstagramOSINT/main.py ]; then
 	cd /opt
 	git clone https://github.com/sc1341/InstagramOSINT.git
 	cd InstagramOSINT
-	pip install -r requirements.txt --quiet
+	pip install -r requirements.txt --quiet > /dev/null 2>&1
 else
 	cd /opt/InstagramOSINT
-	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
+	git reset --hard HEAD > /dev/null 2>&1
+ 	git pull > /dev/null 2>&1
 fi
 
 if [ ! -f /opt/OnionSearch/setup.py ]; then
 	cd /opt
 	git clone https://github.com/CSILinux/OnionSearch.git
         cd OnionSearch/
-        python3 setup.py install
+        python3 setup.py install > /dev/null 2>&1
 else
 	cd /opt/OnionSearch
-	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
+	git reset --hard HEAD > /dev/null 2>&1
+ 	git pull > /dev/null 2>&1
 fi
 
 if [ ! -f /opt/Photon/photon.py ]; then
 	cd /opt
 	git clone https://github.com/s0md3v/Photon.git
 	cd Photon
-	pip install -r requirements.txt --quiet
+	pip install -r requirements.txt --quiet > /dev/null 2>&1
 else
 	cd /opt/Photon
-	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
+	git reset --hard HEAD > /dev/null 2>&1
+ 	git pull > /dev/null 2>&1
 fi
 
 if [ ! -f /opt/ReconDog/dog ]; then
 	cd /opt
 	git clone https://github.com/s0md3v/ReconDog.git
 	cd ReconDog
-	pip install -r requirements.txt --quiet
+	pip install -r requirements.txt --quiet > /dev/null 2>&1
 else
 	cd /opt/ReconDog
-	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
+	git reset --hard HEAD > /dev/null 2>&1
+ 	git pull > /dev/null 2>&1
 fi
 
 if [ ! -f /opt/Storm-Breaker/install.sh ]; then
