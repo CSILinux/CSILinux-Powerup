@@ -14,15 +14,15 @@ echo "Downloading CSI Tools"
 wget https://csilinux.com/download/csitools22.zip -O csitools22.zip
 
 echo "# Installing CSI Tools"
-echo $key | sudo -S unzip -o -d / csitools22.zip
+echo $key | sudo -S unzip -o -d / csitools22.zip > /dev/null 2>&1
 
-echo $key | sudo -S chown csi:csi -R /opt/csitools 
-echo $key | sudo -S chmod +x /opt/csitools/* -R
-echo $key | sudo -S chmod +x /opt/csitools/*
-echo $key | sudo -S chmod +x ~/Desktop/*.desktop
-echo $key | sudo -S chown csi:csi /usr/bin/bash-wrapper
-echo $key | sudo -S chown csi:csi /home/csi -R
-echo $key | sudo -S chmod +x /usr/bin/bash-wrapper 
+echo $key | sudo -S chown csi:csi -R /opt/csitools  > /dev/null 2>&1
+echo $key | sudo -S chmod +x /opt/csitools/* -R > /dev/null 2>&1
+echo $key | sudo -S chmod +x /opt/csitools/* > /dev/null 2>&1
+echo $key | sudo -S chmod +x ~/Desktop/*.desktop > /dev/null 2>&1
+echo $key | sudo -S chown csi:csi /usr/bin/bash-wrapper > /dev/null 2>&1
+echo $key | sudo -S chown csi:csi /home/csi -R > /dev/null 2>&1
+echo $key | sudo -S chmod +x /usr/bin/bash-wrapper  > /dev/null 2>&1
 echo $key | sudo -S chmod +x /opt/csitools/powerup > /dev/null 2>&1
 echo $key | sudo -S ln -sf /opt/csitools/powerup /usr/local/bin/powerup > /dev/null 2>&1
 echo $key | sudo -S mkdir /iso > /dev/null 2>&1
@@ -30,7 +30,7 @@ echo $key | sudo -S chown csi:csi /iso -R > /dev/null 2>&1
 echo $key | sudo -S chmod +x /etc/grub.d/39_iso > /dev/null 2>&1
 
 ###  System setup
-echo $key | sudo -S echo "\$nrconf{restart} = 'a'" | sudo -S tee /etc/needrestart/conf.d/autorestart.conf > /dev/null
+echo $key | sudo -S echo "\$nrconf{restart} = 'a'" | sudo -S tee /etc/needrestart/conf.d/autorestart.conf > /dev/null 2>&1
 export DEBIAN_FRONTEND=noninteractive > /dev/null 2>&1
 export APT_LISTCHANGES_FRONTEND=none > /dev/null 2>&1
 tar -xf /opt/csitools/assets/Win11-blue.tar.xz --directory /home/csi/.icons/ > /dev/null 2>&1
@@ -71,9 +71,9 @@ echo $key | sudo -S apt install apt-transport-https -y > /dev/null 2>&1
 echo $key | sudo -S apt install code -y > /dev/null 2>&1
 echo $key | sudo -S rm -rf /var/lib/tor/hidden_service/ > /dev/null 2>&1
 echo $key | sudo -S rm -rf /var/lib/tor/other_hidden_service/ > /dev/null 2>&1
-echo $key | sudo -S wget -O - https://teejeetech.com/scripts/jammy/disable_swapfile | bash
-wget -O - https://raw.githubusercontent.com/CSILinux/CSILinux-Powerup/main/csi-linux-terminal.sh | bash
-echo $key | sudo -S apt install -y zram-config
+echo "Reconfiguring Swapl"; echo $key | sudo -S wget -O - https://teejeetech.com/scripts/jammy/disable_swapfile | bash > /dev/null 2>&1
+echo "Reconfiguring Terminal"; wget -O - https://raw.githubusercontent.com/CSILinux/CSILinux-Powerup/main/csi-linux-terminal.sh | bash > /dev/null 2>&1
+echo $key | sudo -S apt install -y zram-config > /dev/null 2>&1
 echo $key | sudo -S apt install xfce4-cpugraph-plugin -y > /dev/null 2>&1
 echo $key | sudo -S apt install xfce4-goodies -y > /dev/null 2>&1
 echo $key | sudo -S apt install -y libmagic-dev python3-magic python3-pyregfi > /dev/null 2>&1
@@ -83,8 +83,8 @@ echo $key | sudo -S apt install python3-pyqt5.qtsql -y > /dev/null 2>&1
 echo $key | sudo -S apt install libc6 libstdc++6 ca-certificates tar -y > /dev/null 2>&1
 echo $key | sudo -S apt install bash-completion -y > /dev/null 2>&1
 dos2unix /opt/csitools/resetdns > /dev/null 2>&1
-rm apps.txt; wget https://csilinux.com/downloads/apps.txt
-echo $key | sudo -S apt install -y $(grep -vE "^\s*#" apps.txt | sed -e 's/#.*//'  | tr "\n" " ")
+rm apps.txt; wget https://csilinux.com/downloads/apps.txt > /dev/null 2>&1
+echo $key | sudo -S apt install -y $(grep -vE "^\s*#" apps.txt | sed -e 's/#.*//'  | tr "\n" " ") > /dev/null 2>&1
 echo $key | sudo -S ln -s /usr/bin/python3 /usr/bin/python > /dev/null 2>&1
 USERNAME=csi
 useradd -m $USERNAME -G sudo -s /bin/bash && echo -e "$USERNAME\N$USERNAME\n" | passwd $USERNAME > /dev/null 2>&1
@@ -92,22 +92,22 @@ echo $key | sudo -S adduser $USERNAME vboxsf > /dev/null 2>&1
 echo $key | sudo -S adduser $USERNAME libvirt > /dev/null 2>&1
 echo $key | sudo -S adduser $USERNAME kvm > /dev/null 2>&1
 
-xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg
-xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitorVirtual1/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg
-xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitorVirtual-1/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg
-xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitoreDP-1/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg
-xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitorHDMI-A-0/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg
-xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitorVirtual1/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg
-xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitorVirtual-1/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg
-xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitoreDP-2/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg
-xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitorHDMI-A-1/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg
-
+xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg > /dev/null 2>&1
+xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitorVirtual1/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg > /dev/null 2>&1
+xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitorVirtual-1/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg > /dev/null 2>&1
+xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitoreDP-1/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg > /dev/null 2>&1
+xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitorHDMI-A-0/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg > /dev/null 2>&1
+xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitorVirtual1/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg > /dev/null 2>&1
+xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitorVirtual-1/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg > /dev/null 2>&1
+xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitoreDP-2/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg > /dev/null 2>&1
+xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitorHDMI-A-1/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg > /dev/null 2>&1
 
 # ---
 cd /tmp > /dev/null 2>&1
 rm  hunchly.deb > /dev/null 2>&1
-wget -O hunchly.deb https://downloadmirror.hunch.ly/currentversion/hunchly.deb?csilinux_update
-echo $key | sudo -S apt-get install ./hunchly.deb -y
+echo "Checking Hunchly.  If updated, you may need to reinstall the browser extension"
+wget -O hunchly.deb https://downloadmirror.hunch.ly/currentversion/hunchly.deb?csilinux_update > /dev/null 2>&1
+echo $key | sudo -S apt-get install ./hunchly.deb -y > /dev/null 2>&1
 
 echo $key | sudo -S apt install maltego -y > /dev/null 2>&1
 echo $key | sudo -S apt install python3-shodan -y > /dev/null 2>&1
@@ -178,12 +178,12 @@ pip install --upgrade git+https://github.com/twintproject/twint.git@origin/maste
 echo "100%"
 
 if [[ "$INCLUDE_PRE_RELEASE" == true ]]; then
-  RELEASE_VERSION=$(wget -qO - "https://api.github.com/repos/laurent22/joplin/releases" | grep -Po '"tag_name": ?"v\K.*?(?=")' | head -1)
+  RELEASE_VERSION=$(wget -qO - "https://api.github.com/repos/laurent22/joplin/releases" | grep -Po '"tag_name": ?"v\K.*?(?=")' | head -1) > /dev/null 2>&1
 else
-  RELEASE_VERSION=$(wget -qO - "https://api.github.com/repos/laurent22/joplin/releases/latest" | grep -Po '"tag_name": ?"v\K.*?(?=")')
+  RELEASE_VERSION=$(wget -qO - "https://api.github.com/repos/laurent22/joplin/releases/latest" | grep -Po '"tag_name": ?"v\K.*?(?=")') > /dev/null 2>&1
 fi
 mkdir -p /opt/csitools/joplin > /dev/null 2>&1
-cd /opt/csitools/joplin
+cd /opt/csitools/joplin > /dev/null 2>&1
 rm -f *.AppImage ~/.local/share/applications/joplin.desktop VERSION > /dev/null 2>&1
 wget -qnv --show-progress -O Joplin.AppImage https://github.com/laurent22/joplin/releases/download/v${RELEASE_VERSION}/Joplin-${RELEASE_VERSION}.AppImage
 wget -qnv --show-progress -O joplin.png https://joplinapp.org/images/Icon512.png
@@ -195,7 +195,7 @@ if [ ! -f /opt/autopsy/bin/autopsy ]; then
 	cd /tmp
 	wget https://github.com/sleuthkit/autopsy/releases/download/autopsy-4.21.0/autopsy-4.21.0.zip -O autopsy.zip
 	wget https://github.com/sleuthkit/sleuthkit/releases/download/sleuthkit-4.12.1/sleuthkit-java_4.12.1-1_amd64.deb -O sleuthkit-java.deb
-	echo $key | sudo -S apt install ./sleuthkit-java.deb -y
+	echo $key | sudo -S apt install ./sleuthkit-java.deb -y > /dev/null 2>&1
 	wget https://raw.githubusercontent.com/sleuthkit/autopsy/develop/linux_macos_install_scripts/install_prereqs_ubuntu.sh
 	echo $key | sudo -S bash install_prereqs_ubuntu.sh
 	wget https://raw.githubusercontent.com/sleuthkit/autopsy/develop/linux_macos_install_scripts/install_application.sh
