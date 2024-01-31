@@ -31,20 +31,20 @@ echo $key | sudo -S chmod +x /etc/grub.d/39_iso > /dev/null 2>&1
 
 ###  System setup
 echo $key | sudo -S echo "\$nrconf{restart} = 'a'" | sudo -S tee /etc/needrestart/conf.d/autorestart.conf > /dev/null
-export DEBIAN_FRONTEND=noninteractive
-export APT_LISTCHANGES_FRONTEND=none
+export DEBIAN_FRONTEND=noninteractive > /dev/null 2>&1
+export APT_LISTCHANGES_FRONTEND=none > /dev/null 2>&1
 tar -xf /opt/csitools/assets/Win11-blue.tar.xz --directory /home/csi/.icons/ > /dev/null 2>&1
-echo $key | sudo -S apt-get remove --purge --allow-remove-essential -y `dpkg --get-selections | awk '/i386/{print $1}'`
-echo $key | sudo -S dpkg --remove-architecture i386
-echo $key | sudo -S rm -rfv /usr/local/bin/kismet* /usr/local/share/kismet* /usr/local/etc/kismet*
+echo $key | sudo -S apt-get remove --purge --allow-remove-essential -y `dpkg --get-selections | awk '/i386/{print $1}'` > /dev/null 2>&1
+echo $key | sudo -S dpkg --remove-architecture i386 > /dev/null 2>&1
+echo $key | sudo -S rm -rfv /usr/local/bin/kismet* /usr/local/share/kismet* /usr/local/etc/kismet* > /dev/null 2>&1
 
 echo "# Cleaning up apt keys"
 cd /tmp
-echo $key | sudo -S dpkg-reconfigure debconf --frontend=noninteractive
-echo $key | sudo -S DEBIAN_FRONTEND=noninteractive dpkg --configure -a
-echo $key | sudo -S NEEDRESTART_MODE=a apt update --ignore-missing
-echo $key | sudo -S rm -rf /etc/apt/sources.list.d/archive_u*
-echo $key | sudo -S apt install curl -y
+echo $key | sudo -S dpkg-reconfigure debconf --frontend=noninteractive > /dev/null 2>&1
+echo $key | sudo -S DEBIAN_FRONTEND=noninteractive dpkg --configure -a > /dev/null 2>&1
+echo $key | sudo -S NEEDRESTART_MODE=a apt update --ignore-missing > /dev/null 2>&1
+echo $key | sudo -S rm -rf /etc/apt/sources.list.d/archive_u* > /dev/null 2>&1
+echo $key | sudo -S apt install curl -y > /dev/null 2>&1
 echo $key | sudo -S curl -fsSL https://download.bell-sw.com/pki/GPG-KEY-bellsoft | sudo -S gpg --dearmor | sudo -S tee /etc/apt/trusted.gpg.d/bellsoft.gpg >/dev/null
 echo $key | sudo -S bash -c "echo 'deb https://apt.bell-sw.com/ stable main' | sudo -S tee /etc/apt/sources.list.d/bellsoft.list"
 echo $key | sudo -S curl -fsSL https://apt.vulns.sexy/kpcyrd.pgp | sudo -S gpg --dearmor | sudo -S tee /etc/apt/trusted.gpg.d/apt-vulns-sexy.gpg >/dev/null
@@ -62,7 +62,6 @@ echo $key | sudo -S bash -c "echo 'deb [signed-by=/etc/apt/trusted.gpg.d/signal-
 echo $key | sudo -S curl -fsSL https://brave-browser-apt-release.s3.brave.com/brave-core.asc | sudo -S gpg --dearmor | sudo -S tee /etc/apt/trusted.gpg.d/brave-browser-archive-keyring.gpg >/dev/null
 echo $key | sudo -S bash -c " echo 'deb [signed-by=/etc/apt/trusted.gpg.d/brave-browser-archive-keyring.gpg] https://brave-browser-apt-release.s3.brave.com/ stable main' | sudo -S tee /etc/apt/sources.list.d/brave-browser-release.list"echo $key | sudo -S curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | sudo -S gpg --dearmor | sudo -S tee /etc/apt/trusted.gpg.d/packages.microsoft.gpg >/dev/null
 echo $key | sudo -S bash -c " echo 'deb [signed-by=/etc/apt/trusted.gpg.d/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main' | sudo -S tee /etc/apt/sources.list.d/vscode.list"
-
 echo $key | sudo -S apt-add-repository ppa:i2p-maintainers/i2p -y
 echo $key | sudo -S add-apt-repository ppa:danielrichter2007/grub-customizer
 
