@@ -180,6 +180,18 @@ pip install --upgrade git+https://github.com/twintproject/twint.git@origin/maste
 /bin/sed -i 's/3.6/1/g' ~/.local/lib/python3.10/site-packages/twint/cli.py > /dev/null 2>&1
 echo "100%"
 
+if [[ "$INCLUDE_PRE_RELEASE" == true ]]; then
+  RELEASE_VERSION=$(wget -qO - "https://api.github.com/repos/laurent22/joplin/releases" | grep -Po '"tag_name": ?"v\K.*?(?=")' | head -1)
+else
+  RELEASE_VERSION=$(wget -qO - "https://api.github.com/repos/laurent22/joplin/releases/latest" | grep -Po '"tag_name": ?"v\K.*?(?=")')
+fi
+mkdir -p /opt/csitools/joplin > /dev/null 2>&1
+cd /opt/csitools/joplin
+rm -f *.AppImage ~/.local/share/applications/joplin.desktop VERSION > /dev/null 2>&1
+wget -qnv --show-progress -O Joplin.AppImage https://github.com/laurent22/joplin/releases/download/v${RELEASE_VERSION}/Joplin-${RELEASE_VERSION}.AppImage
+wget -qnv --show-progress -O joplin.png https://joplinapp.org/images/Icon512.png
+chmod +x Joplin.AppImage
+
 echo "Installing Computer Forensic Tools"
 cd /tmp
 if [ ! -f /opt/autopsy/bin/autopsy ]; then
@@ -371,11 +383,6 @@ fi
 if ! which google-chrome > /dev/null; then
 	wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
 	echo $key | sudo -S apt install -y ./google-chrome-stable_current_amd64.deb
-fi
-
-if [ ! -f ~/.joplin/Joplin.AppImage ]; then
-	wget -O – https://raw.githubusercontent.com/laurent22/joplin/master/
-	Joplin_install_and_update.sh | bash
 fi
 
 if ! which sn0int; then
