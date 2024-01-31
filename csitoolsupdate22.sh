@@ -153,57 +153,57 @@ echo "# Checking Python Dependencies"
 pip install pyside6 --quiet > /dev/null 2>&1
 pip install grequests --quiet > /dev/null 2>&1
 pip install sublist3r --quiet > /dev/null 2>&1
-echo "5%"
+echo "   5%"
 pip install pyngrok --quiet > /dev/null 2>&1
 pip install phonefy --quiet > /dev/null 2>&1
 pip install fake-useragent --quiet > /dev/null 2>&1
-echo "10%"
+echo "   10%"
 pip install instaloader --quiet > /dev/null 2>&1
 pip install osrframework --quiet > /dev/null 2>&1
 pip install osrframework --upgrade --quiet > /dev/null 2>&1
-echo "15%"
+echo "   15%"
 pip install dnslib --quiet > /dev/null 2>&1
 pip install icmplib --quiet > /dev/null 2>&1
-echo "20%"
+echo "   20%"
 pip install passwordmeter --quiet > /dev/null 2>&1
 pip install image --quiet > /dev/null 2>&1
 pip install ConfigParser --quiet > /dev/null 2>&1
-echo "25%"
+echo "   25%"
 pip install youtube-dl --quiet > /dev/null 2>&1
 pip install dnsdumpster --quiet > /dev/null 2>&1
 pip install h8mail --quiet > /dev/null 2>&1
 pip install toutatis --quiet > /dev/null 2>&1
-echo "30%"
+echo "   30%"
 pip install pyexiv2 --quiet > /dev/null 2>&1
-echo "35%"
+echo "   35%"
 pip install oauth2 --quiet > /dev/null 2>&1
-echo "40%"
+echo "   40%"
 pip install reload --quiet > /dev/null 2>&1
-echo "45%"
+echo "   45%"
 pip install telepathy --quiet > /dev/null 2>&1
-echo "50%"
+echo "   50%"
 pip install stem --quiet > /dev/null 2>&1
-echo "55%"
+echo "   55%"
 pip install nest_asyncio --quiet > /dev/null 2>&1
-echo "60%"
+echo "   60%"
 pip install simplekml --quiet > /dev/null 2>&1
-echo "65%"
+echo "   65%"
 pip install libregf-python --quiet > /dev/null 2>&1
-echo "70%"
+echo "   70%"
 pip install libesedb-python --quiet > /dev/null 2>&1
-echo "75%"
+echo "   75%"
 pip install xmltodict --quiet > /dev/null 2>&1
-echo "80%"
+echo "   80%"
 pip install PySimpleGUI --quiet > /dev/null 2>&1
 pip install pyudev --quiet > /dev/null 2>&1
-echo "85%"
+echo "   85%"
 pip install PySide2 --quiet > /dev/null 2>&1
 pip install PySide6 --quiet > /dev/null 2>&1
-echo "90%"
+echo "   90%"
 
 pip install --upgrade git+https://github.com/twintproject/twint.git@origin/master#egg=twint --quiet > /dev/null 2>&1
 /bin/sed -i 's/3.6/1/g' ~/.local/lib/python3.10/site-packages/twint/cli.py > /dev/null 2>&1
-echo "100%"
+echo "   100%"
 
 if [[ "$INCLUDE_PRE_RELEASE" == true ]]; then
   RELEASE_VERSION=$(wget -qO - "https://api.github.com/repos/laurent22/joplin/releases" | grep -Po '"tag_name": ?"v\K.*?(?=")' | head -1) > /dev/null 2>&1
@@ -283,7 +283,7 @@ if [ ! -f /opt/WLEAPP/wleappGUI.py ]; then
 	pip install -r requirements.txt --quiet
 else
 	cd /opt/WLEAPP
-	git reset --hard HEAD; git pull
+	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
 fi
 
 if [ ! -f /opt/ALEAPP/aleappGUI.py ]; then
@@ -293,12 +293,12 @@ if [ ! -f /opt/ALEAPP/aleappGUI.py ]; then
 	pip install -r requirements.txt --quiet
 else
 	cd /opt/ALEAPP
-	git reset --hard HEAD; git pull
+	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
 fi
 
 if [ -f /opt/theHarvester/theHarvester.py ]; then
 	cd /opt/theHarvester/
-	git reset --hard HEAD; git pull
+	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
 fi
 
 if [ ! -f /opt/iLEAPP/ileapp.py ]; then
@@ -308,7 +308,7 @@ if [ ! -f /opt/iLEAPP/ileapp.py ]; then
 	pip install -r requirements.txt --quiet
 else
 	cd /opt/iLEAPP
-	git reset --hard HEAD; git pull
+	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
 fi
 
 if [ ! -f /opt/VLEAPP/vleapp.py ]; then
@@ -318,7 +318,7 @@ if [ ! -f /opt/VLEAPP/vleapp.py ]; then
 	pip install -r requirements.txt --quiet
 else
 	cd /opt/VLEAPP
-	git reset --hard HEAD; git pull
+	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
 fi
 
 if [ ! -f /opt/iOS-Snapshot-Triage-Parser/SnapshotImageFinder.py ]; then
@@ -327,7 +327,7 @@ if [ ! -f /opt/iOS-Snapshot-Triage-Parser/SnapshotImageFinder.py ]; then
 	cd iOS-Snapshot-Triage-Parser
 else
 	cd /opt/iOS-Snapshot-Triage-Parser
-	git reset --hard HEAD; git pull
+	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
 fi
 
 if [ ! -f /opt/DumpsterDiver/DumpsterDiver.py ]; then
@@ -337,7 +337,7 @@ if [ ! -f /opt/DumpsterDiver/DumpsterDiver.py ]; then
 	pip install -r requirements.txt --quiet
 else
 	cd /opt/DumpsterDiver
-	git reset --hard HEAD; git pull
+	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
 fi
 
 if [ ! -f /opt/dumpzilla/dumpzilla.py ]; then
@@ -346,7 +346,7 @@ if [ ! -f /opt/dumpzilla/dumpzilla.py ]; then
 	cd dumpzilla
 else
 	cd /opt/dumpzilla
-	git reset --hard HEAD; git pull
+	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
 fi
 
 if [ ! -f /opt/volatility3/vol.py ]; then
@@ -356,7 +356,7 @@ if [ ! -f /opt/volatility3/vol.py ]; then
 	pip install -r requirements.txt --quiet
 else
 	cd /opt/volatility3
-	git reset --hard HEAD; git pull
+	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
 fi
 
 if [ ! -f /opt/autotimeliner/autotimeline.py ]; then
@@ -365,7 +365,7 @@ if [ ! -f /opt/autotimeliner/autotimeline.py ]; then
 	cd autotimeliner
 else
 	cd /opt/autotimeliner
-	git reset --hard HEAD; git pull
+	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
 fi
 
 if [ ! -f /opt/RecuperaBit/main.py ]; then
@@ -374,7 +374,7 @@ if [ ! -f /opt/RecuperaBit/main.py ]; then
 	cd RecuperaBit
 else
 	cd /opt/RecuperaBit
-	git reset --hard HEAD; git pull
+	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
 fi
 
 
@@ -386,7 +386,7 @@ if [ ! -f /opt/dronetimeline/src/dtgui.py ]; then
 	echo $key | sudo -S python setup.py install
 else
 	cd /opt/dronetimeline
-	git reset --hard HEAD; git pull
+	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
 fi 
 
 if [ ! -f /opt/routeconverter/RouteConverterLinux.jar ]; then
@@ -422,7 +422,7 @@ if [ ! -f /opt/ghunt/ghunt.py ]; then
 	cd /ghunt 
 else
 	cd /opt/ghunt 
-	git reset --hard HEAD; git pull
+	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
 fi
 
 if [ ! -f /opt/sherlock/sherlock/sherlock.py ]; then
@@ -432,7 +432,7 @@ if [ ! -f /opt/sherlock/sherlock/sherlock.py ]; then
 	pip install -r requirements.txt --quiet
 else
 	cd /opt/sherlock
-	git reset --hard HEAD; git pull
+	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
 fi
 
 if [ ! -f /opt/blackbird/blackbird.py ]; then
@@ -445,7 +445,7 @@ if [ ! -f /opt/blackbird/blackbird.py ]; then
 else
     cd /opt/blackbird
     mkdir results
-    git reset --hard HEAD; git pull > /dev/null 2>&1
+    git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1 > /dev/null 2>&1
 fi
 
 if [ ! -f /opt/Moriarty-Project/run.sh ]; then
@@ -455,7 +455,7 @@ if [ ! -f /opt/Moriarty-Project/run.sh ]; then
 	echo $key | sudo -S bash install.sh
 else
 	cd /opt/Moriarty-Project
-	git reset --hard HEAD; git pull
+	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
 fi
 
 if [ ! -f /opt/Rock-ON/rockon.sh ]; then
@@ -465,7 +465,7 @@ if [ ! -f /opt/Rock-ON/rockon.sh ]; then
 	chmod +x rockon.sh
 else
 	cd /opt/Rock-ON
-	git reset --hard HEAD; git pull
+	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
 fi
 
 if [ ! -f /opt/Carbon14/carbon14.py ]; then
@@ -475,7 +475,7 @@ if [ ! -f /opt/Carbon14/carbon14.py ]; then
 	pip install -r requirements.txt --quiet
 else
 	cd /opt/Carbon14
-	git reset --hard HEAD; git pull
+	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
 fi
 
 if [ ! -f /opt/PhoneInfoga/phoneinfoga ]; then
@@ -494,7 +494,7 @@ if [ ! -f /opt/email2phonenumber/email2phonenumber.py ]; then
 	pip install -r requirements.txt --quiet
 else
 	cd /opt/email2phonenumber
-	git reset --hard HEAD; git pull
+	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
 fi
 
 if [ ! -f /opt/Masto/masto.py ]; then
@@ -504,7 +504,7 @@ if [ ! -f /opt/Masto/masto.py ]; then
 	pip install -r requirements.txt --quiet
 else
 	cd /opt/Masto
-	git reset --hard HEAD; git pull
+	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
 fi
 
 if [ ! -f /opt/FinalRecon/finalrecon.py ]; then
@@ -514,7 +514,7 @@ if [ ! -f /opt/FinalRecon/finalrecon.py ]; then
 	pip install -r requirements.txt --quiet
 else
 	cd /opt/FinalRecon
-	git reset --hard HEAD; git pull
+	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
 fi
 
 if [ ! -f /opt/spiderfoot/sf.py ]; then
@@ -532,7 +532,7 @@ if [ ! -f /opt/Goohak/goohak ]; then
 	echo $key | sudo -S chmod +x /opt/Goohak/goohak
 else
 	cd /opt/Goohak
-	git reset --hard HEAD; git pull
+	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
 fi
 
 if [ ! -f /opt/LittleBrother/LittleBrother.py ]; then
@@ -543,7 +543,7 @@ if [ ! -f /opt/LittleBrother/LittleBrother.py ]; then
 	echo $key | sudo -S chmod +x LittleBrother.py
 else
 	cd /opt/LittleBrother
-	git reset --hard HEAD; git pull
+	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
 fi
 
 if [ ! -f /opt/Osintgram/main.py ]; then
@@ -557,7 +557,7 @@ if [ ! -f /opt/Osintgram/main.py ]; then
 	
 else
 	cd /opt/Osintgram
-	git reset --hard HEAD; git pull
+	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
 	mv src/* .
 	find . -type f -exec sed -i 's/from\ src\ //g' {} +
 	find . -type f -exec sed -i 's/src.Osintgram/Osintgram/g' {} +
@@ -570,7 +570,7 @@ if [ ! -f /opt/InstagramOSINT/main.py ]; then
 	pip install -r requirements.txt --quiet
 else
 	cd /opt/InstagramOSINT
-	git reset --hard HEAD; git pull
+	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
 fi
 
 if [ ! -f /opt/OnionSearch/setup.py ]; then
@@ -580,7 +580,7 @@ if [ ! -f /opt/OnionSearch/setup.py ]; then
     python3 setup.py install
 else
 	cd /opt/OnionSearch
-	git reset --hard HEAD; git pull
+	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
 fi
 
 if [ ! -f /opt/Photon/photon.py ]; then
@@ -590,7 +590,7 @@ if [ ! -f /opt/Photon/photon.py ]; then
 	pip install -r requirements.txt --quiet
 else
 	cd /opt/Photon
-	git reset --hard HEAD; git pull
+	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
 fi
 
 if [ ! -f /opt/ReconDog/dog ]; then
@@ -600,7 +600,7 @@ if [ ! -f /opt/ReconDog/dog ]; then
 	pip install -r requirements.txt --quiet
 else
 	cd /opt/ReconDog
-	git reset --hard HEAD; git pull
+	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
 fi
 
 if [ ! -f /opt/Storm-Breaker/st.py ]; then
@@ -612,7 +612,7 @@ if [ ! -f /opt/Storm-Breaker/st.py ]; then
 	pip install -r requirments.txt --quiet
 else
 	cd /opt/Storm-Breaker
-	git reset --hard HEAD; git pull
+	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
 fi
 
 if ! which maltego; then
@@ -776,7 +776,7 @@ if [ ! -f /opt/NetworkMiner/NetworkMiner.exe ]; then
 	mv NetworkMiner* /opt/NetworkMiner
 else
 	cd /opt/exploitdb
-	git reset --hard HEAD; git pull
+	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
 fi
 
 
@@ -789,7 +789,7 @@ if [ ! -f /opt/exploitdb/searchsploit ]; then
 	git clone https://gitlab.com/exploit-database/exploitdb.git
 else
 	cd /opt/exploitdb
-	git reset --hard HEAD; git pull
+	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
 fi
 
 
