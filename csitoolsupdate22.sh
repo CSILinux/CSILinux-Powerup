@@ -102,9 +102,10 @@ echo $key | sudo -S apt install libc6 libstdc++6 ca-certificates tar -y > /dev/n
 echo $key | sudo -S apt install bash-completion -y > /dev/null 2>&1
 dos2unix /opt/csitools/resetdns > /dev/null 2>&1
 echo "# Configuring tools 2"
-rm apps.txt; wget https://csilinux.com/downloads/apps.txt > /dev/null 2>&1
+rm apps.txt > /dev/null 2>&1
+wget https://csilinux.com/downloads/apps.txt > /dev/null 2>&1
 echo $key | sudo -S apt install -y $(grep -vE "^\s*#" apps.txt | sed -e 's/#.*//'  | tr "\n" " ") > /dev/null 2>&1
-echo $key | sudo -S ln -s /usr/bin/python3 /usr/bin/python > /dev/null 2>&1
+echo $key | sudo -S ln -s /usr/bin/python3 /usr/bin/python # > /dev/null 2>&1
 
 echo "# Configuring Background"
 xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg > /dev/null 2>&1
