@@ -205,11 +205,7 @@ pip install --upgrade git+https://github.com/twintproject/twint.git@origin/maste
 /bin/sed -i 's/3.6/1/g' ~/.local/lib/python3.10/site-packages/twint/cli.py > /dev/null 2>&1
 echo "   100%"
 
-if [[ "$INCLUDE_PRE_RELEASE" == true ]]; then
-  RELEASE_VERSION=$(wget -qO - "https://api.github.com/repos/laurent22/joplin/releases" | grep -Po '"tag_name": ?"v\K.*?(?=")' | head -1) > /dev/null 2>&1
-else
-  RELEASE_VERSION=$(wget -qO - "https://api.github.com/repos/laurent22/joplin/releases/latest" | grep -Po '"tag_name": ?"v\K.*?(?=")') > /dev/null 2>&1
-fi
+RELEASE_VERSION=$(wget -qO - "https://api.github.com/repos/laurent22/joplin/releases/latest" | grep -Po '"tag_name": ?"v\K.*?(?=")') > /dev/null 2>&1
 mkdir -p /opt/csitools/joplin > /dev/null 2>&1
 cd /opt/csitools/joplin > /dev/null 2>&1
 rm -f *.AppImage ~/.local/share/applications/joplin.desktop VERSION > /dev/null 2>&1
@@ -416,13 +412,15 @@ else
 	echo "sn0int installed"
 fi
 
-if [ ! -f /opt/ghunt/ghunt.py ]; then
+if [ ! -f /opt/ghunt/main.py ]; then
 	cd /opt
 	git clone https://github.com/mxrch/GHunt.git ghunt
-	cd /ghunt 
+	cd ghunt 
+ 	pip install -r requirements.txtt --quiet
 else
-	cd /opt/ghunt 
+	cd /opt/ghunt
 	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
+ 	pip install -r requirements.txt
 fi
 
 if [ ! -f /opt/sherlock/sherlock/sherlock.py ]; then
@@ -551,14 +549,14 @@ if [ ! -f /opt/Osintgram/main.py ]; then
 	git clone https://github.com/Datalux/Osintgram.git
 	cd Osintgram
 	pip install -r requirements.txt --quiet
-	mv src/* .
+	mv src/* . > /dev/null 2>&1
 	find . -type f -exec sed -i 's/from\ src\ //g' {} +
 	find . -type f -exec sed -i 's/src.Osintgram/Osintgram/g' {} +
 	
 else
 	cd /opt/Osintgram
 	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
-	mv src/* .
+	mv src/* . > /dev/null 2>&1
 	find . -type f -exec sed -i 's/from\ src\ //g' {} +
 	find . -type f -exec sed -i 's/src.Osintgram/Osintgram/g' {} +
 fi
@@ -603,16 +601,18 @@ else
 	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
 fi
 
-if [ ! -f /opt/Storm-Breaker/st.py ]; then
+if [ ! -f /opt/Storm-Breaker/install.sh ]; then
 	cd /opt
 	git clone https://github.com/ultrasecurity/Storm-Breaker.git
 	cd Storm-Breaker
-	echo $key | sudo -S bash install.sh
-	echo $key | sudo -S apt install -y apache2 apache2-bin apache2-data apache2-utils libapache2-mod-php8.1 libapr1 libaprutil1 libaprutil1-dbd-sqlite3 libaprutil1-ldap php php-common php8.1 php8.1-cli php8.1-common php8.1-opcache php8.1-readline
-	pip install -r requirments.txt --quiet
+ 	pip install -r requirments.txt --quiet
+	echo $key | sudo -S bash install.sh > /dev/null 2>&1
+	echo $key | sudo -S apt install -y apache2 apache2-bin apache2-data apache2-utils libapache2-mod-php8.1 libapr1 libaprutil1 libaprutil1-dbd-sqlite3 libaprutil1-ldap php php-common php8.1 php8.1-cli php8.1-common php8.1-opcache php8.1-readline > /dev/null 2>&1	
 else
 	cd /opt/Storm-Breaker
 	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
+ 	pip install -r requirments.txt --quiet > /dev/null 2>&1
+  	echo $key | sudo -S bash install.sh > /dev/null 2>&1
 fi
 
 if ! which maltego; then
