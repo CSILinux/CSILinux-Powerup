@@ -19,6 +19,32 @@ else
     key=$1
 fi
 
+# Function to add a Debian repository securely
+add_debian_repository_if_not_exists() {
+    local repo_url="$1"
+    local gpg_key_url="$2"
+    local repo_name="$3"
+    # Check if the repository already exists
+    if ! grep -q "$repo_url" "/etc/apt/sources.list.d/$repo_name.list"; then
+        # Download and install the GPG key if not trusted
+        if ! gpg --list-keys | grep -q "$repo_name"; then
+            if curl -fsSL "$gpg_key_url" | sudo -S gpg --dearmor | sudo -S tee "/etc/apt/trusted.gpg.d/$repo_name.gpg" > /dev/null; then
+                echo "GPG key for '$repo_name' added successfully."
+            else
+                echo "Error adding GPG key for '$repo_name'."
+                return 1
+            fi
+        fi
+
+        # Add the repository with the GPG key reference
+        echo "$key" | sudo -S bash -c "echo 'deb [signed-by=/etc/apt/trusted.gpg.d/$repo_name.gpg] $repo_url' | sudo -S tee '/etc/apt/sources.list.d/$repo_name.list'" > /dev/null
+    fi
+
+    # Update APT
+    echo "$key" | sudo -S apt update > /dev/null 2>&1
+}
+
+
 echo "# Setting up users"
 USERNAME=csi
 useradd -m $USERNAME -G sudo -s /bin/bash && echo -e "$USERNAME\N$USERNAME\n" | passwd $USERNAME > /dev/null 2>&1
@@ -64,33 +90,6 @@ echo $key | sudo -S rm -rf /etc/apt/sources.list.d/archive_u* > /dev/null 2>&1
 echo $key | sudo -S apt update > /dev/null 2>&1
 echo $key | sudo -S apt install curl -y > /dev/null 2>&1
 
-# Function to add a Debian repository securely
-add_debian_repository_if_not_exists() {
-    local repo_url="$1"
-    local gpg_key_url="$2"
-    local repo_name="$3"
-
-    # Check if the repository already exists
-    if ! grep -q "$repo_url" "/etc/apt/sources.list.d/$repo_name.list"; then
-        # Download and install the GPG key if not trusted
-        if ! gpg --list-keys | grep -q "$repo_name"; then
-            if curl -fsSL "$gpg_key_url" | sudo -S gpg --dearmor | sudo -S tee "/etc/apt/trusted.gpg.d/$repo_name.gpg" > /dev/null; then
-                echo "GPG key for '$repo_name' added successfully."
-            else
-                echo "Error adding GPG key for '$repo_name'."
-                return 1
-            fi
-        fi
-
-        # Add the repository with the GPG key reference
-        echo "$key" | sudo -S bash -c "echo 'deb [signed-by=/etc/apt/trusted.gpg.d/$repo_name.gpg] $repo_url' | sudo -S tee '/etc/apt/sources.list.d/$repo_name.list'" > /dev/null
-    fi
-
-    # Update APT
-    echo "$key" | sudo -S apt update > /dev/null 2>&1
-}
-
-# Example usage:
 add_debian_repository "https://apt.bell-sw.com/ stable main" "https://download.bell-sw.com/pki/GPG-KEY-bellsoft" "bellsoft"
 add_debian_repository "http://apt.vulns.sexy stable main" "https://apt.vulns.sexy/kpcyrd.pgp" "apt-vulns-sexy"
 add_debian_repository "https://dl.winehq.org/wine-builds/ubuntu/ focal main" "https://dl.winehq.org/wine-builds/winehq.key" "winehq"
