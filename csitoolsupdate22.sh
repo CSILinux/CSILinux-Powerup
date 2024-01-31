@@ -525,6 +525,9 @@ if [ ! -f /opt/spiderfoot/sf.py ]; then
 	mv spiderfoot-4.0 spiderfoot
 	cd spiderfoot
 	pip install -r requirements.txt --quiet
+else
+	cd /opt/spiderfoot
+ 	pip install -r requirements.txt --quiet
 fi
 
 if [ ! -f /opt/Goohak/goohak ]; then
