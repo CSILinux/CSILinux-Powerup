@@ -416,18 +416,18 @@ if [ ! -f /opt/ghunt/main.py ]; then
 	cd /opt
 	git clone https://github.com/mxrch/GHunt.git ghunt
 	cd ghunt 
- 	pip install -r requirements.txtt --quiet
+ 	pip install -r requirements.txt --quiet > /dev/null 2>&1
 else
 	cd /opt/ghunt
 	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
- 	pip install -r requirements.txt
+ 	pip install -r requirements.txt --quiet > /dev/null 2>&1
 fi
 
 if [ ! -f /opt/sherlock/sherlock/sherlock.py ]; then
 	cd /opt
 	git clone https://github.com/sherlock-project/sherlock.git
 	cd /opt/sherlock
-	pip install -r requirements.txt --quiet
+	pip install -r requirements.txt --quiet > /dev/null 2>&1
 else
 	cd /opt/sherlock
 	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
@@ -603,9 +603,9 @@ fi
 
 if [ ! -f /opt/Storm-Breaker/install.sh ]; then
 	cd /opt
-	git clone https://github.com/ultrasecurity/Storm-Breaker.git
+	git clone https://github.com/ultrasecurity/Storm-Breaker.git > /dev/null 2>&1
 	cd Storm-Breaker
- 	pip install -r requirments.txt --quiet
+ 	pip install -r requirments.txt --quiet > /dev/null 2>&1
 	echo $key | sudo -S bash install.sh > /dev/null 2>&1
 	echo $key | sudo -S apt install -y apache2 apache2-bin apache2-data apache2-utils libapache2-mod-php8.1 libapr1 libaprutil1 libaprutil1-dbd-sqlite3 libaprutil1-ldap php php-common php8.1 php8.1-cli php8.1-common php8.1-opcache php8.1-readline > /dev/null 2>&1	
 else
