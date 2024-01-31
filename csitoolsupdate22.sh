@@ -1,4 +1,5 @@
-#!/usr/bin/env bash
+#!/bin/bash
+
 update_current_time() {
   current_time=$(date +"%Y-%m-%d %H:%M:%S")
 }
@@ -423,7 +424,8 @@ if [ ! -f /opt/ghunt/main.py ]; then
  	pip install -r requirements.txt --quiet > /dev/null 2>&1
 else
 	cd /opt/ghunt
-	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
+	git reset --hard HEAD > /dev/null 2>&1
+ 	git pull > /dev/null 2>&1
  	pip install -r requirements.txt --quiet > /dev/null 2>&1
 fi
 
@@ -434,7 +436,8 @@ if [ ! -f /opt/sherlock/sherlock/sherlock.py ]; then
 	pip install -r requirements.txt --quiet > /dev/null 2>&1
 else
 	cd /opt/sherlock
-	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
+	git reset --hard HEAD > /dev/null 2>&1
+ 	git pull > /dev/null 2>&1
 fi
 
 if [ ! -f /opt/blackbird/blackbird.py ]; then
@@ -447,17 +450,19 @@ if [ ! -f /opt/blackbird/blackbird.py ]; then
 else
     cd /opt/blackbird
     mkdir results > /dev/null 2>&1
-    git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1 > /dev/null 2>&1
+    git reset --hard HEAD > /dev/null 2>&1
+    git pull > /dev/null 2>&1
 fi
 
 if [ ! -f /opt/Moriarty-Project/run.sh ]; then
 	cd /opt
 	git clone https://github.com/AzizKpln/Moriarty-Project
 	cd /opt/Moriarty-Project
-	echo $key | sudo -S bash install.sh
+	echo $key | sudo -S bash install.sh > /dev/null 2>&1
 else
 	cd /opt/Moriarty-Project
-	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
+	git reset --hard HEAD > /dev/null 2>&1
+ 	git pull > /dev/null 2>&1
 fi
 
 if [ ! -f /opt/Rock-ON/rockon.sh ]; then
@@ -467,17 +472,19 @@ if [ ! -f /opt/Rock-ON/rockon.sh ]; then
 	chmod +x rockon.sh
 else
 	cd /opt/Rock-ON
-	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
+	git reset --hard HEAD > /dev/null 2>&1
+ 	git pull > /dev/null 2>&1
 fi
 
 if [ ! -f /opt/Carbon14/carbon14.py ]; then
 	cd /opt
 	git clone https://github.com/Lazza/Carbon14.git
 	cd Carbon14
-	pip install -r requirements.txt --quiet
+	pip install -r requirements.txt --quiet > /dev/null 2>&1
 else
 	cd /opt/Carbon14
-	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
+	git reset --hard HEAD > /dev/null 2>&1
+ 	git pull > /dev/null 2>&1
 fi
 
 if [ ! -f /opt/PhoneInfoga/phoneinfoga ]; then
@@ -485,38 +492,41 @@ if [ ! -f /opt/PhoneInfoga/phoneinfoga ]; then
 	mkdir PhoneInfoga
 	cd PhoneInfoga
 	wget https://raw.githubusercontent.com/sundowndev/phoneinfoga/master/support/scripts/install -O - | sh 
-	echo $key | sudo -S chmod +x ./phoneinfoga
-	echo $key | sudo -S ln -sf ./phoneinfoga /usr/local/bin/phoneinfoga
+	echo $key | sudo -S chmod +x ./phoneinfoga > /dev/null 2>&1
+	echo $key | sudo -S ln -sf ./phoneinfoga /usr/local/bin/phoneinfoga > /dev/null 2>&1
 fi
 
 if [ ! -f /opt/email2phonenumber/email2phonenumber.py ]; then
 	cd /opt
 	git clone https://github.com/martinvigo/email2phonenumber.git
 	cd email2phonenumber
-	pip install -r requirements.txt --quiet
+	pip install -r requirements.txt --quiet > /dev/null 2>&1
 else
 	cd /opt/email2phonenumber
-	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
+	git reset --hard HEAD > /dev/null 2>&1
+ 	git pull > /dev/null 2>&1
 fi
 
 if [ ! -f /opt/Masto/masto.py ]; then
 	cd /opt
 	git clone https://github.com/C3n7ral051nt4g3ncy/Masto
 	cd Masto
-	pip install -r requirements.txt --quiet
+	pip install -r requirements.txt --quiet > /dev/null 2>&1
 else
 	cd /opt/Masto
-	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
+	git reset --hard HEAD > /dev/null 2>&1
+ 	git pull > /dev/null 2>&1
 fi
 
 if [ ! -f /opt/FinalRecon/finalrecon.py ]; then
 	cd /opt
 	git clone https://github.com/thewhiteh4t/FinalRecon.git
 	cd FinalRecon
-	pip install -r requirements.txt --quiet
+	pip install -r requirements.txt --quiet > /dev/null 2>&1
 else
 	cd /opt/FinalRecon
-	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
+	git reset --hard HEAD > /dev/null 2>&1
+ 	git pull > /dev/null 2>&1
 fi
 
 if [ ! -f /opt/spiderfoot/sf.py ]; then
