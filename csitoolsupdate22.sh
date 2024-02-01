@@ -10,7 +10,7 @@ calculate_duration() {
 }
 update_current_time
 start_time="$current_time"
-echo "Start time: $start_time"
+echo "CSI Linux Powerup Start time: $start_time"
 cd /tmp
 if [ -z "$1" ]; then
     key=$(zenity --password --title "Power up your system with an upgrade." --text "Enter your CSI password." --width 400)
@@ -19,92 +19,299 @@ else
     key=$1
 fi
 
+add_debian_repository() {
+    local repo_url="$1"
+    local gpg_key_url="$2"
+    local repo_name="$3"
+
+    # Check if the repository already exists
+    echo "# Checking repo for $repo_name"
+    if ! grep -q "$repo_url" "/etc/apt/sources.list.d/$repo_name.list"; then
+        # Download and install the GPG key if not trusted
+        if ! gpg --list-keys | grep -q "$repo_name"; then
+            if curl -fsSL "$gpg_key_url" | sudo -S gpg --dearmor | sudo -S tee "/etc/apt/trusted.gpg.d/$repo_name.gpg"; then
+                echo "# GPG key for '$repo_name' added successfully."
+            else
+                echo "   - Error adding GPG key for '$repo_name'."
+                return 1
+            fi
+        fi
+
+        # Add the repository with the GPG key reference
+        echo "$key" | sudo -S bash -c "echo 'deb [signed-by=/etc/apt/trusted.gpg.d/$repo_name.gpg] $repo_url' | sudo -S tee '/etc/apt/sources.list.d/$repo_name.list'"
+    fi
+}
+
+update_git_repository() {
+    local repo_name="$1"
+    local repo_url="$2"
+    local repo_dir="/opt/$repo_name"
+
+    if [ ! -d "$repo_dir" ]; then
+        # Clone the Git repository with sudo
+        echo "$key" | sudo -S git clone "$repo_url" "$repo_dir"
+        echo "$key" | sudo -S chown csi:csi "$repo_dir"
+    fi
+
+    if [ -d "$repo_dir/.git" ]; then
+        cd "$repo_dir" || return
+        echo "$key" | sudo -S git reset --hard HEAD > /dev/null 2>&1
+        echo "$key" | sudo -S git pull > /dev/null 2>&1
+
+        if [ -f "$repo_dir/requirements.txt" ]; then
+            python3 -m venv "${repo_dir}/${repo_name}-venv" > /dev/null 2>&1
+            source "${repo_dir}/${repo_name}-venv/bin/activate" > /dev/null 2>&1
+            pip3 install -r requirements.txt > /dev/null 2>&1
+            deactivate
+        else
+            echo "No requirements.txt found in $repo_dir"
+        fi
+    else
+        echo "   - Directory $repo_dir is not a valid Git repository."
+    fi
+}
+
+
+echo $key | sudo -S swapoff -a || exit 1
+
+conf=/etc/fstab
+
+if grep '^/swapfile' /etc/fstab &> /dev/null ;then
+    echo $key | sudo -S sed -i '/\/swapfile/s/^/#/' ${conf} || exit 1
+    echo "Updated '${conf}'"
+fi
+
+if [ -f /swapfile ] ; then
+    echo $key | sudo -S rm -vf /swapfile || exit 1
+    
+fi
+
+
 echo "# Setting up users"
 USERNAME=csi
-useradd -m $USERNAME -G sudo -s /bin/bash && echo -e "$USERNAME\N$USERNAME\n" | passwd $USERNAME > /dev/null 2>&1
+useradd -m $USERNAME -G sudo -s /bin/bash  > /dev/null 2>&1
+echo -e "$USERNAME\N$USERNAME\n" | passwd $USERNAME > /dev/null 2>&1
 echo $key | sudo -S adduser $USERNAME vboxsf > /dev/null 2>&1
 echo $key | sudo -S adduser $USERNAME libvirt > /dev/null 2>&1
 echo $key | sudo -S adduser $USERNAME kvm > /dev/null 2>&1
 
-echo "Installing CSI Linux Tools and Menu update"
-rm csi* > /dev/null 2>&1
-echo "Downloading CSI Tools"
-wget https://csilinux.com/download/csitools22.zip -O csitools22.zip
-echo "# Installing CSI Tools"
-echo $key | sudo -S unzip -o -d / csitools22.zip > /dev/null 2>&1
-echo $key | sudo -S chown csi:csi -R /opt/csitools  > /dev/null 2>&1
-echo $key | sudo -S chmod +x /opt/csitools/* -R > /dev/null 2>&1
-echo $key | sudo -S chmod +x /opt/csitools/* > /dev/null 2>&1
-echo $key | sudo -S chmod +x ~/Desktop/*.desktop > /dev/null 2>&1
-echo $key | sudo -S chown csi:csi /usr/bin/bash-wrapper > /dev/null 2>&1
-echo $key | sudo -S chown csi:csi /home/csi -R > /dev/null 2>&1
-echo $key | sudo -S chmod +x /usr/bin/bash-wrapper  > /dev/null 2>&1
-echo $key | sudo -S chmod +x /opt/csitools/powerup > /dev/null 2>&1
-echo $key | sudo -S ln -sf /opt/csitools/powerup /usr/local/bin/powerup > /dev/null 2>&1
-echo $key | sudo -S mkdir /iso > /dev/null 2>&1
-echo $key | sudo -S chown csi:csi /iso -R > /dev/null 2>&1
-echo $key | sudo -S chmod +x /etc/grub.d/39_iso > /dev/null 2>&1
-echo "System setup starting..."
+echo "# System setup starting..."
 ###  System setup
 echo $key | sudo -S echo "\$nrconf{restart} = 'a'" | sudo -S tee /etc/needrestart/conf.d/autorestart.conf > /dev/null 2>&1
 export DEBIAN_FRONTEND=noninteractive > /dev/null 2>&1
 export APT_LISTCHANGES_FRONTEND=none > /dev/null 2>&1
-echo "# Building CSI XFCE Theme"
-tar -xf /opt/csitools/assets/Win11-blue.tar.xz --directory /home/csi/.icons/ > /dev/null 2>&1
+echo "# Cleaning up old Arch"
 echo $key | sudo -S apt-get remove --purge --allow-remove-essential -y `dpkg --get-selections | awk '/i386/{print $1}'` > /dev/null 2>&1
+echo "# Standardizing Arch"
 echo $key | sudo -S dpkg --remove-architecture i386 > /dev/null 2>&1
-echo $key | sudo -S rm -rfv /usr/local/bin/kismet* /usr/local/share/kismet* /usr/local/etc/kismet* > /dev/null 2>&1
 
-echo "# Setting up APT Repos"
+echo "# Setting up repo environment"
 cd /tmp
 echo $key | sudo -S dpkg-reconfigure debconf --frontend=noninteractive > /dev/null 2>&1
 echo $key | sudo -S DEBIAN_FRONTEND=noninteractive dpkg --configure -a > /dev/null 2>&1
 echo $key | sudo -S NEEDRESTART_MODE=a apt update --ignore-missing > /dev/null 2>&1
 echo $key | sudo -S rm -rf /etc/apt/sources.list.d/archive_u* > /dev/null 2>&1
-echo $key | sudo -S apt update > /dev/null 2>&1
-echo $key | sudo -S apt install curl -y > /dev/null 2>&1
 
-echo $key | sudo -S curl -fsSL https://download.bell-sw.com/pki/GPG-KEY-bellsoft | sudo -S gpg --dearmor | sudo -S tee /etc/apt/trusted.gpg.d/bellsoft.gpg > /dev/null
-echo $key | sudo -S bash -c "echo 'deb https://apt.bell-sw.com/ stable main' | sudo -S tee /etc/apt/sources.list.d/bellsoft.list"
-echo $key | sudo -S curl -fsSL https://apt.vulns.sexy/kpcyrd.pgp | sudo -S gpg --dearmor | sudo -S tee /etc/apt/trusted.gpg.d/apt-vulns-sexy.gpg > /dev/null
-echo $key | sudo -S bash -c "echo 'deb http://apt.vulns.sexy stable main' | sudo -S tee /etc/apt/sources.list.d/apt-vulns-sexy.list"
-echo $key | sudo -S curl -fsSL https://dl.winehq.org/wine-builds/winehq.key | sudo -S gpg --dearmor | sudo -S tee /etc/apt/trusted.gpg.d/winehq.gpg > /dev/null
-echo $key | sudo -S bash -c "echo 'deb https://dl.winehq.org/wine-builds/ubuntu/ focal main' | sudo -S tee /etc/apt/sources.list.d/wine.list"
-echo $key | sudo -S curl -fsSL https://www.kismetwireless.net/repos/kismet-release.gpg.key | sudo -S gpg --dearmor | sudo -S tee /etc/apt/trusted.gpg.d/kismet-release.gpg > /dev/null
-echo $key | sudo -S bash -c "echo 'deb https://www.kismetwireless.net/repos/apt/release/jammy jammy main' | sudo -S tee /etc/apt/sources.list.d/kismet.list"
-echo $key | sudo -S curl -fsSL https://packages.element.io/debian/element-io-archive-keyring.gpg | sudo -S gpg --dearmor | sudo -S tee /etc/apt/trusted.gpg.d/element-io-archive-keyring.gpg > /dev/null
-echo $key | sudo -S bash -c "echo 'deb https://packages.element.io/debian/ default main' | sudo -S tee > element-io.list" > /dev/null
-echo $key | sudo -S curl -fsSL https://deb.oxen.io/pub.gpg | sudo -S gpg --dearmor | sudo -S tee /etc/apt/trusted.gpg.d/oxen.gpg > /dev/null
-echo $key | sudo -S bash -c "echo 'deb https://deb.oxen.io $(lsb_release -sc) main' | sudo -S tee /etc/apt/sources.list.d/oxen.list"
-echo $key | sudo -S curl -fsSL https://updates.signal.org/desktop/apt/keys.asc | sudo -S gpg --dearmor | sudo -S tee /etc/apt/trusted.gpg.d/signal-desktop-keyring.gpg > /dev/null
-echo $key | sudo -S bash -c "echo 'deb [signed-by=/etc/apt/trusted.gpg.d/signal-desktop-keyring.gpg] https://updates.signal.org/desktop/apt xenial main' | sudo -S tee /etc/apt/sources.list.d/signal-desktop-keyring.list"
-echo $key | sudo -S curl -fsSL https://brave-browser-apt-release.s3.brave.com/brave-core.asc | sudo -S gpg --dearmor | sudo -S tee /etc/apt/trusted.gpg.d/brave-browser-archive-keyring.gpg > /dev/null
-echo $key | sudo -S bash -c " echo 'deb [signed-by=/etc/apt/trusted.gpg.d/brave-browser-archive-keyring.gpg] https://brave-browser-apt-release.s3.brave.com/ stable main' | sudo -S tee /etc/apt/sources.list.d/brave-browser-release.list"
-echo $key | sudo -S curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | sudo -S gpg --dearmor | sudo -S tee /etc/apt/trusted.gpg.d/packages.microsoft.gpg > /dev/null
-echo $key | sudo -S bash -c " echo 'deb [signed-by=/etc/apt/trusted.gpg.d/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main' | sudo -S tee /etc/apt/sources.list.d/vscode.list"
+
+if ! which curl > /dev/null; then
+	echo "# Installing Curl"
+	echo $key | sudo -S apt update > /dev/null 2>&1
+	echo $key | sudo -S apt install curl -y > /dev/null 2>&1
+fi
+
+echo "# Setting up APT Repos"
+add_debian_repository "https://apt.bell-sw.com/ stable main" "https://download.bell-sw.com/pki/GPG-KEY-bellsoft" "bellsoft"
+add_debian_repository "http://apt.vulns.sexy stable main" "https://apt.vulns.sexy/kpcyrd.pgp" "apt-vulns-sexy"
+add_debian_repository "https://dl.winehq.org/wine-builds/ubuntu/ focal main" "https://dl.winehq.org/wine-builds/winehq.key" "winehq"
+add_debian_repository "https://www.kismetwireless.net/repos/apt/release/jammy jammy main" "https://www.kismetwireless.net/repos/kismet-release.gpg.key" "kismet"
+add_debian_repository "https://packages.element.io/debian/ default main" "https://packages.element.io/debian/element-io-archive-keyring.gpg" "element-io"
+add_debian_repository "https://deb.oxen.io $(lsb_release -sc) main" "https://deb.oxen.io/pub.gpg" "oxen"
+add_debian_repository "https://updates.signal.org/desktop/apt xenial main" "https://updates.signal.org/desktop/apt/keys.asc" "signal-desktop"
+add_debian_repository "https://brave-browser-apt-release.s3.brave.com/ stable main" "https://brave-browser-apt-release.s3.brave.com/brave-core.asc" "brave-browser"
+add_debian_repository "https://packages.microsoft.com/repos/code stable main" "https://packages.microsoft.com/keys/microsoft.asc" "vscode"
+
 echo $key | sudo -S apt-add-repository ppa:i2p-maintainers/i2p -y > /dev/null 2>&1
 echo $key | sudo -S add-apt-repository ppa:danielrichter2007/grub-customizer > /dev/null 2>&1
 echo $key | sudo -S add-apt-repository ppa:phoerious/keepassxc > /dev/null 2>&1
+echo $key | sudo -S add-apt-repository -y ppa:beineri/opt-qt-5.14.2-focal
 
 echo "# Cleaning old tools"
-echo $key | sudo -S apt remove proxychains4 -y > /dev/null 2>&1
-echo $key | sudo -S apt remove proxychains -y > /dev/null 2>&1
 echo $key | sudo -S apt install apt-transport-https -y > /dev/null 2>&1
 echo $key | sudo -S apt install code -y > /dev/null 2>&1
 echo $key | sudo -S rm -rf /var/lib/tor/hidden_service/ > /dev/null 2>&1
 echo $key | sudo -S rm -rf /var/lib/tor/other_hidden_service/ > /dev/null 2>&1
-echo "Reconfiguring Swap"; echo $key | sudo -S wget -O - https://teejeetech.com/scripts/jammy/disable_swapfile | bash > /dev/null 2>&1
+echo "Reconfiguring Swap"; echo $key | sudo -S wget -O -
 echo "Reconfiguring Terminal"; wget -O - https://raw.githubusercontent.com/CSILinux/CSILinux-Powerup/main/csi-linux-terminal.sh | bash > /dev/null 2>&1
+
+git config --global safe.directory '*'
+# List of Python packages to install
+# List of Python packages for computer forensic tools
+computer_forensic_tools=(
+    "bs4"
+    "chardet"
+    "ConfigParser"
+    "dfvfs"
+    "dnsdumpster"
+    "dnslib"
+    "exifread"
+    "fake-useragent"
+    "h8mail"
+    "icmplib"
+    "idna"
+    "libesedb-python"
+    "libregf-python"
+    "lxml"
+    "nest_asyncio"
+    "oauth2"
+    "osrframework"
+    "pylnk3"
+    "pywebview"
+    "rarfile"
+    "redis"
+    "robotframework"
+    "s3fs"
+    "sounddevice"
+    "stix2"
+    "stumpy"
+    "termcolor"
+    "tqdm"
+    "truffleHog"
+    "yara-python"
+    "zipstream"
+)
+
+# List of Python packages for online forensic tools
+online_forensic_tools=(
+    "grequests"
+    "i2py"
+    "i2p.socket"
+    "image"
+    "instaloader"
+    "pyexiv2"
+    "pyngrok"
+    "reload"
+    "requests"
+    "requests-html"
+    "selenium"
+    "simplekml"
+    "soupsieve"
+    "stem"
+    "sublist3r"
+    "tld"
+    "tldextract"
+    "toutatis"
+    "urllib3"
+    "youtube-dl"
+    "zipp"
+    "xmltodict"
+    "PySide2"
+    "PySide6"
+)
+
+# List of Python packages for system utilities
+system_utilities=(
+    "certifi"
+    "exifread"
+    "ffmpeg-python"
+    "geopy"
+    "moviepy"
+    "numpy"
+    "pydub"
+    "pyffmpeg"
+    "pytorch"
+    "pytube"
+    "sounddevice"
+    "streamlink"
+    "tweepy"
+)
+
+# Combine and sort the lists
+python_packages=($(printf "%s\n" "${computer_forensic_tools[@]}" "${online_forensic_tools[@]}" "${system_utilities[@]}" | sort -u))
+
+# Sort the list alphabetically
+sorted_packages=($(for pkg in "${python_packages[@]}"; do echo "$pkg"; done | sort))
+
+total_packages=${#sorted_packages[@]}
+percentage=0
+
+echo "# Updating pip"
+python3 -m pip install pip --upgrade  > /dev/null 2>&1
+((percentage++))
+
+echo "# Checking Python Dependencies"
+
+for package in "${sorted_packages[@]}"; do
+    echo "  - $((percentage * 100 / total_packages))% complete..."
+    pip install $package --quiet  > /dev/null 2>&1
+    ((percentage++))
+done
+
+echo "  100%"
+
+echo "# Configuring third party tools 1"
+# List of repositories and their URLs
+repositories=(
+    "WLEAPP|https://github.com/abrignoni/WLEAPP.git"
+    "ALEAPP|https://github.com/abrignoni/ALEAPP.git"
+    "theHarvester|https://github.com/laramies/theHarvester.git"
+    "iLEAPP|https://github.com/abrignoni/iLEAPP.git"
+    "VLEAPP|https://github.com/abrignoni/VLEAPP.git"
+    "iOS-Snapshot-Triage-Parser|https://github.com/abrignoni/iOS-Snapshot-Triage-Parser.git"
+    "DumpsterDiver|https://github.com/securing/DumpsterDiver.git"
+    "dumpzilla|https://github.com/Busindre/dumpzilla.git"
+    "volatility3|https://github.com/volatilityfoundation/volatility3.git"
+    "autotimeliner|https://github.com/andreafortuna/autotimeliner.git"
+    "RecuperaBit|https://github.com/Lazza/RecuperaBit.git"
+    "dronetimeline|https://github.com/studiawan/dronetimeline.git"
+    "ghunt|https://github.com/mxrch/GHunt.git"
+    "sherlock|https://github.com/sherlock-project/sherlock.git"
+    "blackbird|https://github.com/p1ngul1n0/blackbird.git"
+    "Moriarty-Project|https://github.com/AzizKpln/Moriarty-Project"
+    "Rock-ON|https://github.com/SilverPoision/Rock-ON.git"
+    "Carbon14|https://github.com/Lazza/Carbon14.git"
+    "email2phonenumber|https://github.com/martinvigo/email2phonenumber.git"
+    "Masto|https://github.com/C3n7ral051nt4g3ncy/Masto.git"
+    "FinalRecon|https://github.com/thewhiteh4t/FinalRecon.git"
+    "Goohak|https://github.com/1N3/Goohak.git"
+    "Osintgram|https://github.com/Datalux/Osintgram.git"
+    "spiderfoot|https://github.com/CSILinux/spiderfoot.git"
+    "InstagramOSINT|https://github.com/sc1341/InstagramOSINT.git"
+    "OnionSearch|https://github.com/CSILinux/OnionSearch.git"
+	"Photon|https://github.com/s0md3v/Photon.git"
+	"ReconDog|https://github.com/s0md3v/ReconDog.git"
+	"Geogramint|https://github.com/Alb-310/Geogramint.git"
+	"i2pchat|https://github.com/vituperative/i2pchat.git"
+)
+
+# Iterate through the repositories and update them
+for entry in "${repositories[@]}"; do
+    IFS="|" read -r repo_name repo_url <<< "$entry"
+    update_git_repository "$repo_name" "$repo_url"
+done
+
+
+if [ -f /opt/Osintgram/main.py ]; then
+	cd /opt/Osintgram
+	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
+	mv src/* . > /dev/null 2>&1
+	find . -type f -exec sed -i 's/from\ src\ //g' {} +
+	find . -type f -exec sed -i 's/src.Osintgram/Osintgram/g' {} +
+fi
+
+
 echo "# Configuring tools 1"
 echo $key | sudo -S apt install -y zram-config > /dev/null 2>&1
-echo $key | sudo -S apt install xfce4-cpugraph-plugin -y > /dev/null 2>&1
-echo $key | sudo -S apt install xfce4-goodies -y > /dev/null 2>&1
+echo $key | sudo -S apt install -y xfce4-cpugraph-plugin -y > /dev/null 2>&1
+echo $key | sudo -S apt install -y xfce4-goodies > /dev/null 2>&1
 echo $key | sudo -S apt install -y libmagic-dev python3-magic python3-pyregfi > /dev/null 2>&1
-echo $key | sudo -S apt install python3-pip -y > /dev/null 2>&1
-echo $key | sudo -S apt install python3-pyqt5.qtsql -y > /dev/null 2>&1
-echo $key | sudo -S apt install python3-pyqt5.qtsql -y > /dev/null 2>&1
-echo $key | sudo -S apt install libc6 libstdc++6 ca-certificates tar -y > /dev/null 2>&1
-echo $key | sudo -S apt install bash-completion -y > /dev/null 2>&1
+echo $key | sudo -S apt install -y python3-pip > /dev/null 2>&1
+echo $key | sudo -S apt install -y python3-pyqt5.qtsql > /dev/null 2>&1
+echo $key | sudo -S apt install -y libc6 libstdc++6 ca-certificates tar > /dev/null 2>&1
+echo $key | sudo -S apt install -y bash-completion > /dev/null 2>&1
+echo $key | sudo -S apt install -y tre-command > /dev/null 2>&1
+echo $key | sudo -S apt install -y tre-agrep > /dev/null 2>&1
+
+
 dos2unix /opt/csitools/resetdns > /dev/null 2>&1
 echo "# Configuring tools 2"
 rm apps.txt > /dev/null 2>&1
@@ -112,111 +319,15 @@ wget https://csilinux.com/downloads/apps.txt > /dev/null 2>&1
 echo $key | sudo -S apt install -y $(grep -vE "^\s*#" apps.txt | sed -e 's/#.*//'  | tr "\n" " ") > /dev/null 2>&1
 echo $key | sudo -S ln -s /usr/bin/python3 /usr/bin/python > /dev/null 2>&1
 
-echo "# Configuring Background"
-xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg > /dev/null 2>&1
-xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitorVirtual1/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg > /dev/null 2>&1
-xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitorVirtual-1/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg > /dev/null 2>&1
-xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitoreDP-1/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg > /dev/null 2>&1
-xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitorHDMI-A-0/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg > /dev/null 2>&1
-xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitorVirtual1/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg > /dev/null 2>&1
-xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitorVirtual-1/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg > /dev/null 2>&1
-xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitoreDP-2/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg > /dev/null 2>&1
-xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitorHDMI-A-1/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg > /dev/null 2>&1
 
-# ---
-cd /tmp > /dev/null 2>&1
-rm  hunchly.deb > /dev/null 2>&1
-echo "Checking Hunchly.  If updating, you may need to reinstall the browser extension"
-wget -O hunchly.deb https://downloadmirror.hunch.ly/currentversion/hunchly.deb?csilinux_update
-echo "# Configuring Hunchly"
-echo $key | sudo -S apt-get install ./hunchly.deb -y > /dev/null 2>&1
-echo "# Configuring tools 3"
-echo $key | sudo -S apt install maltego -y > /dev/null 2>&1
-echo $key | sudo -S apt install python3-shodan -y > /dev/null 2>&1
-echo $key | sudo -S apt install webhttrack -y > /dev/null 2>&1
-echo $key | sudo -S apt install outguess -y > /dev/null 2>&1
-echo $key | sudo -S apt install stegosuite -y > /dev/null 2>&1
-echo $key | sudo -S apt install wireshark -y > /dev/null 2>&1
-echo $key | sudo -S apt install exifprobe -y > /dev/null 2>&1
-echo $key | sudo -S apt install ruby-bundler -y > /dev/null 2>&1
-echo $key | sudo -S apt install recon-ng -y > /dev/null 2>&1
-echo $key | sudo -S apt install cherrytree -y > /dev/null 2>&1
-echo "# Configuring tools 4"
-echo $key | sudo -S apt install drawing -y > /dev/null 2>&1
-echo $key | sudo -S apt install cargo -y > /dev/null 2>&1
-echo $key | sudo -S apt install pkg-config -y > /dev/null 2>&1
-echo $key | sudo -S apt install npm -y > /dev/null 2>&1
-echo $key | sudo -S apt install curl -y > /dev/null 2>&1
-echo $key | sudo -S apt install pipx -y > /dev/null 2>&1
-echo $key | sudo -S apt install python3-tweepy -y > /dev/null 2>&1
-echo $key | sudo -S apt install python3-exifread -y > /dev/null 2>&1
-echo $key | sudo -S apt install yt-dlp -y > /dev/null 2>&1
+echo "# Configuring Investigation Tools"
+if ! which maltego > /dev/null 2>&1; then
+	cd /tmp
+	wget https://csilinux.com/downloads/Maltego.deb
+	echo $key | sudo -S apt install ./Maltego.deb -y
+fi
 
-echo "# Checking Python Dependencies"
-pip install pyside6 --quiet > /dev/null 2>&1
-pip install grequests --quiet > /dev/null 2>&1
-pip install sublist3r --quiet > /dev/null 2>&1
-echo "  5%"
-pip install pyngrok --quiet > /dev/null 2>&1
-pip install phonefy --quiet > /dev/null 2>&1
-pip install fake-useragent --quiet > /dev/null 2>&1
-echo "  10%"
-pip install instaloader --quiet > /dev/null 2>&1
-pip install osrframework --quiet > /dev/null 2>&1
-pip install osrframework --upgrade --quiet > /dev/null 2>&1
-echo "  15%"
-pip install dnslib --quiet > /dev/null 2>&1
-pip install icmplib --quiet > /dev/null 2>&1
-echo "  20%"
-pip install passwordmeter --quiet > /dev/null 2>&1
-pip install image --quiet > /dev/null 2>&1
-pip install ConfigParser --quiet > /dev/null 2>&1
-echo "  25%"
-pip install youtube-dl --quiet > /dev/null 2>&1
-pip install dnsdumpster --quiet > /dev/null 2>&1
-pip install h8mail --quiet > /dev/null 2>&1
-pip install toutatis --quiet > /dev/null 2>&1
-echo "  30%"
-pip install pyexiv2 --quiet > /dev/null 2>&1
-echo "  35%"
-pip install oauth2 --quiet > /dev/null 2>&1
-echo "  40%"
-pip install reload --quiet > /dev/null 2>&1
-echo "  45%"
-pip install telepathy --quiet > /dev/null 2>&1
-echo "  50%"
-pip install stem --quiet > /dev/null 2>&1
-echo "  55%"
-pip install nest_asyncio --quiet > /dev/null 2>&1
-echo "  60%"
-pip install simplekml --quiet > /dev/null 2>&1
-echo "  65%"
-pip install libregf-python --quiet > /dev/null 2>&1
-echo "  70%"
-pip install libesedb-python --quiet > /dev/null 2>&1
-echo "  75%"
-pip install xmltodict --quiet > /dev/null 2>&1
-echo "  80%"
-pip install PySimpleGUI --quiet > /dev/null 2>&1
-pip install pyudev --quiet > /dev/null 2>&1
-echo "  85%"
-pip install PySide2 --quiet > /dev/null 2>&1
-pip install PySide6 --quiet > /dev/null 2>&1
-echo "  90%"
-
-pip install --upgrade git+https://github.com/twintproject/twint.git@origin/master#egg=twint --quiet > /dev/null 2>&1
-/bin/sed -i 's/3.6/1/g' ~/.local/lib/python3.10/site-packages/twint/cli.py > /dev/null 2>&1
-echo "  100%"
-
-RELEASE_VERSION=$(wget -qO - "https://api.github.com/repos/laurent22/joplin/releases/latest" | grep -Po '"tag_name": ?"v\K.*?(?=")') > /dev/null 2>&1
-mkdir -p /opt/csitools/joplin > /dev/null 2>&1
-cd /opt/csitools/joplin > /dev/null 2>&1
-rm -f *.AppImage ~/.local/share/applications/joplin.desktop VERSION > /dev/null 2>&1
-wget -qnv --show-progress -O Joplin.AppImage https://github.com/laurent22/joplin/releases/download/v${RELEASE_VERSION}/Joplin-${RELEASE_VERSION}.AppImage
-wget -qnv --show-progress -O joplin.png https://joplinapp.org/images/Icon512.png
-chmod +x Joplin.AppImage
-
-echo "Installing Computer Forensic Tools"
+echo "# Configuring Computer Forensic Tools"
 cd /tmp
 if [ ! -f /opt/autopsy/bin/autopsy ]; then
 	cd /tmp
@@ -229,7 +340,8 @@ if [ ! -f /opt/autopsy/bin/autopsy ]; then
 	bash install_application.sh -z ./autopsy.zip -i /tmp/ -j /usr/lib/jvm/java-1.17.0-openjdk-amd64
  	rm -rf /opt/autopsyold
 	mv /opt/autopsy /opt/autopsyold
-	mv /tmp/autopsy/autopsy-4.21.0 /opt/autopsy
+	chown csi:csi /opt/autopsy
+	mv /tmp/autopsy-4.21.0 /opt/autopsy
 	sed -i -e 's/\#jdkhome=\"\/path\/to\/jdk\"/jdkhome=\"\/usr\/lib\/jvm\/java-17-openjdk-amd64\"/g' /opt/autopsy/etc/autopsy.conf
 	cd /opt/autopsy
 	export JAVA_HOME="/usr/lib/jvm/java-17-openjdk-amd64"
@@ -245,8 +357,8 @@ cd /tmp
 
 if ! which veracrypt > /dev/null; then
 	echo "Installing veracrypt"
-	wget https://launchpad.net/veracrypt/trunk/1.25.9/+download/veracrypt-1.25.9-Ubuntu-21.10-amd64.deb
-	echo $key | sudo -S apt install -y ./veracrypt-1.25.9-Ubuntu-21.10-amd64.deb -y
+	wget https://github.com/veracrypt/VeraCrypt/releases/download/VeraCrypt_1.26.7/veracrypt-1.26.7-Ubuntu-22.04-amd64.deb
+	echo $key | sudo -S apt install -y ./veracrypt-1.26.7-Ubuntu-22.04-amd64.deb -y
 fi
 
 if [ ! -f /opt/jd-gui/jd-gui-1.6.6-min.jar ]; then
@@ -264,130 +376,6 @@ if ! which xnview > /dev/null; then
 	echo $key | sudo -S apt install -y ./XnViewMP-linux-x64.deb
 fi
 
-if ! which bulk_extractor > /dev/null; then
-	cd /tmp
-	wget https://digitalcorpora.s3.amazonaws.com/downloads/bulk_extractor/bulk_extractor-2.0.3.tar.gz
-	tar -xf bulk_extractor-2.0.3.tar.gz
-	mv bulk_extractor-2.0.3 bulk_extractor
-	cd bulk_extractor
-	./configure
-	make
-	echo $key | sudo -S make install
-fi
-
-if [ ! -f /opt/WLEAPP/wleappGUI.py ]; then
-	cd /opt
-	git clone https://github.com/abrignoni/WLEAPP.git
-	cd /opt/WLEAPP
-	pip install -r requirements.txt --quiet
-else
-	cd /opt/WLEAPP
-	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
-fi
-
-if [ ! -f /opt/ALEAPP/aleappGUI.py ]; then
-	cd /opt
-	git clone https://github.com/abrignoni/ALEAPP.git
-	cd ALEAPP
-	pip install -r requirements.txt --quiet
-else
-	cd /opt/ALEAPP
-	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
-fi
-
-if [ -f /opt/theHarvester/theHarvester.py ]; then
-	cd /opt/theHarvester/
-	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
-fi
-
-if [ ! -f /opt/iLEAPP/ileapp.py ]; then
-	cd /opt
-	git clone https://github.com/abrignoni/iLEAPP.git
-	cd iLEAPP
-	pip install -r requirements.txt --quiet
-else
-	cd /opt/iLEAPP
-	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
-fi
-
-if [ ! -f /opt/VLEAPP/vleapp.py ]; then
-	cd /opt
-	git clone https://github.com/abrignoni/VLEAPP.git
-	cd VLEAPP
-	pip install -r requirements.txt --quiet
-else
-	cd /opt/VLEAPP
-	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
-fi
-
-if [ ! -f /opt/iOS-Snapshot-Triage-Parser/SnapshotImageFinder.py ]; then
-	cd /opt
-	git clone https://github.com/abrignoni/iOS-Snapshot-Triage-Parser.git
-	cd iOS-Snapshot-Triage-Parser
-else
-	cd /opt/iOS-Snapshot-Triage-Parser
-	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
-fi
-
-if [ ! -f /opt/DumpsterDiver/DumpsterDiver.py ]; then
-	cd /opt
-	git clone https://github.com/securing/DumpsterDiver.git
-	cd DumpsterDiver
-	pip install -r requirements.txt --quiet
-else
-	cd /opt/DumpsterDiver
-	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
-fi
-
-if [ ! -f /opt/dumpzilla/dumpzilla.py ]; then
-	cd /opt
-	git clone https://github.com/Busindre/dumpzilla.git
-	cd dumpzilla
-else
-	cd /opt/dumpzilla
-	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
-fi
-
-if [ ! -f /opt/volatility3/vol.py ]; then
-	cd /opt
-	git clone https://github.com/volatilityfoundation/volatility3.git
-	cd volatility3
-	pip install -r requirements.txt --quiet
-else
-	cd /opt/volatility3
-	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
-fi
-
-if [ ! -f /opt/autotimeliner/autotimeline.py ]; then
-	cd /opt
-	git clone https://github.com/andreafortuna/autotimeliner.git
-	cd autotimeliner
-else
-	cd /opt/autotimeliner
-	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
-fi
-
-if [ ! -f /opt/RecuperaBit/main.py ]; then
-	cd /opt
-	git clone https://github.com/Lazza/RecuperaBit.git
-	cd RecuperaBit
-else
-	cd /opt/RecuperaBit
-	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
-fi
-
-
-if [ ! -f /opt/dronetimeline/src/dtgui.py ]; then
-	cd /opt
-	git clone https://github.com/studiawan/dronetimeline.git
-	cd /opt/dronetimeline
-	pip install -r requirements.txt --quiet
-	echo $key | sudo -S python setup.py install
-else
-	cd /opt/dronetimeline
-	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
-fi 
-
 if [ ! -f /opt/routeconverter/RouteConverterLinux.jar ]; then
     cd /opt
 	mkdir routeconverter
@@ -396,7 +384,10 @@ if [ ! -f /opt/routeconverter/RouteConverterLinux.jar ]; then
 fi
 
 
-echo "Installing Online Forensic Tools"
+
+
+
+echo "# Configuring Online Forensic Tools"
 
 if ! which discord > /dev/null; then
     echo "disord"
@@ -411,80 +402,7 @@ fi
 
 if ! which sn0int > /dev/null 2>&1; then
 	echo $key | sudo -S apt install -y sn0int > /dev/null 2>&1
-else
-	echo "sn0int installed"
 fi
-
-if [ ! -f /opt/ghunt/main.py ]; then
-	cd /opt
-	git clone https://github.com/mxrch/GHunt.git ghunt
-	cd ghunt 
- 	pip install -r requirements.txt --quiet > /dev/null 2>&1
-else
-	cd /opt/ghunt
-	git reset --hard HEAD > /dev/null 2>&1
- 	git pull > /dev/null 2>&1
- 	pip install -r requirements.txt --quiet > /dev/null 2>&1
-fi
-
-if [ ! -f /opt/sherlock/sherlock/sherlock.py ]; then
-	cd /opt
-	git clone https://github.com/sherlock-project/sherlock.git
-	cd /opt/sherlock
-	pip install -r requirements.txt --quiet > /dev/null 2>&1
-else
-	cd /opt/sherlock
-	git reset --hard HEAD > /dev/null 2>&1
- 	git pull > /dev/null 2>&1
-fi
-
-if [ ! -f /opt/blackbird/blackbird.py ]; then
-    cd /opt
-    git clone https://github.com/p1ngul1n0/blackbird.git
-    cd /opt/blackbird
-    pip install -r requirements.txt --quiet > /dev/null 2>&1
-    echo $key | sudo -S chmod +x blackbird.py
-    mkdir results > /dev/null 2>&1
-else
-    cd /opt/blackbird
-    mkdir results > /dev/null 2>&1
-    git reset --hard HEAD > /dev/null 2>&1
-    git pull > /dev/null 2>&1
-fi
-
-if [ ! -f /opt/Moriarty-Project/run.sh ]; then
-	cd /opt
-	git clone https://github.com/AzizKpln/Moriarty-Project
-	cd /opt/Moriarty-Project
-	echo $key | sudo -S bash install.sh > /dev/null 2>&1
-else
-	cd /opt/Moriarty-Project
-	git reset --hard HEAD > /dev/null 2>&1
- 	git pull > /dev/null 2>&1
-fi
-
-if [ ! -f /opt/Rock-ON/rockon.sh ]; then
-	cd /opt
-	git clone https://github.com/SilverPoision/Rock-ON.git
-	cd Rock-ON
-	chmod +x rockon.sh
-else
-	cd /opt/Rock-ON
-	git reset --hard HEAD > /dev/null 2>&1
- 	git pull > /dev/null 2>&1
-fi
-
-if [ ! -f /opt/Carbon14/carbon14.py ]; then
-	cd /opt
-	git clone https://github.com/Lazza/Carbon14.git
-	cd Carbon14
-	pip install -r requirements.txt --quiet > /dev/null 2>&1
-else
-	cd /opt/Carbon14
-	git reset --hard HEAD > /dev/null 2>&1
- 	git pull > /dev/null 2>&1
-fi
-
 if [ ! -f /opt/PhoneInfoga/phoneinfoga ]; then
 	cd /opt
 	mkdir PhoneInfoga
@@ -493,134 +411,6 @@ if [ ! -f /opt/PhoneInfoga/phoneinfoga ]; then
 	echo $key | sudo -S chmod +x ./phoneinfoga > /dev/null 2>&1
 	echo $key | sudo -S ln -sf ./phoneinfoga /usr/local/bin/phoneinfoga > /dev/null 2>&1
 fi
-
-if [ ! -f /opt/email2phonenumber/email2phonenumber.py ]; then
-	cd /opt
-	git clone https://github.com/martinvigo/email2phonenumber.git
-	cd email2phonenumber
-	pip install -r requirements.txt --quiet > /dev/null 2>&1
-else
-	cd /opt/email2phonenumber
-	git reset --hard HEAD > /dev/null 2>&1
- 	git pull > /dev/null 2>&1
-fi
-
-if [ ! -f /opt/Masto/masto.py ]; then
-	cd /opt
-	git clone https://github.com/C3n7ral051nt4g3ncy/Masto
-	cd Masto
-	pip install -r requirements.txt --quiet > /dev/null 2>&1
-else
-	cd /opt/Masto
-	git reset --hard HEAD > /dev/null 2>&1
- 	git pull > /dev/null 2>&1
-fi
-
-if [ ! -f /opt/FinalRecon/finalrecon.py ]; then
-	cd /opt
-	git clone https://github.com/thewhiteh4t/FinalRecon.git
-	cd FinalRecon
-	pip install -r requirements.txt --quiet > /dev/null 2>&1
-else
-	cd /opt/FinalRecon
-	git reset --hard HEAD > /dev/null 2>&1
- 	git pull > /dev/null 2>&1
-fi
-
-if [ ! -f /opt/spiderfoot/sf.py ]; then
-	cd /opt
-	wget https://github.com/smicallef/spiderfoot/archive/v4.0.tar.gz
-	tar zxvf v4.0.tar.gz
-	mv spiderfoot-4.0 spiderfoot
-	cd spiderfoot
-	pip install -r requirements.txt --quiet > /dev/null 2>&1
-else
-	cd /opt/spiderfoot
- 	pip install -r requirements.txt --quiet > /dev/null 2>&1
-fi
-
-if [ ! -f /opt/Goohak/goohak ]; then
-	cd /opt
-	git clone https://github.com/1N3/Goohak.git
-	echo $key | sudo -S chmod +x /opt/Goohak/goohak
-else
-	cd /opt/Goohak
-	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
-fi
-
-if [ ! -f /opt/LittleBrother/LittleBrother.py ]; then
-	cd /opt
-	git clone https://github.com/Lulz3xploit/LittleBrother
-	cd LittleBrother
-	pip install -r requirements.txt --quiet > /dev/null 2>&1
-	echo $key | sudo -S chmod +x LittleBrother.py
-else
-	cd /opt/LittleBrother
-	git reset --hard HEAD > /dev/null 2>&1
- 	git pull > /dev/null 2>&1
-fi
-
-if [ ! -f /opt/Osintgram/main.py ]; then
-	cd /opt
-	git clone https://github.com/Datalux/Osintgram.git
-	cd Osintgram
-	pip install -r requirements.txt --quiet
-	mv src/* . > /dev/null 2>&1
-	find . -type f -exec sed -i 's/from\ src\ //g' {} +
-	find . -type f -exec sed -i 's/src.Osintgram/Osintgram/g' {} +
-	
-else
-	cd /opt/Osintgram
-	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
-	mv src/* . > /dev/null 2>&1
-	find . -type f -exec sed -i 's/from\ src\ //g' {} +
-	find . -type f -exec sed -i 's/src.Osintgram/Osintgram/g' {} +
-fi
-
-if [ ! -f /opt/InstagramOSINT/main.py ]; then
-	cd /opt
-	git clone https://github.com/sc1341/InstagramOSINT.git
-	cd InstagramOSINT
-	pip install -r requirements.txt --quiet > /dev/null 2>&1
-else
-	cd /opt/InstagramOSINT
-	git reset --hard HEAD > /dev/null 2>&1
- 	git pull > /dev/null 2>&1
-fi
-
-if [ ! -f /opt/OnionSearch/setup.py ]; then
-	cd /opt
-	git clone https://github.com/CSILinux/OnionSearch.git
-        cd OnionSearch/
-        python3 setup.py install > /dev/null 2>&1
-else
-	cd /opt/OnionSearch
-	git reset --hard HEAD > /dev/null 2>&1
- 	git pull > /dev/null 2>&1
-fi
-
-if [ ! -f /opt/Photon/photon.py ]; then
-	cd /opt
-	git clone https://github.com/s0md3v/Photon.git
-	cd Photon
-	pip install -r requirements.txt --quiet > /dev/null 2>&1
-else
-	cd /opt/Photon
-	git reset --hard HEAD > /dev/null 2>&1
- 	git pull > /dev/null 2>&1
-fi
-
-if [ ! -f /opt/ReconDog/dog ]; then
-	cd /opt
-	git clone https://github.com/s0md3v/ReconDog.git
-	cd ReconDog
-	pip install -r requirements.txt --quiet > /dev/null 2>&1
-else
-	cd /opt/ReconDog
-	git reset --hard HEAD > /dev/null 2>&1
- 	git pull > /dev/null 2>&1
-fi
-
 if [ ! -f /opt/Storm-Breaker/install.sh ]; then
 	cd /opt
 	git clone https://github.com/ultrasecurity/Storm-Breaker.git > /dev/null 2>&1
@@ -635,17 +425,14 @@ else
   	echo $key | sudo -S bash install.sh > /dev/null 2>&1
 fi
 
-if ! which maltego > /dev/null 2>&1; then
-	cd /tmp
-	wget https://csilinux.com/downloads/Maltego.deb
-	echo $key | sudo -S apt install ./Maltego.deb -y
-fi
 
+
+
+echo "# Configuring Dark Web Forensic Tools"
 if ! which onionshare > /dev/null; then
 	echo $key | sudo -S snap install onionshare
 fi
 
-echo "Installing Darkweb Tools"
 cd /tmp
 if ! which orjail > /dev/null; then
         wget https://github.com/orjail/orjail/releases/download/v1.1/orjail_1.1-1_all.deb
@@ -660,15 +447,12 @@ if [ ! -f /opt/OxenWallet/oxen-electron-wallet-1.8.1-linux.AppImage ]; then
     chmod +x oxen-electron-wallet-1.8.1-linux.AppImage
 fi
 
-
 ## Create TorVPN environment
 echo $key | sudo -S cp /etc/tor/torrc /etc/tor/torrc.back
 echo $key | sudo -S sed -i 's/#ControlPort/ControlPort/g' /etc/tor/torrc
 echo $key | sudo -S sed -i 's/#CookieAuthentication 1/CookieAuthentication 0/g' /etc/tor/torrc
 echo $key | sudo -S sed -i 's/#SocksPort 9050/SocksPort 9050/g' /etc/tor/torrc
 echo $key | sudo -S sed -i 's/#RunAsDaemon 1/RunAsDaemon 1/g' /etc/tor/torrc
-
-
 if grep -q "VirtualAddrNetworkIPv4" /etc/tor/torrc; then
     echo "TorVPN already configured"
 else
@@ -678,16 +462,8 @@ else
     echo $key | sudo -S bash -c "echo 'DNSPort 5353' >> /etc/tor/torrc"
     echo "TorVPN configured"
 fi
-
 echo $key | sudo -S service tor stop
 echo $key | sudo -S service tor start
-
-# i2p
-echo $key | sudo -S snap remove i2pi2p > /dev/null 2>&1
-echo $key | sudo -S apt install i2p* -y > /dev/null 2>&1
-echo $key | sudo -S apt install openjdk-19-jdk
-echo $key | sudo -S update-java-alternatives -s /usr/lib/jvm/java-1.19.0-openjdk-amd64
-
 # echo $key | sudo -S groupadd tor-auth
 # echo $key | sudo -S usermod -a -G tor-auth debian-tor
 # echo $key | sudo -S usermod -a -G tor-auth csi
@@ -695,14 +471,17 @@ echo $key | sudo -S update-java-alternatives -s /usr/lib/jvm/java-1.19.0-openjdk
 # echo $key | sudo -S chown root:tor-auth /run/tor/control.authcookie
 # echo $key | sudo -S chmod g+r /run/tor/control.authcookie
 
+# i2p
 
-echo "Installing SIGINT Tools"
+
+
+
+echo "# Configuring SIGINT Tools"
+cd /tmp
 if ! which wifipumpkin3 > /dev/null; then
 	wget  https://github.com/P0cL4bs/wifipumpkin3/releases/download/v1.1.4/wifipumpkin3_1.1.4_all.deb
 	echo $key | sudo -S apt install ./wifipumpkin3_1.1.4_all.deb -y
 fi
-
-
 if [ ! -f /opt/fmradio/fmradio.AppImage ]; then
 	echo "Installing fmradio"
 	cd /opt
@@ -710,6 +489,7 @@ if [ ! -f /opt/fmradio/fmradio.AppImage ]; then
 	cd fmradio
 	wget https://csilinux.com/downloads/fmradio.AppImage
 	echo $key | sudo -S chmod +x fmradio.AppImage
+	echo $key | sudo -S ln -sf fmradio.AppImage /usr/local/bin/fmradio
 fi
 
 if [ ! -f /opt/FlipperZero/qFlipperZero.AppImage ]; then
@@ -744,9 +524,7 @@ fi
 
 
 
-
-# Malware Analysis
-echo "Installing Malware Analysis Tools"
+echo "# Configuring Malware Analysis Tools"
 if [ ! -f /opt/ImHex/imhex.AppImage ]; then
 	cd /opt
 	mkdir ImHex
@@ -785,8 +563,7 @@ fi
 
 
 
-# Network
-echo "Installing Network Tools"
+echo "# Configuring Network Forensic Tools"
 if [ ! -f /opt/NetworkMiner/NetworkMiner.exe ]; then
 	cd /tmp
 	wget https://www.netresec.com/?download=NetworkMiner -O networkminer.zip
@@ -800,9 +577,7 @@ fi
 
 
 
-# Security
-echo "Installing Security Tools"
-
+echo "# Configuring Security Tools"
 if [ ! -f /opt/exploitdb/searchsploit ]; then
 	cd /opt
 	git clone https://gitlab.com/exploit-database/exploitdb.git
@@ -812,14 +587,7 @@ else
 fi
 
 
-
-
-
-
-
-
-
-# AppImages
+# extras
 if [ ! -f /opt/qr-code-generator-desktop/qr-code-generator-desktop.AppImage ]; then
 	cd /opt
 	mkdir qr-code-generator-desktop
@@ -868,6 +636,30 @@ fi
 
 
 echo $key | sudo -S cp /opt/csitools/youtube.lua /usr/lib/x86_64-linux-gnu/vlc/lua/playlist/youtube.luac -rf
+
+
+
+
+
+
+
+
+
+
+
+echo "# Configuring Background"
+xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg > /dev/null 2>&1
+xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitorVirtual1/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg > /dev/null 2>&1
+xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitorVirtual-1/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg > /dev/null 2>&1
+xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitoreDP-1/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg > /dev/null 2>&1
+xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitorHDMI-A-0/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg > /dev/null 2>&1
+xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitorVirtual1/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg > /dev/null 2>&1
+xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitorVirtual-1/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg > /dev/null 2>&1
+xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitoreDP-2/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg > /dev/null 2>&1
+xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitorHDMI-A-1/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg > /dev/null 2>&1
+
+# ---
+
 echo $key | sudo -S timedatectl set-timezone UTC
 
 
@@ -879,6 +671,7 @@ echo $key | sudo -S rm -rf /var/crash/* > /dev/null 2>&1
 echo $key | sudo -S rm /var/crash/* > /dev/null 2>&1
 rm ~/.vbox* > /dev/null 2>&1
 
+echo "# Checking resolv.conf"
 echo $key | sudo -S touch /etc/resolv.conf
 echo $key | sudo -S bash -c "mv /etc/resolv.conf /etc/resolv.conf.bak" > /dev/null 2>&1
 echo $key | sudo -S touch /etc/resolv.conf
@@ -917,7 +710,7 @@ echo "# Fixing broken APT installs level 3"
 echo $key | sudo -S apt -f install > /dev/null 2>&1
 echo "# Fixing broken APT installs level 4"
 echo $key | sudo -S apt upgrade --fix-missing -y > /dev/null 2>&1
-echo "# Verifying APT installs"
+echo "# Verifying APT installs level 5"
 echo $key | sudo -S dpkg --configure -a > /dev/null 2>&1
 echo "# Fixing broken APT installs level 6"
 echo $key | sudo -S dpkg --configure -a --force-confold > /dev/null 2>&1
