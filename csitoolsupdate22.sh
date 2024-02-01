@@ -62,7 +62,7 @@ update_git_repository() {
             pip3 install -r requirements.txt > /dev/null 2>&1
             deactivate
         else
-            echo "No requirements.txt found in $repo_dir"
+            # echo "No requirements.txt found in $repo_dir"
         fi
     else
         echo "   - Directory $repo_dir is not a valid Git repository."
@@ -146,7 +146,6 @@ add_debian_repository "https://updates.signal.org/desktop/apt xenial main" "http
 add_debian_repository "https://brave-browser-apt-release.s3.brave.com/ stable main" "https://brave-browser-apt-release.s3.brave.com/brave-core.asc" "brave-browser"
 add_debian_repository "https://packages.microsoft.com/repos/code stable main" "https://packages.microsoft.com/keys/microsoft.asc" "vscode"
 
-echo $key | sudo -S apt-add-repository ppa:i2p-maintainers/i2p -y > /dev/null 2>&1
 echo $key | sudo -S add-apt-repository ppa:danielrichter2007/grub-customizer > /dev/null 2>&1
 echo $key | sudo -S add-apt-repository ppa:phoerious/keepassxc > /dev/null 2>&1
 echo $key | sudo -S add-apt-repository -y ppa:beineri/opt-qt-5.14.2-focal
@@ -294,10 +293,10 @@ repositories=(
     "spiderfoot|https://github.com/CSILinux/spiderfoot.git"
     "InstagramOSINT|https://github.com/sc1341/InstagramOSINT.git"
     "OnionSearch|https://github.com/CSILinux/OnionSearch.git"
-	"Photon|https://github.com/s0md3v/Photon.git"
-	"ReconDog|https://github.com/s0md3v/ReconDog.git"
-	"Geogramint|https://github.com/Alb-310/Geogramint.git"
-	"i2pchat|https://github.com/vituperative/i2pchat.git"
+    "Photon|https://github.com/s0md3v/Photon.git"
+    "ReconDog|https://github.com/s0md3v/ReconDog.git"
+    "Geogramint|https://github.com/Alb-310/Geogramint.git"
+    "i2pchat|https://github.com/vituperative/i2pchat.git"
 )
 
 # Iterate through the repositories and update them
@@ -489,8 +488,13 @@ echo $key | sudo -S service tor start
 # echo $key | sudo -S chmod g+r /run/tor/control.authcookie
 
 # i2p
-
-
+cd /tmp
+wget https://csilinux.com/wp-content/uploads/2024/02/i2pupdate.zip
+echo $key | sudo -S service i2p stop
+echo $key | sudo -S service i2pd stop
+echo $key | sudo -S sudo unzip i2pupdate.zip -d /usr/share/i2p
+echo $key | sudo -S service i2p start
+echo $key | sudo -S service i2pd start
 
 
 echo "# Configuring SIGINT Tools"
