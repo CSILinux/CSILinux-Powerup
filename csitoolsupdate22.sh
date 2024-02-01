@@ -493,6 +493,9 @@ echo $key | sudo -S sudo unzip i2pupdate.zip -d /usr/share/i2p
 echo $key | sudo -S service i2p start
 echo $key | sudo -S service i2pd start
 
+# lokinet
+echo $key | sudo -S apt install lokinet-gui
+
 
 echo "# Configuring SIGINT Tools"
 cd /tmp
@@ -638,7 +641,6 @@ echo $key | sudo -S timedatectl set-timezone UTC
 
 
 # unredactedmagazine
-
 
 echo $key | sudo -S /opt/csitools/clearlogs > /dev/null 2>&1
 echo $key | sudo -S rm -rf /var/crash/* > /dev/null 2>&1
