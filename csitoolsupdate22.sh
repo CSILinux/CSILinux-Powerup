@@ -61,8 +61,6 @@ update_git_repository() {
             source "${repo_dir}/${repo_name}-venv/bin/activate" > /dev/null 2>&1
             pip3 install -r requirements.txt > /dev/null 2>&1
             deactivate
-        else
-            # echo "No requirements.txt found in $repo_dir"
         fi
     else
         echo "   - Directory $repo_dir is not a valid Git repository."
