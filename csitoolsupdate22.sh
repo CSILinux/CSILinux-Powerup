@@ -255,9 +255,10 @@ python3 -m pip install pip --upgrade  > /dev/null 2>&1
 ((percentage++))
 
 echo "# Checking Python Dependencies"
-
+printf "  - "
 for package in "${sorted_packages[@]}"; do
-    echo "  - Checking $package: $((percentage * 100 / total_packages))% complete..."
+    # echo "  - Checking $packag$((percentage * 100 / total_packages))% complete..."
+    printf "."
     pip install $package --quiet  > /dev/null 2>&1
     ((percentage++))
 done
