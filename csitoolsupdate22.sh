@@ -241,7 +241,7 @@ python3 -m pip install pip --upgrade  > /dev/null 2>&1
 echo "# Checking Python Dependencies"
 
 for package in "${sorted_packages[@]}"; do
-    echo "  - $((percentage * 100 / total_packages))% complete..."
+    echo "  - Checking $package: $((percentage * 100 / total_packages))% complete..."
     pip install $package --quiet  > /dev/null 2>&1
     ((percentage++))
 done
@@ -600,51 +600,7 @@ if ! which keepassxc > /dev/null 2>&1; then
 	echo $key | sudo -S apt install keepassxc -y
 fi
 
-if [ ! -f /opt/IMSI-catcher/simple_IMSI-catcher.py ]; then
-	# fix later.  gnradio 3.9 issue with  Unknown CMake command "GR_SWIG_MAKE".
-	cd /opt
-	wget https://github.com/Oros42/IMSI-catcher/archive/master.zip && unzip -q master.zip
-	mv IMSI-catcher-master IMSI-catcher
-	pip install docutils
-	cd IMSI-catcherc
-	echo $key | sudo -S apt install -y cmake \
-    autoconf \
-    libtool \
-    pkg-config \
-    build-essential \
-    libcppunit-dev \
-    swig \
-    doxygen \
-    liblog4cpp5-dev \
-    gnuradio-dev \
-    gr-osmosdr \
-    libosmocore-dev \
-    liborc-0.4-dev
-	echo $key | sudo -S apt install python3-numpy python3-scipy python3-scapy -y
-	git clone -b maint-3.8 https://github.com/velichkov/gr-gsm.git
-	cd gr-gsm
-	mkdir build
-	cd build
-	cmake ..
-	make -j 4
-	sudo make install
-	sudo ldconfig
-	echo 'export PYTHONPATH=/usr/local/lib/python3/dist-packages/:$PYTHONPATH' >> ~/.bashrc
-fi
-
-#install Snaps
-
-
 echo $key | sudo -S cp /opt/csitools/youtube.lua /usr/lib/x86_64-linux-gnu/vlc/lua/playlist/youtube.luac -rf
-
-
-
-
-
-
-
-
-
 
 
 echo "# Configuring Background"
