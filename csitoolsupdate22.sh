@@ -28,7 +28,7 @@ add_debian_repository() {
     if ! grep -q "$repo_url" "/etc/apt/sources.list.d/$repo_name.list"; then
         # Download and install the GPG key if not trusted
         if ! gpg --list-keys | grep -q "$repo_name"; then
-            if curl -fsSL "$gpg_key_url" | sudo -S gpg --dearmor | sudo -S tee "/etc/apt/trusted.gpg.d/$repo_name.gpg"; then
+            if curl -fsSL "$gpg_key_url" | sudo -S gpg --dearmor | sudo -S tee "/etc/apt/trusted.gpg.d/$repo_name.gpg" > /dev/null 2>&1; then
                 echo "# GPG key for '$repo_name' added successfully."
             else
                 echo "   - Error adding GPG key for '$repo_name'."
