@@ -63,7 +63,7 @@ update_git_repository() {
             deactivate
         fi
     else
-        echo "   - Directory $repo_dir is not a valid Git repository."
+        echo "   -  ..."
     fi
 }
 
