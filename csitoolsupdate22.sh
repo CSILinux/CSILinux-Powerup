@@ -146,7 +146,6 @@ add_debian_repository "https://packages.microsoft.com/repos/code stable main" "h
 
 echo $key | sudo -S add-apt-repository ppa:danielrichter2007/grub-customizer > /dev/null 2>&1
 echo $key | sudo -S add-apt-repository ppa:phoerious/keepassxc > /dev/null 2>&1
-echo $key | sudo -S add-apt-repository -y ppa:beineri/opt-qt-5.14.2-focal
 
 echo "# Cleaning old tools"
 echo $key | sudo -S apt install apt-transport-https -y > /dev/null 2>&1
