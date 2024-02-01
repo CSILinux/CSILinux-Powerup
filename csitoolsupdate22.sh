@@ -1,5 +1,4 @@
 #!/bin/bash
-
 update_current_time() {
   current_time=$(date +"%Y-%m-%d %H:%M:%S")
 }
@@ -36,7 +35,6 @@ add_debian_repository() {
                 return 1
             fi
         fi
-
         # Add the repository with the GPG key reference
         echo "$key" | sudo -S bash -c "echo 'deb [signed-by=/etc/apt/trusted.gpg.d/$repo_name.gpg] $repo_url' | sudo -S tee '/etc/apt/sources.list.d/$repo_name.list'"
     fi
