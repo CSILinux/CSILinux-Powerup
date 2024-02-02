@@ -1,24 +1,26 @@
-echo "# Setting up users"
-USERNAME=csi
-useradd -m $USERNAME -G sudo -s /bin/bash  > /dev/null 2>&1
-echo -e "$USERNAME\N$USERNAME\n" | passwd $USERNAME > /dev/null 2>&1
-echo $key | sudo -S adduser $USERNAME vboxsf > /dev/null 2>&1
-echo $key | sudo -S adduser $USERNAME libvirt > /dev/null 2>&1
-echo $key | sudo -S adduser $USERNAME kvm > /dev/null 2>&1
+function setup_new_csi_user_and_system {
+    echo "# Setting up users"
+    USERNAME=csi
+    useradd -m "$USERNAME" -G sudo -s /bin/bash  > /dev/null 2>&1
+    echo -e "${USERNAME}\n${USERNAME}\n" | passwd "$USERNAME" > /dev/null 2>&1
+    echo -e "${USERNAME}\n${USERNAME}\n" | su "$USERNAME" > /dev/null 2>&1
+    echo $key | sudo -S adduser "$USERNAME" vboxsf > /dev/null 2>&1
+    echo $key | sudo -S adduser "$USERNAME" libvirt > /dev/null 2>&1
+    echo $key | sudo -S adduser "$USERNAME" kvm > /dev/null 2>&1
+    echo "# System setup starting..."
+    ###  System setup
+    echo $key | sudo -S bash -c 'echo "$nrconf{restart} = '"'"'a'"'"'" | tee /etc/needrestart/conf.d/autorestart.conf' > /dev/null 2>&1
+    export DEBIAN_FRONTEND=noninteractive
+    export APT_LISTCHANGES_FRONTEND=none
+    export DISPLAY=:0.0
+    export TERM=xterm
+    echo "# Cleaning up old Arch"
+    echo $key | sudo -S apt-get remove --purge --allow-remove-essential -y $(dpkg --get-selections | awk '/i386/{print $1}') > /dev/null 2>&1
+    echo "# Standardizing Arch"
+    echo $key | sudo -S dpkg --remove-architecture i386 > /dev/null 2>&1
+}
 
-echo "# System setup starting..."
-###  System setup
-echo $key | sudo -S echo "\$nrconf{restart} = 'a'" | sudo -S tee /etc/needrestart/conf.d/autorestart.conf > /dev/null 2>&1
-export DEBIAN_FRONTEND=noninteractive > /dev/null 2>&1
-export APT_LISTCHANGES_FRONTEND=none > /dev/null 2>&1
-export DISPLAY=:0.0
-export TERM=xterm
-
-echo "# Cleaning up old Arch"
-echo $key | sudo -S apt-get remove --purge --allow-remove-essential -y `dpkg --get-selections | awk '/i386/{print $1}'` > /dev/null 2>&1
-echo "# Standardizing Arch"
-echo $key | sudo -S dpkg --remove-architecture i386 > /dev/null 2>&1
-
+setup_new_csi_user_and_system
 echo "# Setting up repo environment"
 cd /tmp
 echo $key | sudo -S dpkg-reconfigure debconf --frontend=noninteractive > /dev/null 2>&1
