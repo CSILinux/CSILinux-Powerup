@@ -53,7 +53,7 @@ update_git_repository() {
             python3 -m venv "${repo_dir}/${repo_name}-venv" > /dev/null 2>&1
             source "${repo_dir}/${repo_name}-venv/bin/activate" > /dev/null 2>&1
             pip3 install -r requirements.txt > /dev/null 2>&1
-            deactivate
+            ${repo_dir}/${repo_name}-venv/bin/deactivate
         fi
     else
         echo "   -  ."
