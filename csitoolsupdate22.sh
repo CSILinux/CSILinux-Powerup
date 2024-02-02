@@ -15,25 +15,21 @@ update_current_time
 start_time="$current_time"
 echo "CSI Linux Powerup Start time: $start_time"
 cd /tmp
+
 while true; do
     key=$(zenity --password --title "Power up your system with an upgrade." --text "Enter your CSI password." --width 400)
-
-    # Check if the user pressed cancel on the zenity dialog
     if [ $? -ne 0 ]; then
-        zenity --info --text="Operation cancelled." --width=400
+        zenity --info --text="Operation cancelled. Exiting script." --width=400
         exit 1
     fi
-
-    # Verify the password and sudo rights
-    echo $key | sudo -S -l &> /dev/null
+    echo -e "$key\n" | sudo -S -k -l &> /dev/null
     if [ $? -eq 0 ]; then
-        zenity --info --text="Password is correct and has sudo rights." --width=400
-        # You can proceed with further commands that require sudo access here
-        break # Exit the loop if the password is correct
+        break # Exit loop if the password is correct
     else
         zenity --error --title="Authentication Failure" --text="Incorrect password or lack of sudo privileges. Please try again." --width=400
     fi
 done
+
 add_debian_repository() {
     local repo_url="$1"
     local gpg_key_url="$2"
