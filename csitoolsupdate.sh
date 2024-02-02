@@ -88,6 +88,14 @@ setup_new_csi_user_and_system() {
     echo $key | sudo -S rm -rf /etc/apt/sources.list.d/signal* > /dev/null 2>&1
     echo $key | sudo -S rm -rf /etc/apt/trusted.gpg.d/brave* > /dev/null 2>&1
     echo $key | sudo -S rm -rf /etc/apt/trusted.gpg.d/signal* > /dev/null 2>&1
+    echo "# Cleaning old tools"
+    echo $key | sudo -S apt install apt-transport-https -y > /dev/null 2>&1
+    echo $key | sudo -S apt install code -y > /dev/null 2>&1
+    echo $key | sudo -S rm -rf /var/lib/tor/hidden_service/ > /dev/null 2>&1
+    echo $key | sudo -S rm -rf /var/lib/tor/other_hidden_service/ > /dev/null 2>&1
+    echo "Reconfiguring Terminal"
+    wget -O - https://raw.githubusercontent.com/CSILinux/CSILinux-Powerup/main/csi-linux-terminal.sh | bash > /dev/null 2>&1
+    git config --global safe.directory '*'
 }
 
 install_csi_tools() {
@@ -136,17 +144,6 @@ add_debian_repository "https://packages.microsoft.com/repos/code stable main" "h
 echo $key | sudo -S add-apt-repository ppa:danielrichter2007/grub-customizer > /dev/null 2>&1
 echo $key | sudo -S add-apt-repository ppa:phoerious/keepassxc > /dev/null 2>&1
 echo $key | sudo -S sudo add-apt-repository ppa:cappelikan/ppa > /dev/null 2>&1
-
-echo "# Cleaning old tools"
-echo $key | sudo -S apt install apt-transport-https -y > /dev/null 2>&1
-echo $key | sudo -S apt install code -y > /dev/null 2>&1
-echo $key | sudo -S rm -rf /var/lib/tor/hidden_service/ > /dev/null 2>&1
-echo $key | sudo -S rm -rf /var/lib/tor/other_hidden_service/ > /dev/null 2>&1
-echo "Reconfiguring Terminal"
-wget -O - https://raw.githubusercontent.com/CSILinux/CSILinux-Powerup/main/csi-linux-terminal.sh | bash > /dev/null 2>&1
-
-git config --global safe.directory '*'
-# List of Python packages to install
 
 # List of Python packages for computer forensic tools
 computer_forensic_tools=(
