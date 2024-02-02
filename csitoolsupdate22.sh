@@ -430,9 +430,10 @@ else
  	pip install -r requirments.txt --quiet > /dev/null 2>&1
   	echo $key | sudo -S bash install.sh > /dev/null 2>&1
 fi
-
-
-
+sudo 
+wget https://github.com/telegramdesktop/tdesktop/releases/download/v4.14.12/tsetup.4.14.12.tar.xz -O tsetup.tar.xz
+tar -xf tsetup.tar.xz
+echo $key | sudo -S cp Telegram/Telegram /usr/bin/telegram-desktop
 
 echo "# Configuring Dark Web Forensic Tools"
 if ! which onionshare > /dev/null; then
@@ -567,15 +568,11 @@ if [ ! -f /opt/cutter/cutter.AppImage ]; then
 	echo $key | sudo -S chmod +x cutter.AppImage > /dev/null 2>&1
 fi
 
-if [ ! -f /opt/apk-editor-studio/apk-editor-studio.AppImage ]; then
-	cd /opt
-	mkdir apk-editor-studio > /dev/null 2>&1
-	cd apk-editor-studio
-	wget https://github.com/kefir500/apk-editor-studio/releases/download/v1.7.1/apk-editor-studio_linux_1.7.1.AppImage -O apk-editor-studio.AppImage > /dev/null 2>&1
-	echo $key | sudo -S chmod +x apk-editor-studio.AppImage > /dev/null 2>&1
-fi
-
-
+mkdir apk-editor-studio > /dev/null 2>&1
+cd apk-editor-studio
+rm apk-editor-studio.AppImage
+wget https://github.com/kefir500/apk-editor-studio/releases/download/v1.7.1/apk-editor-studio_linux_1.7.1.AppImage -O apk-editor-studio.AppImage > /dev/null 2>&1
+echo $key | sudo -S chmod +x apk-editor-studio.AppImage > /dev/null 2>&1
 
 echo "# Configuring Network Forensic Tools"
 if [ ! -f /opt/NetworkMiner/NetworkMiner.exe ]; then
