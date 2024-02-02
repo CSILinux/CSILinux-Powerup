@@ -1,5 +1,6 @@
 #!/bin/bash
 
+key=$(zenity --password --title "Power up your system with an upgrade." --text "Enter your CSI password." --width 400)
 cd /tmp
 echo "Powerup has been updated.  This will update CSI Tools with the newest updated powerup"
 echo "Press Enter to continue"
