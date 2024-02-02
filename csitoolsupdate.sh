@@ -80,9 +80,17 @@ setup_new_csi_user_and_system() {
     echo $key | sudo -S apt-get remove --purge --allow-remove-essential -y $(dpkg --get-selections | awk '/i386/{print $1}') > /dev/null 2>&1
     echo "# Standardizing Arch"
     echo $key | sudo -S dpkg --remove-architecture i386 > /dev/null 2>&1
+    echo $key | sudo -S dpkg-reconfigure debconf --frontend=noninteractive > /dev/null 2>&1
+    echo $key | sudo -S DEBIAN_FRONTEND=noninteractive dpkg --configure -a > /dev/null 2>&1
+    echo $key | sudo -S NEEDRESTART_MODE=a apt update --ignore-missing > /dev/null 2>&1
+    echo $key | sudo -S rm -rf /etc/apt/sources.list.d/archive_u* > /dev/null 2>&1
+    echo $key | sudo -S rm -rf /etc/apt/sources.list.d/brave* > /dev/null 2>&1
+    echo $key | sudo -S rm -rf /etc/apt/sources.list.d/signal* > /dev/null 2>&1
+    echo $key | sudo -S rm -rf /etc/apt/trusted.gpg.d/brave* > /dev/null 2>&1
+    echo $key | sudo -S rm -rf /etc/apt/trusted.gpg.d/signal* > /dev/null 2>&1
 }
 
-install_csi_tools($key) {
+install_csi_tools() {
     echo "Downloading CSI Tools"
     wget https://csilinux.com/downloads/csitools.zip -O csitools.zip
     echo "# Installing CSI Tools"
@@ -107,14 +115,6 @@ setup_new_csi_user_and_system
 install_csi_tools
 echo "# Setting up repo environment"
 cd /tmp
-echo $key | sudo -S dpkg-reconfigure debconf --frontend=noninteractive > /dev/null 2>&1
-echo $key | sudo -S DEBIAN_FRONTEND=noninteractive dpkg --configure -a > /dev/null 2>&1
-echo $key | sudo -S NEEDRESTART_MODE=a apt update --ignore-missing > /dev/null 2>&1
-echo $key | sudo -S rm -rf /etc/apt/sources.list.d/archive_u* > /dev/null 2>&1
-echo $key | sudo -S rm -rf /etc/apt/sources.list.d/brave* > /dev/null 2>&1
-echo $key | sudo -S rm -rf /etc/apt/sources.list.d/signal* > /dev/null 2>&1
-echo $key | sudo -S rm -rf /etc/apt/trusted.gpg.d/brave* > /dev/null 2>&1
-echo $key | sudo -S rm -rf /etc/apt/trusted.gpg.d/signal* > /dev/null 2>&1
 
 if ! which curl > /dev/null; then
 	echo "# Installing Curl"
@@ -137,7 +137,6 @@ echo $key | sudo -S add-apt-repository ppa:danielrichter2007/grub-customizer > /
 echo $key | sudo -S add-apt-repository ppa:phoerious/keepassxc > /dev/null 2>&1
 echo $key | sudo -S sudo add-apt-repository ppa:cappelikan/ppa > /dev/null 2>&1
 
-
 echo "# Cleaning old tools"
 echo $key | sudo -S apt install apt-transport-https -y > /dev/null 2>&1
 echo $key | sudo -S apt install code -y > /dev/null 2>&1
@@ -148,6 +147,7 @@ wget -O - https://raw.githubusercontent.com/CSILinux/CSILinux-Powerup/main/csi-l
 
 git config --global safe.directory '*'
 # List of Python packages to install
+
 # List of Python packages for computer forensic tools
 computer_forensic_tools=(
     "bs4"
@@ -227,6 +227,7 @@ system_utilities=(
     "streamlink"
     "tweepy"
 )
+
 python_packages=($(printf "%s\n" "${computer_forensic_tools[@]}" "${online_forensic_tools[@]}" "${system_utilities[@]}" | sort -u))
 sorted_packages=($(for pkg in "${python_packages[@]}"; do echo "$pkg"; done | sort))
 total_packages=${#sorted_packages[@]}
