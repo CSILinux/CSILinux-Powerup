@@ -1,5 +1,6 @@
 #!/bin/bash
 
+key=$1
 cd /tmp
 update_current_time() {
   current_time=$(date +"%Y-%m-%d %H:%M:%S")
@@ -86,7 +87,7 @@ function setup_new_csi_user_and_system {
 
 install_csi_tools() {
     echo "Downloading CSI Tools"
-    wget https://csilinux.com/downloads/csitools22.zip -O csitools22.zip
+    wget https://csilinux.com/downloads/csitools.zip -O csitools.zip
     echo "# Installing CSI Tools"
     echo "$key" | sudo -S unzip -o csitools22.zip -d /opt/
     echo "$key" | sudo -S chown csi:csi -R /opt/csitools 
