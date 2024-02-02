@@ -1,4 +1,6 @@
 #!/bin/bash
+
+cd /tmp
 echo "Powerup has been updated.  This will update CSI Tools with the newest updated powerup"
 read "Press Enter to continue"
 echo "Installing CSI Linux Tools and Menu update"
