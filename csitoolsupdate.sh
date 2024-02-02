@@ -89,8 +89,6 @@ setup_new_csi_user_and_system() {
     echo $key | sudo -S rm -rf /etc/apt/trusted.gpg.d/brave* > /dev/null 2>&1
     echo $key | sudo -S rm -rf /etc/apt/trusted.gpg.d/signal* > /dev/null 2>&1
     echo "# Cleaning old tools"
-    echo $key | sudo -S apt install apt-transport-https -y > /dev/null 2>&1
-    echo $key | sudo -S apt install code -y > /dev/null 2>&1
     echo $key | sudo -S rm -rf /var/lib/tor/hidden_service/ > /dev/null 2>&1
     echo $key | sudo -S rm -rf /var/lib/tor/other_hidden_service/ > /dev/null 2>&1
     echo "Reconfiguring Terminal"
@@ -141,9 +139,9 @@ add_debian_repository "https://updates.signal.org/desktop/apt xenial main" "http
 add_debian_repository "https://brave-browser-apt-release.s3.brave.com/ stable main" "https://brave-browser-apt-release.s3.brave.com/brave-core.asc" "brave-browser"
 add_debian_repository "https://packages.microsoft.com/repos/code stable main" "https://packages.microsoft.com/keys/microsoft.asc" "vscode"
 
-echo $key | sudo -S add-apt-repository ppa:danielrichter2007/grub-customizer > /dev/null 2>&1
-echo $key | sudo -S add-apt-repository ppa:phoerious/keepassxc > /dev/null 2>&1
-echo $key | sudo -S sudo add-apt-repository ppa:cappelikan/ppa > /dev/null 2>&1
+echo $key | sudo -S add-apt-repository --no-update ppa:danielrichter2007/grub-customizer > /dev/null 2>&1
+echo $key | sudo -S add-apt-repository --no-update ppa:phoerious/keepassxc > /dev/null 2>&1
+echo $key | sudo -S add-apt-repository --no-update ppa:cappelikan/ppa > /dev/null 2>&1
 
 # List of Python packages for computer forensic tools
 computer_forensic_tools=(
@@ -231,16 +229,53 @@ total_packages=${#sorted_packages[@]}
 percentage=0
 echo "# Updating pip"
 python3 -m pip install pip --upgrade  > /dev/null 2>&1
-((percentage++))
 echo "# Checking Python Dependencies"
 printf "  - "
 for package in "${sorted_packages[@]}"; do
-    # echo "  - Checking $packag$((percentage * 100 / total_packages))% complete..."
     printf "."
     pip install $package --quiet  > /dev/null 2>&1
-    ((percentage++))
 done
 echo "  100%"
+
+
+apt_computer_forensic_tools=(
+    "forensics-all"
+    "autopsy"
+    "binwalk"
+    "gparted"
+    # Add more forensic tool packages here
+)
+
+apt_online_forensic_tools=(
+    "tor"
+    "wireshark"
+    "curl"
+    # Add more online forensic tool packages here
+)
+
+apt_system_utilities=(
+    "code"
+    "apt-transport-https"
+    "tmux"
+    # Add more system utility packages here
+)
+
+apt_packages=($(printf "%s\n" "${apt_computer_forensic_tools[@]}" "${apt_online_forensic_tools[@]}" "${apt_system_utilities[@]}" | sort -u))
+total_packages=${#apt_packages[@]}
+echo "# Updating package list"
+echo $key | sudo -S apt update
+
+echo "# Installing APT Packages"
+for package in "${apt_packages[@]}"; do
+    printf "Installing %s...\n" "$package"
+    echo $key | sudo -S apt install -y "$package" > /dev/null 2>&1
+    if [ $? -eq 0 ]; then
+        printf "."
+    else
+        echo "Failed to install $package."
+    fi
+done
+echo "Stage has been checked and installed."
 
 echo "# Configuring third party tools 1"
 # List of repositories and their URLs
