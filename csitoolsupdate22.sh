@@ -1,4 +1,6 @@
 #!/bin/bash
+
+clear
 update_current_time() {
   current_time=$(date +"%Y-%m-%d %H:%M:%S")
 }
@@ -111,6 +113,9 @@ echo "# System setup starting..."
 echo $key | sudo -S echo "\$nrconf{restart} = 'a'" | sudo -S tee /etc/needrestart/conf.d/autorestart.conf > /dev/null 2>&1
 export DEBIAN_FRONTEND=noninteractive > /dev/null 2>&1
 export APT_LISTCHANGES_FRONTEND=none > /dev/null 2>&1
+export DISPLAY=:0.0
+export TERM=xterm
+
 echo "# Cleaning up old Arch"
 echo $key | sudo -S apt-get remove --purge --allow-remove-essential -y `dpkg --get-selections | awk '/i386/{print $1}'` > /dev/null 2>&1
 echo "# Standardizing Arch"
@@ -475,7 +480,7 @@ cd /tmp
 wget https://csilinux.com/wp-content/uploads/2024/02/i2pupdate.zip
 echo $key | sudo -S service i2p stop
 echo $key | sudo -S service i2pd stop
-echo $key | sudo -S sudo unzip i2pupdate.zip -d /usr/share/i2p
+echo $key | sudo -S sudo unzip -o i2pupdate.zip -d /usr/share/i2p
 echo $key | sudo -S service i2p start
 echo $key | sudo -S service i2pd start
 
