@@ -49,7 +49,7 @@ update_git_repository() {
     if [ ! -d "$repo_dir" ]; then
         # Clone the Git repository with sudo
         echo "$key" | sudo -S git clone "$repo_url" "$repo_dir"
-        echo "$key" | sudo -S chown csi:csi "$repo_dir"
+        echo "$key" | sudo -S chown csi:csi "$repo_dir" > /dev/null 2>&1
     fi
 
     if [ -d "$repo_dir/.git" ]; then
@@ -127,6 +127,8 @@ echo $key | sudo -S dpkg-reconfigure debconf --frontend=noninteractive > /dev/nu
 echo $key | sudo -S DEBIAN_FRONTEND=noninteractive dpkg --configure -a > /dev/null 2>&1
 echo $key | sudo -S NEEDRESTART_MODE=a apt update --ignore-missing > /dev/null 2>&1
 echo $key | sudo -S rm -rf /etc/apt/sources.list.d/archive_u* > /dev/null 2>&1
+echo $key | sudo -S rm -rf /etc/apt/sources.list.d/brave* > /dev/null 2>&1
+echo $key | sudo -S rm -rf /etc/apt/sources.list.d/signal* > /dev/null 2>&1
 
 
 if ! which curl > /dev/null; then
@@ -491,7 +493,7 @@ echo $key | sudo -S apt install lokinet-gui
 echo "# Configuring SIGINT Tools"
 cd /tmp
 if ! which wifipumpkin3 > /dev/null; then
-	wget  https://github.com/P0cL4bs/wifipumpkin3/releases/download/v1.1.4/wifipumpkin3_1.1.4_all.deb
+	wget https://github.com/P0cL4bs/wifipumpkin3/releases/download/v1.1.4/wifipumpkin3_1.1.4_all.deb > /dev/null 2>&1
 	echo $key | sudo -S apt install ./wifipumpkin3_1.1.4_all.deb -y
 fi
 if [ ! -f /opt/fmradio/fmradio.AppImage ]; then
@@ -523,9 +525,9 @@ fi
 
 if [ ! -f /opt/artemis/Artemis ]; then
 	cd /opt
-	wget https://csilinux.com/downloads/Artemis-3.2.1.tar.gz
-	tar -xf Artemis-3.2.1.tar.gz
-	rm Artemis-3.2.1.tar.gz
+	wget https://csilinux.com/downloads/Artemis-3.2.1.tar.gz > /dev/null 2>&1
+	tar -xf Artemis-3.2.1.tar.gz > /dev/null 2>&1
+	rm Artemis-3.2.1.tar.gz > /dev/null 2>&1
 fi
 
 if ! which chirp-snap.chirp > /dev/null; then
@@ -579,9 +581,9 @@ echo "# Configuring Network Forensic Tools"
 if [ ! -f /opt/NetworkMiner/NetworkMiner.exe ]; then
 	cd /tmp
 	wget https://www.netresec.com/?download=NetworkMiner -O networkminer.zip
-    unzip networkminer.zip
-	rm -rf /opt/NetworkMiner
-	mv NetworkMiner* /opt/NetworkMiner
+    	unzip networkminer.zip
+	rm -rf /opt/NetworkMiner > /dev/null 2>&1
+	mv NetworkMiner* /opt/NetworkMiner > /dev/null 2>&1
 else
 	cd /opt/exploitdb
 	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
@@ -592,7 +594,7 @@ fi
 echo "# Configuring Security Tools"
 if [ ! -f /opt/exploitdb/searchsploit ]; then
 	cd /opt
-	git clone https://gitlab.com/exploit-database/exploitdb.git
+	git clone https://gitlab.com/exploit-database/exploitdb.git  > /dev/null 2>&1
 else
 	cd /opt/exploitdb
 	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
