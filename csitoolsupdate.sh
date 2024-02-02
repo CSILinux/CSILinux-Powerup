@@ -550,6 +550,14 @@ if [ ! -f /opt/cutter/cutter.AppImage ]; then
 	wget https://csilinux.com/downloads/cutter.AppImage > /dev/null 2>&1
 	echo $key | sudo -S chmod +x cutter.AppImage > /dev/null 2>&1
 fi
+if [ ! -f /opt/idafree/ida64 ]; then
+	cd /opt
+	mkdir cutter > /dev/null 2>&1
+	cd cutter
+	wget -O /opt/idafree/ida64 https://out7.hex-rays.com/files/idafree83_linux.run > /dev/null 2>&1
+	echo $key | sudo -S chmod +x /opt/idafree/ida64 > /dev/null 2>&1
+fi
+
 
 mkdir apk-editor-studio > /dev/null 2>&1
 cd apk-editor-studio
@@ -613,7 +621,7 @@ xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitorHDMI-A-1/workspace0/la
 echo $key | sudo -S timedatectl set-timezone UTC
 
 
-# unredactedmagazine
+unredactedmagazine
 
 echo $key | sudo -S /opt/csitools/clearlogs > /dev/null 2>&1
 echo $key | sudo -S rm -rf /var/crash/* > /dev/null 2>&1
