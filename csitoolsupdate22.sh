@@ -140,7 +140,8 @@ echo $key | sudo -S NEEDRESTART_MODE=a apt update --ignore-missing > /dev/null 2
 echo $key | sudo -S rm -rf /etc/apt/sources.list.d/archive_u* > /dev/null 2>&1
 echo $key | sudo -S rm -rf /etc/apt/sources.list.d/brave* > /dev/null 2>&1
 echo $key | sudo -S rm -rf /etc/apt/sources.list.d/signal* > /dev/null 2>&1
-
+echo $key | sudo -S rm -rf /etc/apt/trusted.gpg.d/brave* > /dev/null 2>&1
+echo $key | sudo -S rm -rf /etc/apt/trusted.gpg.d/signal* > /dev/null 2>&1
 
 if ! which curl > /dev/null; then
 	echo "# Installing Curl"
