@@ -1,30 +1,42 @@
 #!/bin/bash
 
 clear
+
+# Function to update current time
 update_current_time() {
   current_time=$(date +"%Y-%m-%d %H:%M:%S")
 }
 
+# Function to calculate duration
 calculate_duration() {
   start_seconds=$(date -d "$start_time" +%s)
   end_seconds=$(date -d "$current_time" +%s)
   duration=$((end_seconds - start_seconds))
 }
-	
+
+# Initial time update and start time setting
 update_current_time
 start_time="$current_time"
 echo "CSI Linux Powerup Start time: $start_time"
+
+# Move to a writable directory to avoid permission issues
 cd /tmp
 
+# Password verification loop
 while true; do
     key=$(zenity --password --title "Power up your system with an upgrade." --text "Enter your CSI password." --width 400)
+    
+    # Check if the zenity was cancelled
     if [ $? -ne 0 ]; then
         zenity --info --text="Operation cancelled. Exiting script." --width=400
         exit 1
     fi
-    echo -e "$key\n" | sudo -S -k -l &> /dev/null
+    
+    # Test the password for sudo access without changing system state
+    echo "$key" | sudo -S -v &> /dev/null
     if [ $? -eq 0 ]; then
-        break # Exit loop if the password is correct
+        # Password is correct, break the loop
+        break
     else
         zenity --error --title="Authentication Failure" --text="Incorrect password or lack of sudo privileges. Please try again." --width=400
     fi
