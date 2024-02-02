@@ -672,6 +672,16 @@ echo "# Removing APT cache to save space"
 echo $key | sudo -S apt autoclean -y > /dev/null 2>&1
 echo $key | sudo -S chown csi:csi /opt
 echo $key | sudo -S updatedb
+
+disableservices=("i2p" "i2pd" "lokinet")
+
+for service in "${disableservices[@]}"; do
+    echo "Disabling $service..."
+    sudo systemctl disable "$service"
+    sudo systemctl stop "$service"
+    echo "$service disabled successfully."
+done
+
 # Capture the end time
 update_current_time
 calculate_duration
