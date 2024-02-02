@@ -4,21 +4,36 @@ clear
 update_current_time() {
   current_time=$(date +"%Y-%m-%d %H:%M:%S")
 }
+
 calculate_duration() {
   start_seconds=$(date -d "$start_time" +%s)
   end_seconds=$(date -d "$current_time" +%s)
   duration=$((end_seconds - start_seconds))
 }
+	
 update_current_time
 start_time="$current_time"
 echo "CSI Linux Powerup Start time: $start_time"
 cd /tmp
-if [ -z "$1" ]; then
+while true; do
     key=$(zenity --password --title "Power up your system with an upgrade." --text "Enter your CSI password." --width 400)
-    # You can use the 'key' variable for further processing
-else
-    key=$1
-fi
+
+    # Check if the user pressed cancel on the zenity dialog
+    if [ $? -ne 0 ]; then
+        zenity --info --text="Operation cancelled." --width=400
+        exit 1
+    fi
+
+    # Verify the password and sudo rights
+    echo $key | sudo -S -l &> /dev/null
+    if [ $? -eq 0 ]; then
+        zenity --info --text="Password is correct and has sudo rights." --width=400
+        # You can proceed with further commands that require sudo access here
+        break # Exit the loop if the password is correct
+    else
+        zenity --error --title="Authentication Failure" --text="Incorrect password or lack of sudo privileges. Please try again." --width=400
+    fi
+done
 add_debian_repository() {
     local repo_url="$1"
     local gpg_key_url="$2"
@@ -150,6 +165,8 @@ add_debian_repository "https://packages.microsoft.com/repos/code stable main" "h
 
 echo $key | sudo -S add-apt-repository ppa:danielrichter2007/grub-customizer > /dev/null 2>&1
 echo $key | sudo -S add-apt-repository ppa:phoerious/keepassxc > /dev/null 2>&1
+echo $key | sudo -S sudo add-apt-repository ppa:cappelikan/ppa > /dev/null 2>&1
+
 
 echo "# Cleaning old tools"
 echo $key | sudo -S apt install apt-transport-https -y > /dev/null 2>&1
@@ -298,7 +315,6 @@ for entry in "${repositories[@]}"; do
     update_git_repository "$repo_name" "$repo_url"
 done
 
-
 if [ -f /opt/Osintgram/main.py ]; then
 	cd /opt/Osintgram
 	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
@@ -310,6 +326,7 @@ fi
 
 echo "# Configuring tools 1"
 echo $key | sudo -S apt install -y brave-browser > /dev/null 2>&1
+echo $key | sudo -S apt install -y mainline > /dev/null 2>&1
 echo $key | sudo -S apt install -y zram-config > /dev/null 2>&1
 echo $key | sudo -S apt install -y xfce4-cpugraph-plugin -y > /dev/null 2>&1
 echo $key | sudo -S apt install -y xfce4-goodies > /dev/null 2>&1
@@ -483,7 +500,7 @@ cd /tmp
 wget https://csilinux.com/wp-content/uploads/2024/02/i2pupdate.zip
 echo $key | sudo -S service i2p stop
 echo $key | sudo -S service i2pd stop
-echo $key | sudo -S sudo unzip -o i2pupdate.zip -d /usr/share/i2p
+echo $key | sudo -S sudo unzip -o i2pupdate.zip -d /usr/share/i2p > /dev/null 2>&1
 echo $key | sudo -S service i2p start
 echo $key | sudo -S service i2pd start
 
