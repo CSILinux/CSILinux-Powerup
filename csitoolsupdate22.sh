@@ -10,7 +10,7 @@ rm csi* > /dev/null 2>&1
 echo "Downloading CSI Tools"
 wget https://csilinux.com/download/csitools22.zip -O csitools22.zip
 echo "# Installing CSI Tools"
-echo $key | sudo -S unzip -o -d / csitools22.zip1
+echo $key | sudo -S unzip -o -d / csitools22.zip
 echo $key | sudo -S chown csi:csi -R /opt/csitools
 echo $key | sudo -S chmod +x /opt/csitools/* -R
 echo $key | sudo -S chmod +x /opt/csitools/*
