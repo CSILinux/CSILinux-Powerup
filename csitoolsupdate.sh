@@ -1,3 +1,90 @@
+#!/bin/bash
+
+clear
+update_current_time() {
+  current_time=$(date +"%Y-%m-%d %H:%M:%S")
+}
+
+calculate_duration() {
+  start_seconds=$(date -d "$start_time" +%s)
+  end_seconds=$(date -d "$current_time" +%s)
+  duration=$((end_seconds - start_seconds))
+}
+	
+update_current_time
+start_time="$current_time"
+echo "CSI Linux Powerup Start time: $start_time"
+cd /tmp
+
+while true; do
+    key=$(zenity --password --title "Power up your system with an upgrade." --text "Enter your CSI password." --width 400)
+    if [ $? -ne 0 ]; then
+        zenity --info --text="Operation cancelled. Exiting script." --width=400
+        exit 1
+    fi
+    echo -e "$key\n" | sudo -S -k -l &> /dev/null
+    if [ $? -eq 0 ]; then
+        break # Exit loop if the password is correct
+    else
+        zenity --error --title="Authentication Failure" --text="Incorrect password or lack of sudo privileges. Please try again." --width=400
+    fi
+done
+
+add_debian_repository() {
+    local repo_url="$1"
+    local gpg_key_url="$2"
+    local repo_name="$3"
+
+    # Check if the repository already exists
+    echo "# Checking repo for $repo_name"
+    if ! grep -q "$repo_url" "/etc/apt/sources.list.d/$repo_name.list"; then
+        # Download and install the GPG key if not trusted
+        if ! gpg --list-keys | grep -q "$repo_name"; then
+            if curl -fsSL "$gpg_key_url" | sudo -S gpg --dearmor | sudo -S tee "/etc/apt/trusted.gpg.d/$repo_name.gpg" > /dev/null 2>&1; then
+                echo "# GPG key for '$repo_name' added successfully."
+            else
+                echo "   - Error adding GPG key for '$repo_name'."
+                return 1
+            fi
+        fi
+        # Add the repository with the GPG key reference
+        echo "$key" | sudo -S bash -c "echo 'deb [signed-by=/etc/apt/trusted.gpg.d/$repo_name.gpg] $repo_url' | sudo -S tee '/etc/apt/sources.list.d/$repo_name.list'"
+    fi
+}
+
+update_git_repository() {
+    local repo_name="$1"
+    local repo_url="$2"
+    local repo_dir="/opt/$repo_name"
+
+    if [ ! -d "$repo_dir" ]; then
+        # Clone the Git repository with sudo
+        echo "$key" | sudo -S git clone "$repo_url" "$repo_dir"
+        echo "$key" | sudo -S chown csi:csi "$repo_dir" > /dev/null 2>&1
+    fi
+
+    if [ -d "$repo_dir/.git" ]; then
+        cd "$repo_dir" || return
+        echo "$key" | sudo -S git reset --hard HEAD > /dev/null 2>&1
+        echo "$key" | sudo -S git pull > /dev/null 2>&1
+
+        if [ -f "$repo_dir/requirements.txt" ]; then
+            python3 -m venv "${repo_dir}/${repo_name}-venv" > /dev/null 2>&1
+            source "${repo_dir}/${repo_name}-venv/bin/activate" > /dev/null 2>&1
+            pip3 install -r requirements.txt > /dev/null 2>&1
+            deactivate
+        fi
+    else
+        echo "   -  ..."
+    fi
+}
+
+cd /tmp
+SCRIPT_URL="https://raw.githubusercontent.com/CSILinux/CSILinux-Powerup/main/csitoolsupdate.sh"
+curl -o /tmp/csitoolsupdate.sh "$SCRIPT_URL"
+chmod +x csitoolsupdate.sh
+./csitoolsupdate.sh | tee /home/csi/powerup.log
+
 function setup_new_csi_user_and_system {
     echo "# Setting up users"
     USERNAME=csi
