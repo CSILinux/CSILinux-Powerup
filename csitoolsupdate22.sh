@@ -68,9 +68,7 @@ update_git_repository() {
 
 
 echo $key | sudo -S swapoff -a || exit 1
-
 conf=/etc/fstab
-
 if grep '^/swapfile' /etc/fstab &> /dev/null ;then
     echo $key | sudo -S sed -i '/\/swapfile/s/^/#/' ${conf} || exit 1
     echo "Updated '${conf}'"
@@ -383,14 +381,10 @@ fi
 
 if [ ! -f /opt/routeconverter/RouteConverterLinux.jar ]; then
     cd /opt
-	mkdir routeconverter
+	mkdir routeconverter > /dev/null 2>&1
 	cd routeconverter
 	wget https://static.routeconverter.com/download/RouteConverterLinux.jar
 fi
-
-
-
-
 
 echo "# Configuring Online Forensic Tools"
 
@@ -410,7 +404,7 @@ if ! which sn0int > /dev/null 2>&1; then
 fi
 if [ ! -f /opt/PhoneInfoga/phoneinfoga ]; then
 	cd /opt
-	mkdir PhoneInfoga
+	mkdir PhoneInfoga > /dev/null 2>&1
 	cd PhoneInfoga
 	wget https://raw.githubusercontent.com/sundowndev/phoneinfoga/master/support/scripts/install -O - | sh 
 	echo $key | sudo -S chmod +x ./phoneinfoga > /dev/null 2>&1
@@ -445,11 +439,11 @@ if ! which orjail > /dev/null; then
 fi
 
 if [ ! -f /opt/OxenWallet/oxen-electron-wallet-1.8.1-linux.AppImage ]; then
-	cd /opt
-	mkdir OxenWallet
+    cd /opt
+    mkdir OxenWallet > /dev/null 2>&1
     cd OxenWallet
-	wget https://github.com/oxen-io/oxen-electron-gui-wallet/releases/download/v1.8.1/oxen-electron-wallet-1.8.1-linux.AppImage .
-    chmod +x oxen-electron-wallet-1.8.1-linux.AppImage
+    wget https://github.com/oxen-io/oxen-electron-gui-wallet/releases/download/v1.8.1/oxen-electron-wallet-1.8.1-linux.AppImage  > /dev/null 2>&1
+    chmod +x oxen-electron-wallet-1.8.1-linux.AppImage > /dev/null 2>&1
 fi
 
 ## Create TorVPN environment
@@ -498,28 +492,28 @@ fi
 if [ ! -f /opt/fmradio/fmradio.AppImage ]; then
 	echo "Installing fmradio"
 	cd /opt
-	mkdir fmradio
+	mkdir fmradio > /dev/null 2>&1
 	cd fmradio
-	wget https://csilinux.com/downloads/fmradio.AppImage
-	echo $key | sudo -S chmod +x fmradio.AppImage
-	echo $key | sudo -S ln -sf fmradio.AppImage /usr/local/bin/fmradio
+	wget https://csilinux.com/downloads/fmradio.AppImage > /dev/null 2>&1
+	echo $key | sudo -S chmod +x fmradio.AppImage > /dev/null 2>&1
+	echo $key | sudo -S ln -sf fmradio.AppImage /usr/local/bin/fmradio > /dev/null 2>&1
 fi
 
 if [ ! -f /opt/FlipperZero/qFlipperZero.AppImage ]; then
 	cd /tmp
-	wget https://update.flipperzero.one/builds/qFlipper/1.3.3/qFlipper-x86_64-1.3.3.AppImage
-	mkdir /opt/FlipperZero
-	mv ./qFlipper-x86_64-1.3.3.AppImage /opt/FlipperZero/qFlipperZero.AppImage
+	wget https://update.flipperzero.one/builds/qFlipper/1.3.3/qFlipper-x86_64-1.3.3.AppImage > /dev/null 2>&1
+	mkdir /opt/FlipperZero > /dev/null 2>&1
+	mv ./qFlipper-x86_64-1.3.3.AppImage /opt/FlipperZero/qFlipperZero.AppImage > /dev/null 2>&1
 	cd /opt/FlipperZero/
-	echo $key | sudo -S chmod +x /opt/FlipperZero/qFlipperZero.AppImage
-	echo $key | sudo -S ln -sf /opt/FlipperZero/qFlipperZero.AppImage /usr/local/bin/qFlipperZero
+	echo $key | sudo -S chmod +x /opt/FlipperZero/qFlipperZero.AppImage > /dev/null 2>&1
+	echo $key | sudo -S ln -sf /opt/FlipperZero/qFlipperZero.AppImage /usr/local/bin/qFlipperZero > /dev/null 2>&1
 fi
 
 if [ ! -f /opt/proxmark3/client/proxmark3 ]; then
 	cd /tmp
-	wget https://csilinux.com/downloads/proxmark3.zip -O proxmark3.zip
-	echo $key | sudo -S unzip -o -d /opt proxmark3.zip
-	echo $key | sudo -S ln -sf /opt/proxmark3/client/proxmark3 /usr/local/bin/proxmark3
+	wget https://csilinux.com/downloads/proxmark3.zip -O proxmark3.zip > /dev/null 2>&1
+	echo $key | sudo -S unzip -o -d /opt proxmark3.zip > /dev/null 2>&1
+	echo $key | sudo -S ln -sf /opt/proxmark3/client/proxmark3 /usr/local/bin/proxmark3 > /dev/null 2>&1
 fi
 
 if [ ! -f /opt/artemis/Artemis ]; then
@@ -540,10 +534,10 @@ fi
 echo "# Configuring Malware Analysis Tools"
 if [ ! -f /opt/ImHex/imhex.AppImage ]; then
 	cd /opt
-	mkdir ImHex
+	mkdir ImHex > /dev/null 2>&1
 	cd ImHex
-	wget https://csilinux.com/downloads/imhex.AppImage
-	echo $key | sudo -S chmod +x imhex.AppImage
+	wget https://csilinux.com/downloads/imhex.AppImage > /dev/null 2>&1
+	echo $key | sudo -S chmod +x imhex.AppImage > /dev/null 2>&1
 fi
 
 if [ ! -f /opt/ghidra/VERSION ]; then
@@ -560,18 +554,18 @@ fi
 
 if [ ! -f /opt/cutter/cutter.AppImage ]; then
 	cd /opt
-	mkdir cutter
+	mkdir cutter > /dev/null 2>&1
 	cd cutter
-	wget https://csilinux.com/downloads/cutter.AppImage
-	echo $key | sudo -S chmod +x cutter.AppImage
+	wget https://csilinux.com/downloads/cutter.AppImage > /dev/null 2>&1
+	echo $key | sudo -S chmod +x cutter.AppImage > /dev/null 2>&1
 fi
 
 if [ ! -f /opt/apk-editor-studio/apk-editor-studio.AppImage ]; then
 	cd /opt
-	mkdir apk-editor-studio
+	mkdir apk-editor-studio > /dev/null 2>&1
 	cd apk-editor-studio
-	wget https://github.com/kefir500/apk-editor-studio/releases/download/v1.7.1/apk-editor-studio_linux_1.7.1.AppImage -O apk-editor-studio.AppImage
-	echo $key | sudo -S chmod +x apk-editor-studio.AppImage
+	wget https://github.com/kefir500/apk-editor-studio/releases/download/v1.7.1/apk-editor-studio_linux_1.7.1.AppImage -O apk-editor-studio.AppImage > /dev/null 2>&1
+	echo $key | sudo -S chmod +x apk-editor-studio.AppImage > /dev/null 2>&1
 fi
 
 
@@ -603,10 +597,10 @@ fi
 # extras
 if [ ! -f /opt/qr-code-generator-desktop/qr-code-generator-desktop.AppImage ]; then
 	cd /opt
-	mkdir qr-code-generator-desktop
+	mkdir qr-code-generator-desktop > /dev/null 2>&1
 	cd qr-code-generator-desktop
-	wget https://csilinux.com/downloads/qr-code-generator-desktop.AppImage
-	echo $key | sudo -S chmod +x qr-code-generator-desktop.AppImage
+	wget https://csilinux.com/downloads/qr-code-generator-desktop.AppImage > /dev/null 2>&1
+	echo $key | sudo -S chmod +x qr-code-generator-desktop.AppImage > /dev/null 2>&1
 fi
 
 if ! which keepassxc > /dev/null 2>&1; then
