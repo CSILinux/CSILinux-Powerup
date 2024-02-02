@@ -18,5 +18,6 @@ echo $key | sudo -S chown csi:csi /home/csi -R
 echo $key | sudo -S chmod +x /opt/csitools/powerup 
 echo $key | sudo -S ln -sf /opt/csitools/powerup /usr/local/bin/powerup
 
-echo "run the powerup will run again to finish the upgrade"
+echo "Run the powerup will run again to finish the upgrade"
+/opt/csitools/powerup
 
