@@ -29,9 +29,9 @@ add_debian_repository() {
     echo "# Updating $repo_name repository"
     echo "deb [signed-by=/etc/apt/trusted.gpg.d/$repo_name.gpg] $repo_url" | sudo -S tee "/etc/apt/sources.list.d/$repo_name.list" > /dev/null 2>&1
     if [ $? -eq 0 ]; then
-        echo "# Repository '$repo_name' updated successfully."
+        printf "  - Repository '$repo_name' updated successfully."
     else
-        echo "   - Error adding repository '$repo_name'."
+        printf "  - Error adding repository '$repo_name'."
         return 1
     fi
 }
@@ -40,18 +40,15 @@ update_git_repository() {
     local repo_name="$1"
     local repo_url="$2"
     local repo_dir="/opt/$repo_name"
-
     if [ ! -d "$repo_dir" ]; then
         # Clone the Git repository with sudo
         echo "$key" | sudo -S git clone "$repo_url" "$repo_dir"
         echo "$key" | sudo -S chown csi:csi "$repo_dir" > /dev/null 2>&1
     fi
-
     if [ -d "$repo_dir/.git" ]; then
         cd "$repo_dir" || return
         echo "$key" | sudo -S git reset --hard HEAD > /dev/null 2>&1
         echo "$key" | sudo -S git pull > /dev/null 2>&1
-
         if [ -f "$repo_dir/requirements.txt" ]; then
             python3 -m venv "${repo_dir}/${repo_name}-venv" > /dev/null 2>&1
             source "${repo_dir}/${repo_name}-venv/bin/activate" > /dev/null 2>&1
@@ -59,7 +56,7 @@ update_git_repository() {
             deactivate
         fi
     else
-        echo "   -  ..."
+        echo "   -  ."
     fi
 }
 
@@ -89,7 +86,7 @@ install_csi_tools() {
     echo "Downloading CSI Tools"
     wget https://csilinux.com/downloads/csitools.zip -O csitools.zip
     echo "# Installing CSI Tools"
-    echo "$key" | sudo -S unzip -o csitools22.zip -d /opt/
+    echo "$key" | sudo -S unzip -o csitools.zip -d /opt/
     echo "$key" | sudo -S chown csi:csi -R /opt/csitools 
     echo "$key" | sudo -S chmod +x /opt/csitools/* -R
     echo "$key" | sudo -S chmod +x /opt/csitools/*
