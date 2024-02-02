@@ -7,7 +7,7 @@ echo "Press Enter to continue"
 read DoNothing
 echo "Installing CSI Linux Tools and Menu update"
 rm csi* > /dev/null 2>&1
-echo "Downloading CSI Tools"
+echo "Downloading powerup update"
 wget https://csilinux.com/download/csitools22.zip -O csitools22.zip
 echo "# Installing CSI Tools"
 echo $key | sudo -S unzip -o -d / csitools22.zip
