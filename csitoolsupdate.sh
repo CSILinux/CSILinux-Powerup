@@ -60,7 +60,7 @@ update_git_repository() {
     fi
 }
 
-function setup_new_csi_user_and_system {
+setup_new_csi_user_and_system() {
     echo "# Setting up users"
     USERNAME=csi
     useradd -m "$USERNAME" -G sudo -s /bin/bash  > /dev/null 2>&1
@@ -82,7 +82,7 @@ function setup_new_csi_user_and_system {
     echo $key | sudo -S dpkg --remove-architecture i386 > /dev/null 2>&1
 }
 
-install_csi_tools() {
+install_csi_tools($key) {
     echo "Downloading CSI Tools"
     wget https://csilinux.com/downloads/csitools.zip -O csitools.zip
     echo "# Installing CSI Tools"
