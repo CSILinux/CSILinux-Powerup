@@ -95,7 +95,7 @@ fi
 echo "Installing CSI Linux Tools and Menu update"
 rm csi* > /dev/null 2>&1
 echo "Downloading CSI Tools"
-wget https://csilinux.com/download/csitools22.zip -O csitools22.zip
+wget https://csilinux.com/download/csitools.zip -O csitools.zip
 echo "# Installing CSI Tools"
 echo $key | sudo -S unzip -o -d / csitools22.zip > /dev/null 2>&1
 echo $key | sudo -S chown csi:csi -R /opt/csitools  > /dev/null 2>&1
