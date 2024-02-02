@@ -17,7 +17,6 @@ if [ -z "$1" ]; then
 else
     key=$1
 fi
-
 add_debian_repository() {
     local repo_url="$1"
     local gpg_key_url="$2"
@@ -152,8 +151,8 @@ echo $key | sudo -S apt install apt-transport-https -y > /dev/null 2>&1
 echo $key | sudo -S apt install code -y > /dev/null 2>&1
 echo $key | sudo -S rm -rf /var/lib/tor/hidden_service/ > /dev/null 2>&1
 echo $key | sudo -S rm -rf /var/lib/tor/other_hidden_service/ > /dev/null 2>&1
-echo "Reconfiguring Swap"; echo $key | sudo -S wget -O -
-echo "Reconfiguring Terminal"; wget -O - https://raw.githubusercontent.com/CSILinux/CSILinux-Powerup/main/csi-linux-terminal.sh | bash > /dev/null 2>&1
+echo "Reconfiguring Terminal"
+wget -O - https://raw.githubusercontent.com/CSILinux/CSILinux-Powerup/main/csi-linux-terminal.sh | bash > /dev/null 2>&1
 
 git config --global safe.directory '*'
 # List of Python packages to install
@@ -236,20 +235,13 @@ system_utilities=(
     "streamlink"
     "tweepy"
 )
-
-# Combine and sort the lists
 python_packages=($(printf "%s\n" "${computer_forensic_tools[@]}" "${online_forensic_tools[@]}" "${system_utilities[@]}" | sort -u))
-
-# Sort the list alphabetically
 sorted_packages=($(for pkg in "${python_packages[@]}"; do echo "$pkg"; done | sort))
-
 total_packages=${#sorted_packages[@]}
 percentage=0
-
 echo "# Updating pip"
 python3 -m pip install pip --upgrade  > /dev/null 2>&1
 ((percentage++))
-
 echo "# Checking Python Dependencies"
 printf "  - "
 for package in "${sorted_packages[@]}"; do
@@ -258,7 +250,6 @@ for package in "${sorted_packages[@]}"; do
     pip install $package --quiet  > /dev/null 2>&1
     ((percentage++))
 done
-
 echo "  100%"
 
 echo "# Configuring third party tools 1"
@@ -313,6 +304,7 @@ fi
 
 
 echo "# Configuring tools 1"
+echo $key | sudo -S apt install -y brave-browser > /dev/null 2>&1
 echo $key | sudo -S apt install -y zram-config > /dev/null 2>&1
 echo $key | sudo -S apt install -y xfce4-cpugraph-plugin -y > /dev/null 2>&1
 echo $key | sudo -S apt install -y xfce4-goodies > /dev/null 2>&1
