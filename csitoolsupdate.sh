@@ -18,10 +18,9 @@ add_debian_repository() {
     local repo_url="$1"
     local gpg_key_url="$2"
     local repo_name="$3"
-    echo "# Adding GPG key for $repo_name"
     curl -fsSL "$gpg_key_url" | sudo -S gpg --dearmor | sudo -S tee "/etc/apt/trusted.gpg.d/$repo_name.gpg" > /dev/null 2>&1
     if [ $? -eq 0 ]; then
-        echo "# GPG key for '$repo_name' added successfully."
+        echo "# GPG key for '$repo_name' updated successfully."
     else
         echo "   - Error adding GPG key for '$repo_name'."
         return 1
@@ -85,7 +84,29 @@ function setup_new_csi_user_and_system {
     echo $key | sudo -S dpkg --remove-architecture i386 > /dev/null 2>&1
 }
 
+install_csi_tools() {
+    echo "Downloading CSI Tools"
+    wget https://csilinux.com/downloads/csitools22.zip -O csitools22.zip
+    echo "# Installing CSI Tools"
+    echo "$key" | sudo -S unzip -o csitools22.zip -d /opt/
+    echo "$key" | sudo -S chown csi:csi -R /opt/csitools 
+    echo "$key" | sudo -S chmod +x /opt/csitools/* -R
+    echo "$key" | sudo -S chmod +x /opt/csitools/*
+    echo "$key" | sudo -S chmod +x ~/Desktop/*.desktop
+    echo "$key" | sudo -S chown csi:csi /usr/bin/bash-wrapper
+    echo "$key" | sudo -S chown csi:csi /home/csi -R
+    echo "$key" | sudo -S chmod +x /usr/bin/bash-wrapper 
+    echo "$key" | sudo -S mkdir /iso
+    echo "$key" | sudo -S chown csi:csi /iso -R
+    tar -xf /opt/csitools/assets/Win11-blue.tar.xz --directory /home/csi/.icons/
+    echo "$key" | sudo -S /bin/sed -i 's/http\:\/\/in./http\:\/\//g' /etc/apt/sources.list
+    echo "$key" | sudo -S echo "\$nrconf{restart} = 'a'" | sudo -S tee /etc/needrestart/conf.d/autorestart.conf > /dev/null
+    echo "$key" | sudo -S chmod +x /opt/csitools/powerup
+    echo "$key" | sudo -S ln -sf /opt/csitools/powerup /usr/local/bin/powerup
+}
+
 setup_new_csi_user_and_system
+install_csi_tools
 echo "# Setting up repo environment"
 cd /tmp
 echo $key | sudo -S dpkg-reconfigure debconf --frontend=noninteractive > /dev/null 2>&1
@@ -274,7 +295,6 @@ if [ -f /opt/Osintgram/main.py ]; then
 	find . -type f -exec sed -i 's/src.Osintgram/Osintgram/g' {} +
 fi
 
-
 echo "# Configuring tools 1"
 echo $key | sudo -S apt install -y brave-browser > /dev/null 2>&1
 echo $key | sudo -S apt install -y mainline > /dev/null 2>&1
@@ -458,7 +478,6 @@ echo $key | sudo -S service i2pd start
 # lokinet
 echo $key | sudo -S apt install lokinet-gui
 
-
 echo "# Configuring SIGINT Tools"
 cd /tmp
 if ! which wifipumpkin3 > /dev/null; then
@@ -539,7 +558,7 @@ fi
 mkdir apk-editor-studio > /dev/null 2>&1
 cd apk-editor-studio
 rm apk-editor-studio.AppImage
-wget https://github.com/kefir500/apk-editor-studio/releases/download/v1.7.1/apk-editor-studio_linux_1.7.1.AppImage -O apk-editor-studio.AppImage > /dev/null 2>&1
+wget https://csilinux.com/downloads/apk-editor-studio.AppImage -O apk-editor-studio.AppImage > /dev/null 2>&1
 echo $key | sudo -S chmod +x apk-editor-studio.AppImage > /dev/null 2>&1
 
 echo "# Configuring Network Forensic Tools"
