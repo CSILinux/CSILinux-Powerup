@@ -2,7 +2,8 @@
 
 cd /tmp
 echo "Powerup has been updated.  This will update CSI Tools with the newest updated powerup"
-read "Press Enter to continue"
+echo "Press Enter to continue"
+read DoNothing
 echo "Installing CSI Linux Tools and Menu update"
 rm csi* > /dev/null 2>&1
 echo "Downloading CSI Tools"
