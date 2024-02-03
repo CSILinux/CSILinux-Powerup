@@ -76,17 +76,17 @@ setup_new_csi_user_and_system() {
     export DISPLAY=:0.0
     export TERM=xterm
     echo "# Cleaning up old Arch"
-    echo $key | sudo -S apt-fast remove --purge --allow-remove-essential -y $(dpkg --get-selections | awk '/i386/{print $1}') > /dev/null 2>&1
+    echo $key | sudo -S apt remove --purge --allow-remove-essential -y $(dpkg --get-selections | awk '/i386/{print $1}') > /dev/null 2>&1
     echo "# Standardizing Arch"
     echo $key | sudo -S dpkg --remove-architecture i386 > /dev/null 2>&1
     echo $key | sudo -S dpkg-reconfigure debconf --frontend=noninteractive > /dev/null 2>&1
     echo $key | sudo -S DEBIAN_FRONTEND=noninteractive dpkg --configure -a > /dev/null 2>&1
     echo $key | sudo -S NEEDRESTART_MODE=a apt update --ignore-missing > /dev/null 2>&1
-    echo $key | sudo -S rm -rf /etc/apt-fast/sources.list.d/archive_u* > /dev/null 2>&1
-    echo $key | sudo -S rm -rf /etc/apt-fast/sources.list.d/brave* > /dev/null 2>&1
-    echo $key | sudo -S rm -rf /etc/apt-fast/sources.list.d/signal* > /dev/null 2>&1
-    echo $key | sudo -S rm -rf /etc/apt-fast/trusted.gpg.d/brave* > /dev/null 2>&1
-    echo $key | sudo -S rm -rf /etc/apt-fast/trusted.gpg.d/signal* > /dev/null 2>&1
+    echo $key | sudo -S rm -rf /etc/apt/sources.list.d/archive_u* > /dev/null 2>&1
+    echo $key | sudo -S rm -rf /etc/apt/sources.list.d/brave* > /dev/null 2>&1
+    echo $key | sudo -S rm -rf /etc/apt/sources.list.d/signal* > /dev/null 2>&1
+    echo $key | sudo -S rm -rf /etc/apt/trusted.gpg.d/brave* > /dev/null 2>&1
+    echo $key | sudo -S rm -rf /etc/apt/trusted.gpg.d/signal* > /dev/null 2>&1
     echo "# Cleaning old tools"
     echo $key | sudo -S rm -rf /var/lib/tor/hidden_service/ > /dev/null 2>&1
     echo $key | sudo -S rm -rf /var/lib/tor/other_hidden_service/ > /dev/null 2>&1
@@ -111,7 +111,7 @@ install_csi_tools() {
     echo "$key" | sudo -S mkdir /iso > /dev/null 2>&1
     echo "$key" | sudo -S chown csi:csi /iso -R
     tar -xf /opt/csitools/assets/Win11-blue.tar.xz --directory /home/csi/.icons/
-    echo "$key" | sudo -S /bin/sed -i 's/http\:\/\/in./http\:\/\//g' /etc/apt-fast/sources.list
+    echo "$key" | sudo -S /bin/sed -i 's/http\:\/\/in./http\:\/\//g' /etc/apt/sources.list
     echo "$key" | sudo -S echo "\$nrconf{restart} = 'a'" | sudo -S tee /etc/needrestart/conf.d/autorestart.conf > /dev/null
     echo "$key" | sudo -S chmod +x /opt/csitools/powerup
     echo "$key" | sudo -S ln -sf /opt/csitools/powerup /usr/local/bin/powerup
@@ -128,32 +128,29 @@ if ! which curl > /dev/null; then
 	echo $key | sudo -S apt install curl -y > /dev/null 2>&1
 fi
 
-echo "# Setting up apt-fast Repos"
-add_debian_repository "https://apt-fast.bell-sw.com/ stable main" "https://download.bell-sw.com/pki/GPG-KEY-bellsoft" "bellsoft"
-add_debian_repository "http://apt-fast.vulns.sexy stable main" "https://apt-fast.vulns.sexy/kpcyrd.pgp" "apt-fast-vulns-sexy"
+echo "# Setting up apt Repos"
+add_debian_repository "https://apt.bell-sw.com/ stable main" "https://download.bell-sw.com/pki/GPG-KEY-bellsoft" "bellsoft"
+add_debian_repository "http://apt.vulns.sexy stable main" "https://apt.vulns.sexy/kpcyrd.pgp" "apt-vulns-sexy"
 add_debian_repository "https://dl.winehq.org/wine-builds/ubuntu/ focal main" "https://dl.winehq.org/wine-builds/winehq.key" "winehq"
-add_debian_repository "https://www.kismetwireless.net/repos/apt-fast/release/jammy jammy main" "https://www.kismetwireless.net/repos/kismet-release.gpg.key" "kismet"
+add_debian_repository "https://www.kismetwireless.net/repos/apt/release/jammy jammy main" "https://www.kismetwireless.net/repos/kismet-release.gpg.key" "kismet"
 add_debian_repository "https://packages.element.io/debian/ default main" "https://packages.element.io/debian/element-io-archive-keyring.gpg" "element-io"
 add_debian_repository "https://deb.oxen.io $(lsb_release -sc) main" "https://deb.oxen.io/pub.gpg" "oxen"
-add_debian_repository "https://updates.signal.org/desktop/apt-fast xenial main" "https://updates.signal.org/desktop/apt-fast/keys.asc" "signal-desktop"
-add_debian_repository "https://brave-browser-apt-fast-release.s3.brave.com/ stable main" "https://brave-browser-apt-fast-release.s3.brave.com/brave-core.asc" "brave-browser"
+add_debian_repository "https://updates.signal.org/desktop/apt xenial main" "https://updates.signal.org/desktop/apt/keys.asc" "signal-desktop"
+add_debian_repository "https://brave-browser-apt-release.s3.brave.com/ stable main" "https://brave-browser-apt-release.s3.brave.com/brave-core.asc" "brave-browser"
 add_debian_repository "https://packages.microsoft.com/repos/code stable main" "https://packages.microsoft.com/keys/microsoft.asc" "vscode"
 
 echo $key | sudo -S add-apt-repository --no-update ppa:danielrichter2007/grub-customizer -y > /dev/null 2>&1
 echo $key | sudo -S add-apt-repository --no-update ppa:phoerious/keepassxc -y > /dev/null 2>&1
 echo $key | sudo -S add-apt-repository --no-update ppa:cappelikan/ppa -y > /dev/null 2>&1
-echo $key | sudo -S add-apt-repository --no-update ppa:apt-fast/stable -y > /dev/null 2>&1
+echo $key | sudo -S add-apt-repository --no-update ppa:apt/stable -y > /dev/null 2>&1
 echo $key | sudo -S add-apt-repository --no-update  ppa:obsproject/obs-studio -y > /dev/null 2>&1
 
-if ! which apt-fast > /dev/null; then
-	echo "# Installing Curl"
-	echo $key | sudo -S apt update > /dev/null 2>&1
-	echo $key | sudo -S apt install aria2 apt-fast -y > /dev/null 2>&1
-	sudo apt install bash-completion
-	sudo cp completions/bash/apt-fast /etc/bash_completion.d/
-	sudo chown root:root /etc/bash_completion.d/apt-fast
-	. /etc/bash_completion
-fi
+echo $key | sudo -S apt install aria2 apt -y > /dev/null 2>&1
+echo $key | sudo -S apt install bash-completion > /dev/null 2>&1
+echo $key | sudo -S cp completions/bash/apt /etc/bash_completion.d/ > /dev/null 2>&1
+echo $key | sudo -S chown root:root /etc/bash_completion.d/apt > /dev/null 2>&1
+. /etc/bash_completion
+
 
 # List of Python packages for computer forensic tools
 computer_forensic_tools=(
@@ -273,7 +270,7 @@ apt_online_forensic_tools=(
 apt_system=(
     "baobab"
     "code"
-    "apt-fast-transport-https"
+    "apt-transport-https"
     "tmux"
     # Add more system utility packages here
 )
@@ -295,13 +292,13 @@ for element in "${#apt_packages[@]}"; do
 done
 total_packages=${#cleaned_array[@]}
 echo "# Updating package list"
-echo $key | sudo -S apt-fast update
+echo $key | sudo -S apt update
 
-echo "# Installing apt-fast Packages"
+echo "# Installing apt Packages"
 for package in "${cleaned_array[@]}"; do
     # printf "Installing %s...\n" "$package"
     printf "."
-    sudo apt-fast install -y "$package" > /dev/null 2>&1
+    sudo apt install -y "$package" > /dev/null 2>&1
     if [ $? -eq 0 ]; then
         printf "."
     else
@@ -361,25 +358,25 @@ if [ -f /opt/Osintgram/main.py ]; then
 fi
 
 echo "# Configuring tools 1"
-echo $key | sudo -S apt-fast install -y brave-browser > /dev/null 2>&1
-echo $key | sudo -S apt-fast install -y mainline > /dev/null 2>&1
-echo $key | sudo -S apt-fast install -y zram-config > /dev/null 2>&1
-echo $key | sudo -S apt-fast install -y xfce4-cpugraph-plugin -y > /dev/null 2>&1
-echo $key | sudo -S apt-fast install -y xfce4-goodies > /dev/null 2>&1
-echo $key | sudo -S apt-fast install -y libmagic-dev python3-magic python3-pyregfi > /dev/null 2>&1
-echo $key | sudo -S apt-fast install -y python3-pip > /dev/null 2>&1
-echo $key | sudo -S apt-fast install -y python3-pyqt5.qtsql > /dev/null 2>&1
-echo $key | sudo -S apt-fast install -y libc6 libstdc++6 ca-certificates tar > /dev/null 2>&1
-echo $key | sudo -S apt-fast install -y bash-completion > /dev/null 2>&1
-echo $key | sudo -S apt-fast install -y tre-command > /dev/null 2>&1
-echo $key | sudo -S apt-fast install -y tre-agrep > /dev/null 2>&1
+echo $key | sudo -S apt install -y brave-browser > /dev/null 2>&1
+echo $key | sudo -S apt install -y mainline > /dev/null 2>&1
+echo $key | sudo -S apt install -y zram-config > /dev/null 2>&1
+echo $key | sudo -S apt install -y xfce4-cpugraph-plugin -y > /dev/null 2>&1
+echo $key | sudo -S apt install -y xfce4-goodies > /dev/null 2>&1
+echo $key | sudo -S apt install -y libmagic-dev python3-magic python3-pyregfi > /dev/null 2>&1
+echo $key | sudo -S apt install -y python3-pip > /dev/null 2>&1
+echo $key | sudo -S apt install -y python3-pyqt5.qtsql > /dev/null 2>&1
+echo $key | sudo -S apt install -y libc6 libstdc++6 ca-certificates tar > /dev/null 2>&1
+echo $key | sudo -S apt install -y bash-completion > /dev/null 2>&1
+echo $key | sudo -S apt install -y tre-command > /dev/null 2>&1
+echo $key | sudo -S apt install -y tre-agrep > /dev/null 2>&1
 
 
 dos2unix /opt/csitools/resetdns > /dev/null 2>&1
 echo "# Configuring tools 2"
 rm apps.txt > /dev/null 2>&1
 wget https://csilinux.com/downloads/apps.txt > /dev/null 2>&1
-echo $key | sudo -S apt-fast install -y $(grep -vE "^\s*#" apps.txt | sed -e 's/#.*//'  | tr "\n" " ") > /dev/null 2>&1
+echo $key | sudo -S apt install -y $(grep -vE "^\s*#" apps.txt | sed -e 's/#.*//'  | tr "\n" " ") > /dev/null 2>&1
 echo $key | sudo -S ln -s /usr/bin/python3 /usr/bin/python > /dev/null 2>&1
 
 
@@ -387,7 +384,7 @@ echo "# Configuring Investigation Tools"
 if ! which maltego > /dev/null 2>&1; then
 	cd /tmp
 	wget https://csilinux.com/downloads/Maltego.deb
-	echo $key | sudo -S apt-fast install ./Maltego.deb -y
+	echo $key | sudo -S apt install ./Maltego.deb -y
 fi
 
 echo "# Configuring Computer Forensic Tools"
@@ -396,7 +393,7 @@ if [ ! -f /opt/autopsy/bin/autopsy ]; then
 	cd /tmp
 	wget https://github.com/sleuthkit/autopsy/releases/download/autopsy-4.21.0/autopsy-4.21.0.zip -O autopsy.zip
 	wget https://github.com/sleuthkit/sleuthkit/releases/download/sleuthkit-4.12.1/sleuthkit-java_4.12.1-1_amd64.deb -O sleuthkit-java.deb
-	echo $key | sudo -S apt-fast install ./sleuthkit-java.deb -y > /dev/null 2>&1
+	echo $key | sudo -S apt install ./sleuthkit-java.deb -y > /dev/null 2>&1
 	wget https://raw.githubusercontent.com/sleuthkit/autopsy/develop/linux_macos_install_scripts/install_prereqs_ubuntu.sh
 	echo $key | sudo -S bash install_prereqs_ubuntu.sh
 	wget https://raw.githubusercontent.com/sleuthkit/autopsy/develop/linux_macos_install_scripts/install_application.sh
@@ -421,12 +418,12 @@ cd /tmp
 if ! which veracrypt > /dev/null; then
 	echo "Installing veracrypt"
 	wget https://github.com/veracrypt/VeraCrypt/releases/download/VeraCrypt_1.26.7/veracrypt-1.26.7-Ubuntu-22.04-amd64.deb
-	echo $key | sudo -S apt-fast install -y ./veracrypt-1.26.7-Ubuntu-22.04-amd64.deb -y
+	echo $key | sudo -S apt install -y ./veracrypt-1.26.7-Ubuntu-22.04-amd64.deb -y
 fi
 
 if [ ! -f /opt/jd-gui/jd-gui-1.6.6-min.jar ]; then
 	wget https://github.com/java-decompiler/jd-gui/releases/download/v1.6.6/jd-gui-1.6.6.deb
-	echo $key | sudo -S apt-fast install -y ./jd-gui-1.6.6.deb
+	echo $key | sudo -S apt install -y ./jd-gui-1.6.6.deb
 fi
 
 if ! which calibre > /dev/null; then
@@ -436,7 +433,7 @@ fi
 
 if ! which xnview > /dev/null; then
 	wget  wget https://download.xnview.com/XnViewMP-linux-x64.deb
-	echo $key | sudo -S apt-fast install -y ./XnViewMP-linux-x64.deb
+	echo $key | sudo -S apt install -y ./XnViewMP-linux-x64.deb
 fi
 
 if [ ! -f /opt/routeconverter/RouteConverterLinux.jar ]; then
@@ -451,16 +448,16 @@ echo "# Configuring Online Forensic Tools"
 if ! which discord > /dev/null; then
     echo "disord"
 	wget https://dl.discordapp.net/apps/linux/0.0.27/discord-0.0.27.deb -O /tmp/discord.deb
-	echo $key | sudo -S apt-fast install -y /tmp/discord.deb
+	echo $key | sudo -S apt install -y /tmp/discord.deb
 fi
 
 if ! which google-chrome > /dev/null; then
 	wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
-	echo $key | sudo -S apt-fast install -y ./google-chrome-stable_current_amd64.deb
+	echo $key | sudo -S apt install -y ./google-chrome-stable_current_amd64.deb
 fi
 
 if ! which sn0int > /dev/null 2>&1; then
-	echo $key | sudo -S apt-fast install -y sn0int > /dev/null 2>&1
+	echo $key | sudo -S apt install -y sn0int > /dev/null 2>&1
 fi
 if [ ! -f /opt/PhoneInfoga/phoneinfoga ]; then
 	cd /opt
@@ -476,7 +473,7 @@ if [ ! -f /opt/Storm-Breaker/install.sh ]; then
 	cd Storm-Breaker
  	pip install -r requirments.txt --quiet > /dev/null 2>&1
 	echo $key | sudo -S bash install.sh > /dev/null 2>&1
-	echo $key | sudo -S apt-fast install -y apache2 apache2-bin apache2-data apache2-utils libapache2-mod-php8.1 libapr1 libaprutil1 libaprutil1-dbd-sqlite3 libaprutil1-ldap php php-common php8.1 php8.1-cli php8.1-common php8.1-opcache php8.1-readline > /dev/null 2>&1	
+	echo $key | sudo -S apt install -y apache2 apache2-bin apache2-data apache2-utils libapache2-mod-php8.1 libapr1 libaprutil1 libaprutil1-dbd-sqlite3 libaprutil1-ldap php php-common php8.1 php8.1-cli php8.1-common php8.1-opcache php8.1-readline > /dev/null 2>&1	
 else
 	cd /opt/Storm-Breaker
 	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
@@ -496,7 +493,7 @@ fi
 cd /tmp
 if ! which orjail > /dev/null; then
         wget https://github.com/orjail/orjail/releases/download/v1.1/orjail_1.1-1_all.deb
-	echo $key | sudo -S apt-fast install ./orjail_1.1-1_all.deb
+	echo $key | sudo -S apt install ./orjail_1.1-1_all.deb
 fi
 
 if [ ! -f /opt/OxenWallet/oxen-electron-wallet-1.8.1-linux.AppImage ]; then
@@ -541,13 +538,13 @@ echo $key | sudo -S service i2p start
 echo $key | sudo -S service i2pd start
 
 # lokinet
-echo $key | sudo -S apt-fast install lokinet-gui
+echo $key | sudo -S apt install lokinet-gui
 
 echo "# Configuring SIGINT Tools"
 cd /tmp
 if ! which wifipumpkin3 > /dev/null; then
 	wget https://github.com/P0cL4bs/wifipumpkin3/releases/download/v1.1.4/wifipumpkin3_1.1.4_all.deb > /dev/null 2>&1
-	echo $key | sudo -S apt-fast install ./wifipumpkin3_1.1.4_all.deb -y
+	echo $key | sudo -S apt install ./wifipumpkin3_1.1.4_all.deb -y
 fi
 if [ ! -f /opt/fmradio/fmradio.AppImage ]; then
 	echo "Installing fmradio"
@@ -668,7 +665,7 @@ if [ ! -f /opt/qr-code-generator-desktop/qr-code-generator-desktop.AppImage ]; t
 fi
 
 if ! which keepassxc > /dev/null 2>&1; then
-	echo $key | sudo -S apt-fast install keepassxc -y
+	echo $key | sudo -S apt install keepassxc -y
 fi
 
 echo $key | sudo -S cp /opt/csitools/youtube.lua /usr/lib/x86_64-linux-gnu/vlc/lua/playlist/youtube.luac -rf > /dev/null 2>&1
@@ -727,23 +724,23 @@ echo $key | sudo -S update-initramfs -u  > /dev/null 2>&1
 cd /tmp	
 
 # echo $key | sudo -S ubuntu-drivers autoinstall
-echo $key | sudo -S apt-fast install --fix-broken -y > /dev/null 2>&1
-echo "# Fixing broken apt-fast installs level 2"
+echo $key | sudo -S apt install --fix-broken -y > /dev/null 2>&1
+echo "# Fixing broken apt installs level 2"
 echo $key | sudo -S dpkg --configure -a > /dev/null 2>&1
 echo "# Upgrading third party tools"
 echo $key | sudo -S full-upgrade -y > /dev/null 2>&1
-echo "# Fixing broken apt-fast installs level 3"
-echo $key | sudo -S apt-fast -f install > /dev/null 2>&1
-echo "# Fixing broken apt-fast installs level 4"
-echo $key | sudo -S apt-fast upgrade --fix-missing -y > /dev/null 2>&1
-echo "# Verifying apt-fast installs level 5"
+echo "# Fixing broken apt installs level 3"
+echo $key | sudo -S apt -f install > /dev/null 2>&1
+echo "# Fixing broken apt installs level 4"
+echo $key | sudo -S apt upgrade --fix-missing -y > /dev/null 2>&1
+echo "# Verifying apt installs level 5"
 echo $key | sudo -S dpkg --configure -a > /dev/null 2>&1
-echo "# Fixing broken apt-fast installs level 6"
+echo "# Fixing broken apt installs level 6"
 echo $key | sudo -S dpkg --configure -a --force-confold > /dev/null 2>&1
-echo "# Removing old software apt-fast installs"
-echo $key | sudo -S apt-fast autoremove -y > /dev/null 2>&1
-echo "# Removing apt-fast cache to save space"
-echo $key | sudo -S apt-fast autoclean -y > /dev/null 2>&1
+echo "# Removing old software apt installs"
+echo $key | sudo -S apt autoremove -y > /dev/null 2>&1
+echo "# Removing apt cache to save space"
+echo $key | sudo -S apt autoclean -y > /dev/null 2>&1
 echo $key | sudo -S chown csi:csi /opt > /dev/null 2>&1
 echo $key | sudo -S updatedb > /dev/null 2>&1
 
@@ -756,7 +753,7 @@ for service in "${disableservices[@]}"; do
     echo "$service disabled successfully." > /dev/null 2>&1
 done
 
-# Capt-fasture the end time
+# Capture the end time
 update_current_time
 calculate_duration
 echo "End time: $current_time"
