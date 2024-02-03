@@ -223,12 +223,13 @@ system_utilities=(
 )
 
 python_packages=($(printf "%s\n" "${computer_forensic_tools[@]}" "${online_forensic_tools[@]}" "${system_utilities[@]}" | sort -u))
-sorted_packages=($(for pkg in "${python_packages[@]}"; do echo "$pkg"; done | sort))
+sorted_packages=($(for pkg in "${python_packages[@]}"; do echo "$pkg"; done | sort | uniq))
 total_packages=${#sorted_packages[@]}
 percentage=0
-echo "# Updating pip"
+echo "\n# Updating pip"
 python3 -m pip install pip --upgrade  > /dev/null 2>&1
 echo "# Checking Python Dependencies"
+echo "# This may take a while if there are additions or changes since the last time you ran powerup...  Please be patient"
 printf "  - "
 for package in "${sorted_packages[@]}"; do
     printf "."
@@ -237,8 +238,6 @@ done
 echo "  100%"
 
 wget https://csilinux.com/downloads/apps.txt -O apps.txt
-
-
 mapfile -t apt_bulk_packages < <(grep -vE "^\s*#" apps.txt | sed -e 's/#.*//' | tr "\n" " ")
 
 apt_computer_forensic_tools=(
@@ -263,20 +262,32 @@ apt_system_utilities=(
     # Add more system utility packages here
 )
 
-apt_packages=($(printf "%s\n" "${apt_computer_forensic_tools[@]}" "${apt_online_forensic_tools[@]}" "${apt_system_utilities[@]}" "${apt_bulk_packages[@]} | sort -u))
-total_packages=${#apt_packages[@]}
+apt_packages=($(printf "%s\n" "${apt_computer_forensic_tools[@]}" "${apt_online_forensic_tools[@]}" "${apt_system_utilities[@]}" "${apt_bulk_packages[@]}" | sort -u))
+cleaned_array=()
+# Iterate over the original array
+for element in "${#apt_packages[@]}"; do
+    # Check if the element is non-empty
+    if [[ -n $element ]]; then
+        # Add non-empty elements to the new array
+        cleaned_array+=("$element")
+    fi
+done
+total_packages=${#cleaned_array[@]}
 echo "# Updating package list"
 echo $key | sudo -S apt update
 
 echo "# Installing APT Packages"
 for package in "${apt_packages[@]}"; do
     printf "Installing %s...\n" "$package"
-    echo $key | sudo -S apt install -y "$package" > /dev/null 2>&1
+    sudo apt install -y "$package" > /dev/null 2>&1
     if [ $? -eq 0 ]; then
         printf "."
+    else
+        printf "-"
     fi
 done
-echo "Stage has been checked and installed."
+echo "  100%"
+echo "Packages have been checked and installed."
 
 echo "# Configuring third party tools 1"
 # List of repositories and their URLs
