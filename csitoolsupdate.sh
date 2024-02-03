@@ -19,7 +19,7 @@ add_debian_repository() {
     local repo_url="$1"
     local gpg_key_url="$2"
     local repo_name="$3"
-    curl -fsSL "$gpg_key_url" | sudo -S gpg --dearmor | sudo -S tee "/etc/apt-fast/trusted.gpg.d/$repo_name.gpg" > /dev/null 2>&1
+    curl -fsSL "$gpg_key_url" | sudo -S gpg --dearmor | sudo -S tee "/etc/apt/trusted.gpg.d/$repo_name.gpg" > /dev/null 2>&1
     if [ $? -eq 0 ]; then
         echo "# GPG key for '$repo_name' updated successfully."
     else
@@ -27,7 +27,7 @@ add_debian_repository() {
         return 1
     fi
     echo "# Updating $repo_name repository"
-    echo "deb [signed-by=/etc/apt-fast/trusted.gpg.d/$repo_name.gpg] $repo_url" | sudo -S tee "/etc/apt-fast/sources.list.d/$repo_name.list" > /dev/null 2>&1
+    echo "deb [signed-by=/etc/apt/trusted.gpg.d/$repo_name.gpg] $repo_url" | sudo -S tee "/etc/apt/sources.list.d/$repo_name.list" > /dev/null 2>&1
     if [ $? -eq 0 ]; then
         printf "  - Repository '$repo_name' updated successfully."
     else
