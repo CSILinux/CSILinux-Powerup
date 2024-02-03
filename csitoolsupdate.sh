@@ -247,7 +247,8 @@ for package in "${sorted_packages[@]}"; do
 done
 echo "  100%"
 
-aria2c https://csilinux.com/downloads/apps.txt apps.txt
+cd /tmp
+wget https://csilinux.com/downloads/apps.txt apps.txt
 mapfile -t apt-_bulk_packages < <(grep -vE "^\s*#" apps.txt | sed -e 's/#.*//' | tr "\n" " ")
 
 apt_computer_forensic_tools=(
