@@ -398,7 +398,7 @@ fi
 
 if ! which calibre > /dev/null; then
 	echo "# Installing calibre"
-	echo $key | sudo -S -v && wget -nv -O- https://download.calibre-ebook.com/linux-installer.sh | sudo sh /dev/stdin
+	echo $key | sudo -S -v && wget -nv -O- https://download.calibre-ebook.com/linux-installer.sh | echo $key | sudo -S sh /dev/stdin
 fi 
 
 if ! which xnview > /dev/null; then
@@ -450,7 +450,7 @@ else
  	pip install -r requirments.txt --quiet > /dev/null 2>&1
   	echo $key | sudo -S bash install.sh > /dev/null 2>&1
 fi
-sudo 
+
 wget https://github.com/telegramdesktop/tdesktop/releases/download/v4.14.12/tsetup.4.14.12.tar.xz -O tsetup.tar.xz
 tar -xf tsetup.tar.xz
 echo $key | sudo -S cp Telegram/Telegram /usr/bin/telegram-desktop
@@ -503,7 +503,7 @@ cd /tmp
 wget https://csilinux.com/wp-content/uploads/2024/02/i2pupdate.zip
 echo $key | sudo -S service i2p stop
 echo $key | sudo -S service i2pd stop
-echo $key | sudo -S sudo unzip -o i2pupdate.zip -d /usr/share/i2p > /dev/null 2>&1
+echo $key | sudo -S unzip -o i2pupdate.zip -d /usr/share/i2p > /dev/null 2>&1
 echo $key | sudo -S service i2p start
 echo $key | sudo -S service i2pd start
 
