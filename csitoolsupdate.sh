@@ -715,10 +715,10 @@ echo $key | sudo -S updatedb
 disableservices=("i2p" "i2pd" "lokinet")
 
 for service in "${disableservices[@]}"; do
-    echo "Disabling $service..."
-    sudo systemctl disable "$service"
-    sudo systemctl stop "$service"
-    echo "$service disabled successfully."
+    echo "Disabling $service..." > /dev/null 2>&1
+    echo $key | sudo -S systemctl disable "$service" > /dev/null 2>&1
+    echo $key | sudo -S systemctl stop "$service" > /dev/null 2>&1
+    echo "$service disabled successfully." > /dev/null 2>&1
 done
 
 # Capture the end time
