@@ -107,7 +107,7 @@ install_csi_tools() {
     echo "$key" | sudo -S chown csi:csi /usr/bin/bash-wrapper
     echo "$key" | sudo -S chown csi:csi /home/csi -R
     echo "$key" | sudo -S chmod +x /usr/bin/bash-wrapper 
-    echo "$key" | sudo -S mkdir /iso
+    echo "$key" | sudo -S mkdir /iso > /dev/null 2>&1
     echo "$key" | sudo -S chown csi:csi /iso -R
     tar -xf /opt/csitools/assets/Win11-blue.tar.xz --directory /home/csi/.icons/
     echo "$key" | sudo -S /bin/sed -i 's/http\:\/\/in./http\:\/\//g' /etc/apt/sources.list
@@ -242,7 +242,8 @@ mapfile -t apt_bulk_packages < <(grep -vE "^\s*#" apps.txt | sed -e 's/#.*//' | 
 
 apt_computer_forensic_tools=(
     "forensics-all"
-    "autopsy"
+    "dcfldd"
+    "dc3dd"
     "binwalk"
     "gparted"
     # Add more forensic tool packages here
@@ -252,10 +253,12 @@ apt_online_forensic_tools=(
     "tor"
     "wireshark"
     "curl"
+    "lokinet"
     # Add more online forensic tool packages here
 )
 
 apt_system_utilities=(
+    "baobab"
     "code"
     "apt-transport-https"
     "tmux"
@@ -649,7 +652,7 @@ if ! which keepassxc > /dev/null 2>&1; then
 	echo $key | sudo -S apt install keepassxc -y
 fi
 
-echo $key | sudo -S cp /opt/csitools/youtube.lua /usr/lib/x86_64-linux-gnu/vlc/lua/playlist/youtube.luac -rf
+echo $key | sudo -S cp /opt/csitools/youtube.lua /usr/lib/x86_64-linux-gnu/vlc/lua/playlist/youtube.luac -rf > /dev/null 2>&1
 
 
 echo "# Configuring Background"
@@ -668,7 +671,7 @@ xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitorHDMI-A-1/workspace0/la
 echo $key | sudo -S timedatectl set-timezone UTC
 
 
-unredactedmagazine
+# unredactedmagazine
 
 echo $key | sudo -S /opt/csitools/clearlogs > /dev/null 2>&1
 echo $key | sudo -S rm -rf /var/crash/* > /dev/null 2>&1
@@ -695,7 +698,7 @@ if echo $key | sudo -S grep -q "GRUB_DISABLE_OS_PROBER=false" /etc/default/grub;
     echo "Grub is already configured for os-probe"
 fi
 
-echo $key | sudo -S sed -i "/recordfail_broken=/{s/1/0/}" /etc/grub.d/00_header
+echo $key | sudo -S sed -i "/recordfail_broken=/{s/1/0/}" /etc/grub.d/00_header > /dev/null 2>&1
 echo $key | sudo -S systemctl disable mono-xsp4.service > /dev/null 2>&1
 echo $key | sudo -S update-grub > /dev/null 2>&1
 echo $key | sudo -S update-alternatives --install /usr/share/plymouth/themes/default.plymouth default.plymouth /usr/share/plymouth/themes/vortex-ubuntu/vortex-ubuntu.plymouth 100  &> /dev/null;
@@ -722,8 +725,8 @@ echo "# Removing old software APT installs"
 echo $key | sudo -S apt autoremove -y > /dev/null 2>&1
 echo "# Removing APT cache to save space"
 echo $key | sudo -S apt autoclean -y > /dev/null 2>&1
-echo $key | sudo -S chown csi:csi /opt
-echo $key | sudo -S updatedb
+echo $key | sudo -S chown csi:csi /opt > /dev/null 2>&1
+echo $key | sudo -S updatedb > /dev/null 2>&1
 
 disableservices=("i2p" "i2pd" "lokinet")
 
