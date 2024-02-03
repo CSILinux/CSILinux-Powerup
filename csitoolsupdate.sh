@@ -251,9 +251,9 @@ done
 echo "  100%"
 
 aria2c https://csilinux.com/downloads/apps.txt apps.txt
-mapfile -t apt-fast_bulk_packages < <(grep -vE "^\s*#" apps.txt | sed -e 's/#.*//' | tr "\n" " ")
+mapfile -t apt-_bulk_packages < <(grep -vE "^\s*#" apps.txt | sed -e 's/#.*//' | tr "\n" " ")
 
-apt-fast_computer_forensic_tools=(
+apt_computer_forensic_tools=(
     "forensics-all"
     "dcfldd"
     "dc3dd"
@@ -262,7 +262,7 @@ apt-fast_computer_forensic_tools=(
     # Add more forensic tool packages here
 )
 
-apt-fast_online_forensic_tools=(
+apt_online_forensic_tools=(
     "tor"
     "wireshark"
     "curl"
@@ -270,7 +270,7 @@ apt-fast_online_forensic_tools=(
     # Add more online forensic tool packages here
 )
 
-apt-fast_system=(
+apt_system=(
     "baobab"
     "code"
     "apt-fast-transport-https"
@@ -278,16 +278,16 @@ apt-fast_system=(
     # Add more system utility packages here
 )
 
-apt-fast_video=(
+apt_video=(
     "ffmpeg"
     "obs-studio"
     "vlc"
     # Add more video packages here
 )
 
-apt-fast_packages=($(printf "%s\n" "${apt-fast_computer_forensic_tools[@]}" "${apt-fast_online_forensic_tools[@]}" "${apt-fast_system[@]}" "${apt-fast_video[@]}" "${apt-fast_bulk_packages[@]}" | sort -u))
+apt_packages=($(printf "%s\n" "${apt_computer_forensic_tools[@]}" "${apt_online_forensic_tools[@]}" "${apt_system[@]}" "${apt_video[@]}" "${apt_bulk_packages[@]}" | sort -u))
 cleaned_array=()
-for element in "${#apt-fast_packages[@]}"; do
+for element in "${#apt_packages[@]}"; do
     # Check if the element is non-empty
     if [[ -n $element ]]; then
         cleaned_array+=("$element")
@@ -298,7 +298,7 @@ echo "# Updating package list"
 echo $key | sudo -S apt-fast update
 
 echo "# Installing apt-fast Packages"
-for package in "${apt-fast_packages[@]}"; do
+for package in "${cleaned_array[@]}"; do
     # printf "Installing %s...\n" "$package"
     printf "."
     sudo apt-fast install -y "$package" > /dev/null 2>&1
