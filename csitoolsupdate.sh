@@ -98,7 +98,7 @@ setup_new_csi_user_and_system() {
 install_csi_tools() {
     echo "Downloading CSI Tools"
     cd /tmp
-    aria2c https://csilinux.com/downloads/csitools.zip
+    aria2c -x3 -k1M https://csilinux.com/downloads/csitools.zip
     echo "# Installing CSI Tools"
     echo "$key" | sudo -S unzip -o csitools.zip -d /opt/
     echo "$key" | sudo -S chown csi:csi -R /opt/csitools 
