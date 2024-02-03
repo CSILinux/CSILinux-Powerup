@@ -600,10 +600,10 @@ fi
 
 if [ ! -f /opt/ghidra/VERSION ]; then
 	cd /tmp
-	wget https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_11.0_build/ghidra_11.0_PUBLIC_20231222.zip
-	unzip ghidra_11.0_PUBLIC_20231222.zip
- 	rm -rf /opt/ghidra
-	mv ghidra_11.0_PUBLIC /opt/ghidra
+	aria2c -x3 -k1M https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_11.0_build/ghidra_11.0_PUBLIC_20231222.zip
+	unzip ghidra_11.0_PUBLIC_20231222.zip > /dev/null 2>&1
+ 	rm -rf /opt/ghidra > /dev/null 2>&1
+	mv ghidra_11.0_PUBLIC /opt/ghidra > /dev/null 2>&1
 	cd /opt/ghidra
  	echo "11.0" > VERSION
 	echo $key | sudo -S chmod +x ghidraRun
@@ -625,10 +625,10 @@ if [ ! -f /opt/idafree/ida64 ]; then
 	echo $key | sudo -S chmod +x /opt/idafree/ida64 > /dev/null 2>&1
 fi
 
-
+cd /opt
 mkdir apk-editor-studio > /dev/null 2>&1
 cd apk-editor-studio
-rm apk-editor-studio.AppImage
+rm apk-editor-studio.AppImage > /dev/null 2>&1
 wget https://csilinux.com/downloads/apk-editor-studio.AppImage -O apk-editor-studio.AppImage > /dev/null 2>&1
 echo $key | sudo -S chmod +x apk-editor-studio.AppImage > /dev/null 2>&1
 
@@ -639,12 +639,7 @@ if [ ! -f /opt/NetworkMiner/NetworkMiner.exe ]; then
     	unzip networkminer.zip
 	rm -rf /opt/NetworkMiner > /dev/null 2>&1
 	mv NetworkMiner* /opt/NetworkMiner > /dev/null 2>&1
-else
-	cd /opt/exploitdb
-	git reset --hard HEAD > /dev/null 2>&1; git pull > /dev/null 2>&1
 fi
-
-
 
 echo "# Configuring Security Tools"
 if [ ! -f /opt/exploitdb/searchsploit ]; then
