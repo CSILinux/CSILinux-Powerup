@@ -236,6 +236,10 @@ for package in "${sorted_packages[@]}"; do
 done
 echo "  100%"
 
+wget https://csilinux.com/downloads/apps.txt -O apps.txt
+
+
+mapfile -t apt_bulk_packages < <(grep -vE "^\s*#" apps.txt | sed -e 's/#.*//' | tr "\n" " ")
 
 apt_computer_forensic_tools=(
     "forensics-all"
@@ -259,7 +263,7 @@ apt_system_utilities=(
     # Add more system utility packages here
 )
 
-apt_packages=($(printf "%s\n" "${apt_computer_forensic_tools[@]}" "${apt_online_forensic_tools[@]}" "${apt_system_utilities[@]}" | sort -u))
+apt_packages=($(printf "%s\n" "${apt_computer_forensic_tools[@]}" "${apt_online_forensic_tools[@]}" "${apt_system_utilities[@]}" "${apt_bulk_packages[@]} | sort -u))
 total_packages=${#apt_packages[@]}
 echo "# Updating package list"
 echo $key | sudo -S apt update
@@ -270,8 +274,6 @@ for package in "${apt_packages[@]}"; do
     echo $key | sudo -S apt install -y "$package" > /dev/null 2>&1
     if [ $? -eq 0 ]; then
         printf "."
-    else
-        echo "Failed to install $package."
     fi
 done
 echo "Stage has been checked and installed."
