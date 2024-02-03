@@ -72,7 +72,7 @@ setup_new_csi_user_and_system() {
     ###  System setup
     echo $key | sudo -S bash -c 'echo "$nrconf{restart} = '"'"'a'"'"'" | tee /etc/needrestart/conf.d/autorestart.conf' > /dev/null 2>&1
     export DEBIAN_FRONTEND=noninteractive
-    export apt-fast_LISTCHANGES_FRONTEND=none
+    export apt_LISTCHANGES_FRONTEND=none
     export DISPLAY=:0.0
     export TERM=xterm
     echo "# Cleaning up old Arch"
@@ -81,7 +81,7 @@ setup_new_csi_user_and_system() {
     echo $key | sudo -S dpkg --remove-architecture i386 > /dev/null 2>&1
     echo $key | sudo -S dpkg-reconfigure debconf --frontend=noninteractive > /dev/null 2>&1
     echo $key | sudo -S DEBIAN_FRONTEND=noninteractive dpkg --configure -a > /dev/null 2>&1
-    echo $key | sudo -S NEEDRESTART_MODE=a apt-fast update --ignore-missing > /dev/null 2>&1
+    echo $key | sudo -S NEEDRESTART_MODE=a apt update --ignore-missing > /dev/null 2>&1
     echo $key | sudo -S rm -rf /etc/apt-fast/sources.list.d/archive_u* > /dev/null 2>&1
     echo $key | sudo -S rm -rf /etc/apt-fast/sources.list.d/brave* > /dev/null 2>&1
     echo $key | sudo -S rm -rf /etc/apt-fast/sources.list.d/signal* > /dev/null 2>&1
@@ -97,7 +97,8 @@ setup_new_csi_user_and_system() {
 
 install_csi_tools() {
     echo "Downloading CSI Tools"
-    wget https://csilinux.com/downloads/csitools.zip -O csitools.zip
+    cd /tmp
+    aria2c https://csilinux.com/downloads/csitools.zip
     echo "# Installing CSI Tools"
     echo "$key" | sudo -S unzip -o csitools.zip -d /opt/
     echo "$key" | sudo -S chown csi:csi -R /opt/csitools 
@@ -249,7 +250,7 @@ for package in "${sorted_packages[@]}"; do
 done
 echo "  100%"
 
-wget https://csilinux.com/downloads/apps.txt -O apps.txt
+aria2c https://csilinux.com/downloads/apps.txt apps.txt
 mapfile -t apt-fast_bulk_packages < <(grep -vE "^\s*#" apps.txt | sed -e 's/#.*//' | tr "\n" " ")
 
 apt-fast_computer_forensic_tools=(
