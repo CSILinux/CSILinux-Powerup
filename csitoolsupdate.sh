@@ -16,23 +16,59 @@ update_current_time
 start_time="$current_time"
 echo "CSI Linux Powerup Start time: $start_time"
 
-add_debian_repository() {
-    local repo_url="$1"
-    local gpg_key_url="$2"
-    local repo_name="$3"
-    curl -fsSL "$gpg_key_url" | sudo -S gpg --dearmor | sudo -S tee "/etc/apt/trusted.gpg.d/$repo_name.gpg"  > /dev/null 2>&1
-    if [ $? -eq 0 ]; then
-        echo "# GPG key for '$repo_name' updated successfully."
+add_repository() {
+    local repo_type="$1"
+    local repo_url="$2"
+    local gpg_key_info="$3"  # This should contain both the keyserver and the keys to receive
+    local repo_name="$4"
+
+    if [ "$repo_type" == "apt" ]; then
+        # Handle Debian/Ubuntu APT repositories
+        curl -fsSL "$gpg_key_info" | sudo gpg --dearmor | sudo tee "/etc/apt/trusted.gpg.d/$repo_name.gpg" > /dev/null 2>&1
+        if [ $? -eq 0 ]; then
+            echo "# GPG key for '$repo_name' updated successfully."
+        else
+            echo "   - Error adding GPG key for '$repo_name'."
+            return 1
+        fi
+        echo "# Updating $repo_name repository"
+        echo "deb [signed-by=/etc/apt/trusted.gpg.d/$repo_name.gpg] $repo_url" | sudo tee "/etc/apt/sources.list.d/$repo_name.list" > /dev/null 2>&1
+        if [ $? -eq 0 ]; then
+            printf "  - Repository '$repo_name' updated successfully.\n"
+        else
+            printf "  - Error adding repository '$repo_name'.\n"
+            return 1
+        fi
+    elif [ "$repo_type" == "ppa" ]; then
+        # Handle PPA repositories
+        sudo add-apt-repository --no-update -y "$repo_url"
+        if [ $? -eq 0 ]; then
+            echo "# PPA '$repo_name' added successfully."
+        else
+            echo "   - Error adding PPA '$repo_name'."
+            return 1
+        fi
+    elif [ "$repo_type" == "key" ]; then
+        # Handle GPG keys that need to be imported from a keyserver
+        local keyserver=$(echo "$gpg_key_info" | cut -d ' ' -f1)
+        local recv_keys=$(echo "$gpg_key_info" | cut -d ' ' -f2-)
+        sudo gpg --no-default-keyring --keyring gnupg-ring:/tmp/"$repo_name".gpg --keyserver "$keyserver" --recv-keys $recv_keys
+        sudo gpg --no-default-keyring --keyring gnupg-ring:/tmp/"$repo_name".gpg --export | sudo tee "/etc/apt/trusted.gpg.d/$repo_name.gpg" > /dev/null
+        if [ $? -eq 0 ]; then
+            echo "GPG key for '$repo_name' imported successfully."
+        else
+            echo "Error importing GPG key for '$repo_name'."
+            return 1
+        fi
+        echo "deb [signed-by=/etc/apt/trusted.gpg.d/$repo_name.gpg] $repo_url" | sudo tee "/etc/apt/sources.list.d/$repo_name.list" > /dev/null 2>&1
+        if [ $? -eq 0 ]; then
+            echo "Repository '$repo_name' updated successfully."
+        else
+            echo "Error adding repository '$repo_name'."
+            return 1
+        fi
     else
-        echo "   - Error adding GPG key for '$repo_name'."
-        return 1
-    fi
-    echo "# Updating $repo_name repository"
-    echo "deb [signed-by=/etc/apt/trusted.gpg.d/$repo_name.gpg] $repo_url" | sudo -S tee "/etc/apt/sources.list.d/$repo_name.list" > /dev/null 2>&1
-    if [ $? -eq 0 ]; then
-        printf "  - Repository '$repo_name' updated successfully."
-    else
-        printf "  - Error adding repository '$repo_name'."
+        echo "Invalid repository type specified. Use 'apt', 'ppa', or 'key'."
         return 1
     fi
 }
@@ -174,9 +210,6 @@ setup_new_csi_user_and_system() {
     wget -O - https://raw.githubusercontent.com/CSILinux/CSILinux-Powerup/main/csi-linux-terminal.sh | bash > /dev/null 2>&1
     git config --global safe.directory '*'
     
-    # Installing essential packages
-    echo $key | sudo -S apt install aria2 curl -y > /dev/null 2>&1
-    
     # Configuring system parameters
     echo $key | sudo -S sysctl vm.swappiness=10
     echo "vm.swappiness=10" | sudo -S tee /etc/sysctl.d/99-sysctl.conf
@@ -229,12 +262,10 @@ cis_lvl_1() {
 }
 
 
-
-
 install_csi_tools() {
     echo "Downloading CSI Tools"
     cd /tmp
-    echo "$key" | sudo -S csi*.zip
+    echo "$key" | sudo -S rm csi*.zip
     aria2c -x3 -k1M https://csilinux.com/downloads/csitools.zip
     echo "# Installing CSI Tools"
     echo "$key" | sudo -S unzip -o csitools.zip -d /opt/
@@ -293,38 +324,27 @@ cis_lvl_1
 echo "# Setting up repo environment"
 cd /tmp
 
-programs=(curl bpytop xterm)
-for program in "${programs[@]}"; do
-    sudo apt update
-    if ! which "$program" > /dev/null; then
-        echo "$program is not installed. Attempting to install..."
-        sudo apt-get install -y "$program"
-    else
-        echo "$program is already installed."
-    fi
-done
-
 echo "# Setting up apt Repos"
-add_debian_repository "https://apt.bell-sw.com/ stable main" "https://download.bell-sw.com/pki/GPG-KEY-bellsoft" "bellsoft"
-add_debian_repository "http://apt.vulns.sexy stable main" "https://apt.vulns.sexy/kpcyrd.pgp" "apt-vulns-sexy"
-add_debian_repository "https://dl.winehq.org/wine-builds/ubuntu/ focal main" "https://dl.winehq.org/wine-builds/winehq.key" "winehq"
-add_debian_repository "https://www.kismetwireless.net/repos/apt/release/jammy jammy main" "https://www.kismetwireless.net/repos/kismet-release.gpg.key" "kismet"
-add_debian_repository "https://packages.element.io/debian/ default main" "https://packages.element.io/debian/element-io-archive-keyring.gpg" "element-io"
-add_debian_repository "https://deb.oxen.io $(lsb_release -sc) main" "https://deb.oxen.io/pub.gpg" "oxen"
-add_debian_repository "https://updates.signal.org/desktop/apt xenial main" "https://updates.signal.org/desktop/apt/keys.asc" "signal-desktop"
-add_debian_repository "https://brave-browser-apt-release.s3.brave.com/ stable main" "https://brave-browser-apt-release.s3.brave.com/brave-core.asc" "brave-browser"
-add_debian_repository "https://packages.microsoft.com/repos/code stable main" "https://packages.microsoft.com/keys/microsoft.asc" "vscode"
-gpg --no-default-keyring --keyring gnupg-ring:/tmp/onlyoffice.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys CB2DE8E5
-add_debian_repository "https://download.onlyoffice.com/repo/debian squeeze main" "/tmp/onlyoffice.gpg" "onlyoffice"
+add_repository "apt" "https://apt.bell-sw.com/ stable main" "https://download.bell-sw.com/pki/GPG-KEY-bellsoft" "bellsoft"
+add_repository "apt" "http://apt.vulns.sexy stable main" "https://apt.vulns.sexy/kpcyrd.pgp" "apt-vulns-sexy"
+add_repository "apt" "https://dl.winehq.org/wine-builds/ubuntu/ focal main" "https://dl.winehq.org/wine-builds/winehq.key" "winehq"
+add_repository "apt" "https://www.kismetwireless.net/repos/apt/release/jammy jammy main" "https://www.kismetwireless.net/repos/kismet-release.gpg.key" "kismet"
+add_repository "apt" "https://packages.element.io/debian/ default main" "https://packages.element.io/debian/element-io-archive-keyring.gpg" "element-io"
+add_repository "apt" "https://deb.oxen.io $(lsb_release -sc) main" "https://deb.oxen.io/pub.gpg" "oxen"
+add_repository "apt" "https://updates.signal.org/desktop/apt xenial main" "https://updates.signal.org/desktop/apt/keys.asc" "signal-desktop"
+add_repository "apt" "https://brave-browser-apt-release.s3.brave.com/ stable main" "https://brave-browser-apt-release.s3.brave.com/brave-core.asc" "brave-browser"
+add_repository "apt" "https://packages.microsoft.com/repos/code stable main" "https://packages.microsoft.com/keys/microsoft.asc" "vscode"
 
+add_repository "key" "https://download.onlyoffice.com/repo/debian squeeze main" "hkp://keyserver.ubuntu.com:80 --recv-keys CB2DE8E5" "onlyoffice"
 
-echo $key | sudo -S add-apt-repository --no-update ppa:danielrichter2007/grub-customizer -y
-echo $key | sudo -S add-apt-repository --no-update ppa:phoerious/keepassxc -y
-echo $key | sudo -S add-apt-repository --no-update ppa:cappelikan/ppa -y
-echo $key | sudo -S add-apt-repository --no-update ppa:apt-fast/stable -y
-echo $key | sudo -S add-apt-repository --no-update ppa:obsproject/obs-studio -y
+add_repository "ppa" "ppa:danielrichter2007/grub-customizer" "" "grub-customizer"
+add_repository "ppa" "ppa:phoerious/keepassxc" "" "keepassxc"
+add_repository "ppa" "ppa:cappelikan/ppa" "" "mainline"
+add_repository "ppa" "ppa:apt-fast/stable" "" "apt-fast"
+add_repository "ppa" "ppa:obsproject/obs-studio" "" "obs-studio"
+
 echo $key | sudo -S apt update
-echo $key | sudo -S  apt upgrade -y
+echo $key | sudo -S apt upgrade -y
 
 current_kernel=$(uname -r)
 
@@ -739,9 +759,6 @@ wget https://csilinux.com/wp-content/uploads/2024/02/i2pupdate.zip
 echo $key | sudo -S service i2p stop
 echo $key | sudo -S service i2pd stop
 echo $key | sudo -S unzip -o i2pupdate.zip -d /usr/share/i2p
-
-# lokinet
-echo $key | sudo -S apt install lokinet-gui
 
 echo "# Configuring SIGINT Tools"
 cd /tmp
