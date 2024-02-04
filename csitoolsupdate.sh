@@ -105,6 +105,42 @@ setup_new_csi_user_and_system() {
     echo $key | sudo -S sysctl vm.swappiness=10
     echo "vm.swappiness=10" | sudo -S tee /etc/sysctl.d/99-sysctl.conf
     echo $key | sudo -S systemctl enable fstrim.timer
+	# Services to disable, sorted alphabetically
+	disableservices=(
+	    "apache-htcacheclean.service"
+	    "apache-htcacheclean@.service"
+	    "apache2.service"
+	    "apache2@.service"
+	    "bettercap.service"
+	    "clamav-daemon.service"
+	    "clamav-freshclam.service"
+	    "cups-browsed.service"
+	    "cups.service"
+	    "dnsmasq.service"
+	    "dnsmasq@.service"
+	    "i2p"
+	    "i2pd"
+	    "kismet.service"
+	    "lokinet"
+	    "lokinet-testnet.service"
+	    "open-vm-tools.service"
+	    "openfortivpn@.service"
+	    "openvpn-client@.service"
+	    "openvpn-server@.service"
+	    "openvpn.service"
+	    "openvpn@.service"
+	    "privoxy.service"
+	    "rsync.service"
+	)
+	
+	for service in "${disableservices[@]}"; do
+	    echo "Disabling $service..."
+	    echo $key | sudo -S systemctl disable "$service"
+	    echo $key | sudo -S systemctl stop "$service"
+	    echo "$service disabled successfully."
+	done
+	
+	echo "All specified services have been disabled."
 
 
 }
@@ -859,42 +895,6 @@ echo "$key" | sudo -S chown csi:csi /opt
 echo "# Updating the mlocate database..."
 echo "$key" | sudo -S updatedb
 
-# Services to disable, sorted alphabetically
-disableservices=(
-    "apache-htcacheclean.service"
-    "apache-htcacheclean@.service"
-    "apache2.service"
-    "apache2@.service"
-    "bettercap.service"
-    "clamav-daemon.service"
-    "clamav-freshclam.service"
-    "cups-browsed.service"
-    "cups.service"
-    "dnsmasq.service"
-    "dnsmasq@.service"
-    "i2p"
-    "i2pd"
-    "kismet.service"
-    "lokinet"
-    "lokinet-testnet.service"
-    "open-vm-tools.service"
-    "openfortivpn@.service"
-    "openvpn-client@.service"
-    "openvpn-server@.service"
-    "openvpn.service"
-    "openvpn@.service"
-    "privoxy.service"
-    "rsync.service"
-)
-
-for service in "${disableservices[@]}"; do
-    echo "Disabling $service..."
-    echo $key | sudo -S systemctl disable "$service"
-    echo $key | sudo -S systemctl stop "$service"
-    echo "$service disabled successfully."
-done
-
-echo "All specified services have been disabled."
 echo "System maintenance and cleanup completed successfully."
 
 # Capture the end time
