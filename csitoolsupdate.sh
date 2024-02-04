@@ -242,16 +242,17 @@ echo $key | sudo -S add-apt-repository --no-update ppa:obsproject/obs-studio -y
 echo $key | sudo -S apt update
 sudo apt upgrade -y
 
-
-
-# Get the currently running kernel version
 current_kernel=$(uname -r)
 
-# Get the latest installed kernel version by looking at vmlinuz files in /boot
-latest_kernel=$(ls /boot/vmlinuz-* | sort -V | tail -n 1 | sed -r 's/.*vmlinuz-([^-]+)-([^-]+)$/\1-\2/')
+# Get the latest installed kernel version, ensuring consistent formatting with current_kernel
+latest_kernel=$(find /boot -name "vmlinuz-*" | sort -V | tail -n 1 | sed -r 's/.*vmlinuz-([^ ]+).*/\1/')
+
+# Echo kernel versions for debugging purposes
+echo "Currently running kernel: $current_kernel"
+echo "Latest installed kernel: $latest_kernel"
 
 # Compare the current running kernel with the latest installed kernel
-if [ "$current_kernel" != "$latest_kernel" ]; then
+if [[ "$current_kernel" != "$latest_kernel" ]]; then
     # A newer kernel is installed. Ask the user if they want to reboot.
     zenity_response=$(zenity --question --title="Reboot Required" --text="A newer kernel is installed ($latest_kernel).\nDo you want to reboot into the new kernel now?" --width=300 --height=200; echo $?)
 
