@@ -19,7 +19,7 @@ add_debian_repository() {
     local repo_url="$1"
     local gpg_key_url="$2"
     local repo_name="$3"
-    curl -fsSL "$gpg_key_url" | sudo -S gpg --dearmor | sudo -S tee "/etc/apt/trusted.gpg.d/$repo_name.gpg"
+    curl -fsSL "$gpg_key_url" | sudo -S gpg --dearmor | sudo -S tee "/etc/apt/trusted.gpg.d/$repo_name.gpg"  > /dev/null 2>&1
     if [ $? -eq 0 ]; then
         echo "# GPG key for '$repo_name' updated successfully."
     else
@@ -27,7 +27,7 @@ add_debian_repository() {
         return 1
     fi
     echo "# Updating $repo_name repository"
-    echo "deb [signed-by=/etc/apt/trusted.gpg.d/$repo_name.gpg] $repo_url" | sudo -S tee "/etc/apt/sources.list.d/$repo_name.list"
+    echo "deb [signed-by=/etc/apt/trusted.gpg.d/$repo_name.gpg] $repo_url" | sudo -S tee "/etc/apt/sources.list.d/$repo_name.list" > /dev/null 2>&1
     if [ $? -eq 0 ]; then
         printf "  - Repository '$repo_name' updated successfully."
     else
@@ -61,116 +61,153 @@ update_git_repository() {
 
 setup_new_csi_user_and_system() {
     echo "# Setting up users"
-    USERNAME=csi
-    useradd -m "$USERNAME" -G sudo -s /bin/bash || echo -e "${USERNAME}\n${USERNAME}\n" | passwd "$USERNAME"
-    echo $key | sudo -S adduser "$USERNAME" vboxsf
-    echo $key | sudo -S adduser "$USERNAME" libvirt
-    echo $key | sudo -S adduser "$USERNAME" kvm
+    USERNAME="csi"
+    # Adding the user and setting password if useradd fails
+    useradd -m "$USERNAME" -G sudo -s /bin/bash || echo -e "${USERNAME}\n${USERNAME}\n" | passwd "$USERNAME" > /dev/null 2>&1
+    
+    # Adding user to groups
+    add_user_to_group() {
+        echo $key | sudo -S adduser "$USERNAME" "$1"  > /dev/null 2>&1
+    }
+    
+    add_user_to_group vboxsf
+    add_user_to_group libvirt
+    add_user_to_group kvm
+    
     echo "# System setup starting..."
-    ###  System setup
+    
+    ### System setup
+    # Configuring autorestart
     echo $key | sudo -S bash -c 'echo "$nrconf{restart} = '"'"'a'"'"'" | tee /etc/needrestart/conf.d/autorestart.conf'
+    
+    # Setting environment variables for non-interactive operations
     export DEBIAN_FRONTEND=noninteractive
     export apt_LISTCHANGES_FRONTEND=none
     export DISPLAY=:0.0
     export TERM=xterm
-	if dpkg --print-foreign-architectures | grep -q 'i386'; then
-	    echo "# Cleaning up old Arch"
-	    i386_packages=$(dpkg --get-selections | awk '/i386/{print $1}')
-	    if [ ! -z "$i386_packages" ]; then
-		echo "Removing i386 packages..."
-		echo $key | sudo -S apt remove --purge --allow-remove-essential -y $i386_packages
-	    fi
-	    
-	    echo "# Standardizing Arch"
-	    echo $key | sudo -S dpkg --remove-architecture i386
-	fi
+    
+    # Configuring dpkg options globally to prefer defaults on package configurations
+    echo 'Dpkg::Options {
+        "--force-confdef";
+        "--force-confold";
+    }' | sudo tee /etc/apt/apt.conf.d/99force-conf  
+    
+    # Checking and removing i386 architecture packages if exists
+    if dpkg --print-foreign-architectures | grep -q 'i386'; then
+        echo "# Cleaning up old Arch"
+        i386_packages=$(dpkg --get-selections | awk '/i386/{print $1}')
+        if [ ! -z "$i386_packages" ]; then
+            echo "Removing i386 packages..."
+            echo $key | sudo -S apt remove --purge --allow-remove-essential -y $i386_packages > /dev/null 2>&1
+        fi
+        
+        echo "# Standardizing Arch"
+        echo $key | sudo -S dpkg --remove-architecture i386
+    fi
+
+    # Reconfiguring debconf to noninteractive frontend
     echo $key | sudo -S dpkg-reconfigure debconf --frontend=noninteractive
+    
+    # Configuring unconfigured packages
     echo $key | sudo -S DEBIAN_FRONTEND=noninteractive dpkg --configure -a
-    echo $key | sudo -S NEEDRESTART_MODE=a apt update --ignore-missing
-    echo $key | sudo -S rm -rf /etc/apt/sources.list.d/archive_u*
-    echo $key | sudo -S rm -rf /etc/apt/sources.list.d/brave*
-    echo $key | sudo -S rm -rf /etc/apt/sources.list.d/signal*
-    echo $key | sudo -S rm -rf /etc/apt/sources.list.d/wine*
-    echo $key | sudo -S rm -rf /etc/apt/trusted.gpg.d/wine*
-    echo $key | sudo -S rm -rf /etc/apt/trusted.gpg.d/brave*
-    echo $key | sudo -S rm -rf /etc/apt/trusted.gpg.d/signal*
+    
+    # Updating package lists with NEEDRESTART_MODE environment variable
+    echo $key | sudo -S NEEDRESTART_MODE=a apt update --ignore-missing > /dev/null 2>&1
+    
+    # Removing specific apt sources and keys
+    remove_specific_files() {
+        echo $key | sudo -S rm -rf /etc/apt/"$1"
+    }
+    
+    remove_specific_files sources.list.d/archive_u*
+    remove_specific_files sources.list.d/brave*
+    remove_specific_files sources.list.d/signal*
+    remove_specific_files sources.list.d/wine*
+    remove_specific_files trusted.gpg.d/wine*
+    remove_specific_files trusted.gpg.d/brave*
+    remove_specific_files trusted.gpg.d/signal*
+    
     echo "# Cleaning old tools"
-    echo $key | sudo -S rm -rf /var/lib/tor/hidden_service/
-    echo $key | sudo -S rm -rf /var/lib/tor/other_hidden_service/
-    echo "Reconfiguring Terminal"
-    wget -O - https://raw.githubusercontent.com/CSILinux/CSILinux-Powerup/main/csi-linux-terminal.sh | bash
+    remove_specific_files /var/lib/tor/hidden_service/
+    remove_specific_files /var/lib/tor/other_hidden_service/
+    
+    # Reconfiguring Terminal
+    wget -O - https://raw.githubusercontent.com/CSILinux/CSILinux-Powerup/main/csi-linux-terminal.sh | bash > /dev/null 2>&1
     git config --global safe.directory '*'
-    echo $key | sudo -S apt install aria2 apt -y
-    echo $key | sudo -S apt install curl apt -y
+    
+    # Installing essential packages
+    echo $key | sudo -S apt install aria2 curl -y > /dev/null 2>&1
+    
+    # Configuring system parameters
     echo $key | sudo -S sysctl vm.swappiness=10
     echo "vm.swappiness=10" | sudo -S tee /etc/sysctl.d/99-sysctl.conf
     echo $key | sudo -S systemctl enable fstrim.timer
-	# Services to disable, sorted alphabetically
-	disableservices=(
-	    "apache-htcacheclean.service"
-	    "apache-htcacheclean@.service"
-	    "apache2.service"
-	    "apache2@.service"
-	    "bettercap.service"
-	    "clamav-daemon.service"
-	    "clamav-freshclam.service"
-	    "cups-browsed.service"
-	    "cups.service"
-	    "dnsmasq.service"
-	    "dnsmasq@.service"
-	    "i2p"
-	    "i2pd"
-	    "kismet.service"
-	    "lokinet"
-	    "lokinet-testnet.service"
-	    "open-vm-tools.service"
-	    "openfortivpn@.service"
-	    "openvpn-client@.service"
-	    "openvpn-server@.service"
-	    "openvpn.service"
-	    "openvpn@.service"
-	    "privoxy.service"
-	    "rsync.service"
-	)
-	
-	for service in "${disableservices[@]}"; do
-	    echo "Disabling $service..."
-	    echo $key | sudo -S systemctl disable "$service"
-	    echo $key | sudo -S systemctl stop "$service"
-	    echo "$service disabled successfully."
-	done
-	
-	echo "All specified services have been disabled."
-
-
+    
+    # Services to disable, sorted alphabetically
+    disableservices=(
+        "apache-htcacheclean.service"
+        "apache-htcacheclean@.service"
+        "apache2.service"
+        "apache2@.service"
+        "bettercap.service"
+        "clamav-daemon.service"
+        "clamav-freshclam.service"
+        "cups-browsed.service"
+        "cups.service"
+        "dnsmasq.service"
+        "dnsmasq@.service"
+        "i2p"
+        "i2pd"
+        "kismet.service"
+        "lokinet"
+        "lokinet-testnet.service"
+        "open-vm-tools.service"
+        "openfortivpn@.service"
+        "openvpn-client@.service"
+        "openvpn-server@.service"
+        "openvpn.service"
+        "openvpn@.service"
+        "privoxy.service"
+        "rsync.service"
+    )
+    
+    for service in "${disableservices[@]}"; do
+        echo "Disabling $service..."
+        echo $key | sudo -S systemctl disable "$service" > /dev/null 2>&1
+        echo $key | sudo -S systemctl stop "$service" > /dev/null 2>&1
+        echo "$service disabled successfully."
+    done
+    
+    echo "All specified services have been disabled."
 }
+
 
 cis_lvl_1() {
     echo "1.7 Warning Banners - Configuring system banners..."
     # Define the security banner with adjusted width
     security_banner="
-    +------------------------------------------------------------------------------+
-    |                             SECURITY NOTICE                                  |
-    |                                                                              |
-    |          ** Unauthorized Access and Usage is Strictly Prohibited **          |
-    |                                                                              |
-    |     This computer system is the property of [Company Name].                  |
-    | All activities on this system are subject to monitoring and recording for    |
-    | security purposes. Unauthorized access or usage will be investigated and may |
-    | result in legal consequences.                                                |
-    |                                                                              |
-    |      If you are not an authorized user, please disconnect immediately.       |
-    |                                                                              |
-    | By accessing this system, you consent to these terms and acknowledge the     |
-    | importance of computer security.                                             |
-    |                                                                              |
-    |            Report any suspicious activity to the IT department.              |
-    |                                                                              |
-    |          Thank you for helping us maintain a secure environment.             |
-    |                                                                              |
-    |              ** Protecting Our Data, Protecting Our Future **                |
-    |                                                                              |
-    +------------------------------------------------------------------------------+
+    +---------------------------------------------------------------------------+
+    |                             SECURITY NOTICE                               |
+    |                                                                           |
+    |         ** Unauthorized Access and Usage is Strictly Prohibited **        |
+    |                                                                           |
+    |     This computer system is the property of [Company Name].               |
+    | All activities on this system are subject to monitoring and recording for |
+    | security purposes. Unauthorized access or usage will be investigated and  |
+    | may result in legal consequences.                                         |
+    |                                                                           |
+    |        If you are not an authorized user, disconnect immediately.         |
+    |                                                                           |
+    | By accessing this system, you consent to these terms and acknowledge the  |
+    | importance of computer security.                                          |
+    |                                                                           |
+    |            Report any suspicious activity to the IT department.           |
+    |                                                                           |
+    |          Thank you for helping us maintain a secure environment.          |
+    |                                                                           |
+    |              ** Protecting Our Data, Protecting Our Future **             |
+    |                                                                           |
+    +---------------------------------------------------------------------------+
     "
 
     # Print the security banner
@@ -271,6 +308,9 @@ add_debian_repository "https://deb.oxen.io $(lsb_release -sc) main" "https://deb
 add_debian_repository "https://updates.signal.org/desktop/apt xenial main" "https://updates.signal.org/desktop/apt/keys.asc" "signal-desktop"
 add_debian_repository "https://brave-browser-apt-release.s3.brave.com/ stable main" "https://brave-browser-apt-release.s3.brave.com/brave-core.asc" "brave-browser"
 add_debian_repository "https://packages.microsoft.com/repos/code stable main" "https://packages.microsoft.com/keys/microsoft.asc" "vscode"
+gpg --no-default-keyring --keyring gnupg-ring:/tmp/onlyoffice.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys CB2DE8E5
+add_debian_repository "https://download.onlyoffice.com/repo/debian squeeze main" "/tmp/onlyoffice.gpg" "onlyoffice"
+
 
 echo $key | sudo -S add-apt-repository --no-update ppa:danielrichter2007/grub-customizer -y
 echo $key | sudo -S add-apt-repository --no-update ppa:phoerious/keepassxc -y
