@@ -191,7 +191,8 @@ install_packages() {
                     printf "."
                     ((installed++))
                 else
-                    # Installation failed, append package name to apt-failed.txt
+                    echo "$key" | sudo -S apt remove sleuthkit -y > /dev/null 2>&1
+		    # Installation failed, append package name to apt-failed.txt
                     printf "Installation failed for %s, logging to /opt/csitools/apt-failed.txt\n" "$package"
                     echo "$package" | sudo tee -a /opt/csitools/apt-failed.txt > /dev/null
                 fi
