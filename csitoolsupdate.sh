@@ -797,35 +797,66 @@ if echo $key | sudo -S grep -q "GRUB_DISABLE_OS_PROBER=false" /etc/default/grub;
     echo "Grub is already configured for os-probe"
 fi
 
-echo $key | sudo -S sed -i "/recordfail_broken=/{s/1/0/}" /etc/grub.d/00_header
-echo $key | sudo -S systemctl disable mono-xsp4.service
-echo $key | sudo -S update-grub
-echo $key | sudo -S update-alternatives --install /usr/share/plymouth/themes/default.plymouth default.plymouth /usr/share/plymouth/themes/vortex-ubuntu/vortex-ubuntu.plymouth 100  &> /dev/null;
-echo $key | sudo -S update-alternatives --set default.plymouth /usr/share/plymouth/themes/vortex-ubuntu/vortex-ubuntu.plymouth
-echo $key | sudo -S update-initramfs -u 
+# Modify GRUB's header to change a setting, ensuring the command only acts if the pattern exists
+echo "$key" | sudo -S sed -i '/recordfail_broken=/{s/1/0/}' /etc/grub.d/00_header
 
-cd /tmp	
+# Disable the mono-xsp4.service if not needed
+echo "$key" | sudo -S systemctl disable mono-xsp4.service
 
-# echo $key | sudo -S ubuntu-drivers autoinstall
-echo $key | sudo -S apt install --fix-broken -y
-echo "# Fixing broken apt installs level 2"
-echo $key | sudo -S dpkg --configure -a
-echo "# Upgrading third party tools"
-echo $key | sudo -S full-upgrade -y
-echo "# Fixing broken apt installs level 3"
-echo $key | sudo -S apt -f install
-echo "# Fixing broken apt installs level 4"
-echo $key | sudo -S apt upgrade --fix-missing -y
-echo "# Verifying apt installs level 5"
-echo $key | sudo -S dpkg --configure -a
-echo "# Fixing broken apt installs level 6"
-echo $key | sudo -S dpkg --configure -a --force-confold
-echo "# Removing old software apt installs"
-echo $key | sudo -S apt autoremove -y
-echo "# Removing apt cache to save space"
-echo $key | sudo -S apt autoclean -y
-echo $key | sudo -S chown csi:csi /opt
-echo $key | sudo -S updatedb
+# Update GRUB to apply any changes made to its configuration files
+echo "$key" | sudo -S update-grub
+
+# Install a new Plymouth theme and set it as the default
+# Redirecting stdout and stderr to /dev/null to suppress command output for cleanliness
+PLYMOUTH_THEME_PATH="/usr/share/plymouth/themes/vortex-ubuntu/vortex-ubuntu.plymouth"
+if [ -f "$PLYMOUTH_THEME_PATH" ]; then
+    echo "$key" | sudo -S update-alternatives --install /usr/share/plymouth/themes/default.plymouth default.plymouth "$PLYMOUTH_THEME_PATH" 100 &> /dev/null
+    echo "$key" | sudo -S update-alternatives --set default.plymouth "$PLYMOUTH_THEME_PATH"
+else
+    echo "Plymouth theme not found: $PLYMOUTH_THEME_PATH"
+fi
+
+# Update initramfs to apply all changes, including Plymouth theme update
+echo "$key" | sudo -S update-initramfs -u
+
+cd /tmp
+
+# Fix any broken packages and configure them
+echo "# Fixing and configuring broken apt installs..."
+echo "$key" | sudo -S apt-get update
+echo "$key" | sudo -S apt-get install --fix-broken -y
+echo "$key" | sudo -S dpkg --configure -a
+
+# Upgrade all packages, including third-party tools, and handle missing dependencies
+echo "# Upgrading all packages including third-party tools..."
+echo "$key" | sudo -S apt-get full-upgrade -y --fix-missing
+
+# Additional step to ensure all packages are configured correctly
+echo "# Verifying and configuring any remaining packages..."
+echo "$key" | sudo -S dpkg --configure -a --force-confold
+
+# Identify the currently running kernel and the latest installed kernel
+echo "Current and latest kernel versions (for informational purposes):"
+current_kernel=$(uname -r)
+latest_kernel=$(dpkg --list | grep linux-image | sort -V | tail -n 1 | awk '{print $2}' | sed 's/^linux-image-//')
+echo "Current kernel: $current_kernel"
+echo "Latest kernel: $latest_kernel"
+
+# Remove unused packages and kernels to free up space
+echo "# Removing unused packages and kernels..."
+echo "$key" | sudo -S apt-get autoremove --purge -y
+
+# Clean apt cache to save additional space
+echo "# Cleaning apt cache..."
+echo "$key" | sudo -S apt-get autoclean -y
+
+# Change ownership of /opt directory if needed
+echo "# Adjusting ownership of /opt directory..."
+echo "$key" | sudo -S chown csi:csi /opt
+
+# Update the database for locate command
+echo "# Updating the mlocate database..."
+echo "$key" | sudo -S updatedb
 
 # Services to disable, sorted alphabetically
 disableservices=(
@@ -870,6 +901,7 @@ for service in "${disableservices[@]}"; do
 done
 
 echo "All specified services have been disabled."
+echo "System maintenance and cleanup completed successfully."
 
 # Capture the end time
 update_current_time
