@@ -134,20 +134,63 @@ disable_services() {
     done
 }
 
+# Function to check if a user exists
+user_exists() {
+    if id "$1" &>/dev/null; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Function to add a user to a group
+add_user_to_group() {
+    echo $key | sudo -S adduser "$1" "$2" > /dev/null 2>&1
+}
+
+# Function to set up the user environment
+setup_user_environment() {
+    USERNAME="csi"
+    echo "# Setting up users"
+    # Adding the user and setting password if useradd fails
+    useradd -m "$USERNAME" -G sudo -s /bin/bash || echo -e "${USERNAME}\n${USERNAME}\n" | passwd "$USERNAME"
+
+    # Adding user to groups
+    add_user_to_group "$USERNAME" vboxsf
+    add_user_to_group "$USERNAME" libvirt
+    add_user_to_group "$USERNAME" kvm
+
+    # Check if default_user is already set to the desired USERNAME
+    if ! grep -q "^default_user\s*$USERNAME" /etc/slim.conf; then
+        echo "Setting default_user to $USERNAME in SLiM configuration..."
+        echo "default_user $USERNAME" | sudo tee -a /etc/slim.conf > /dev/null
+    else
+        echo "default_user is already set to $USERNAME."
+    fi
+
+    # Prompt for reboot
+    read -p "Setup complete. Reboot now? (Y/n): " response
+    if [[ "$response" =~ ^[Yy]$ ]]; then
+        echo "Rebooting now..."
+        sudo reboot
+    else
+        echo "Please reboot your system later to complete the setup."
+        exit 0
+    fi
+}
+
+
 setup_new_csi_user_and_system() {
     echo "# Setting up users"
     USERNAME="csi"
-    # Adding the user and setting password if useradd fails
-    useradd -m "$USERNAME" -G sudo -s /bin/bash || echo -e "${USERNAME}\n${USERNAME}\n" | passwd "$USERNAME" > /dev/null 2>&1
-    
-    # Adding user to groups
-    add_user_to_group() {
-        echo $key | sudo -S adduser "$USERNAME" "$1"  > /dev/null 2>&1
-    }
-    
-    add_user_to_group vboxsf
-    add_user_to_group libvirt
-    add_user_to_group kvm
+    # Check if the user "csi" exists and set up the environment
+	if user_exists "csi"; then
+	    echo "User 'csi' already exists. Setting up the environment..."
+	    
+	else
+	    echo "User 'csi' does not exist. Creating the user environment."
+            setup_user_environment
+	fi
     
     echo "# System setup starting..."
     
@@ -214,14 +257,12 @@ setup_new_csi_user_and_system() {
     echo $key | sudo -S sysctl vm.swappiness=10
     echo "vm.swappiness=10" | sudo -S tee /etc/sysctl.d/99-sysctl.conf
     echo $key | sudo -S systemctl enable fstrim.timer
-    
-    
-    echo "All specified services have been disabled."
 }
 
 install_from_requirements_url() {
     local requirements_url="$1"
     echo "Downloading requirements from $requirements_url..."
+    rm /tmp/requirements.txt
     curl -s "$requirements_url" -o /tmp/requirements.txt
     
     local total_packages=$(wc -l < /tmp/requirements.txt)
