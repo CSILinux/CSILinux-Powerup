@@ -19,7 +19,7 @@ add_debian_repository() {
     local repo_url="$1"
     local gpg_key_url="$2"
     local repo_name="$3"
-    curl -fsSL "$gpg_key_url" | sudo -S gpg --dearmor | sudo -S tee "/etc/apt/trusted.gpg.d/$repo_name.gpg" > /dev/null 2>&1
+    curl -fsSL "$gpg_key_url" | sudo -S gpg --dearmor | sudo -S tee "/etc/apt/trusted.gpg.d/$repo_name.gpg"
     if [ $? -eq 0 ]; then
         echo "# GPG key for '$repo_name' updated successfully."
     else
@@ -27,7 +27,7 @@ add_debian_repository() {
         return 1
     fi
     echo "# Updating $repo_name repository"
-    echo "deb [signed-by=/etc/apt/trusted.gpg.d/$repo_name.gpg] $repo_url" | sudo -S tee "/etc/apt/sources.list.d/$repo_name.list" > /dev/null 2>&1
+    echo "deb [signed-by=/etc/apt/trusted.gpg.d/$repo_name.gpg] $repo_url" | sudo -S tee "/etc/apt/sources.list.d/$repo_name.list"
     if [ $? -eq 0 ]; then
         printf "  - Repository '$repo_name' updated successfully."
     else
@@ -42,7 +42,7 @@ update_git_repository() {
     local repo_dir="/opt/$repo_name"
     if [ ! -d "$repo_dir" ]; then
         # Clone the Git repository with sudo
-        echo "$key" | sudo -S git clone "$repo_url" "$repo_dir" > /dev/null 2>&1
+        echo "$key" | sudo -S git clone "$repo_url" "$repo_dir"
         echo "$key" | sudo -S chown csi:csi "$repo_dir"
     fi
     if [ -d "$repo_dir/.git" ]; then
@@ -52,7 +52,7 @@ update_git_repository() {
         if [ -f "$repo_dir/requirements.txt" ]; then
             python3 -m venv "${repo_dir}/${repo_name}-venv"
             source "${repo_dir}/${repo_name}-venv/bin/activate"
-            pip3 install -r requirements.txt > /dev/null 2>&1
+            pip3 install -r requirements.txt
         fi
     else
         echo "   -  ."
@@ -268,10 +268,13 @@ else
     echo "The running kernel is the latest installed version."
 fi
 
+
+
 cd /tmp
 rm apps.txt
 wget https://csilinux.com/downloads/apps.txt -O apps.txt
 mapfile -t apt_bulk_packages < <(grep -vE "^\s*#|^$" apps.txt | sed -e 's/#.*//')
+
 
 apt_computer_forensic_tools=(
     "dcfldd"
@@ -649,8 +652,6 @@ wget https://csilinux.com/wp-content/uploads/2024/02/i2pupdate.zip
 echo $key | sudo -S service i2p stop
 echo $key | sudo -S service i2pd stop
 echo $key | sudo -S unzip -o i2pupdate.zip -d /usr/share/i2p
-echo $key | sudo -S service i2p start
-echo $key | sudo -S service i2pd start
 
 # lokinet
 echo $key | sudo -S apt install lokinet-gui
@@ -820,7 +821,40 @@ echo $key | sudo -S apt autoclean -y
 echo $key | sudo -S chown csi:csi /opt
 echo $key | sudo -S updatedb
 
-disableservices=("i2p" "i2pd" "lokinet")
+# Services to disable, sorted alphabetically
+disableservices=(
+    "apache-htcacheclean.service"
+    "apache-htcacheclean@.service"
+    "apache2.service"
+    "apache2@.service"
+    "avahi-daemon.service"
+    "bettercap.service"
+    "clamav-daemon.service"
+    "clamav-freshclam.service"
+    "cups-browsed.service"
+    "cups.service"
+    "dnsmasq.service"
+    "dnsmasq@.service"
+    "i2p"
+    "i2pd"
+    "iscsid.service"
+    "kismet.service"
+    "lm-sensors.service"
+    "lokinet"
+    "lokinet-testnet.service"
+    "nfs-common.service"
+    "open-iscsi.service"
+    "open-vm-tools.service"
+    "openfortivpn@.service"
+    "openvpn-client@.service"
+    "openvpn-server@.service"
+    "openvpn.service"
+    "openvpn@.service"
+    "privoxy.service"
+    "qemu-kvm.service"
+    "rpcbind.service"
+    "rsync.service"
+)
 
 for service in "${disableservices[@]}"; do
     echo "Disabling $service..."
@@ -829,13 +863,15 @@ for service in "${disableservices[@]}"; do
     echo "$service disabled successfully."
 done
 
+echo "All specified services have been disabled."
+
 # Capture the end time
 update_current_time
 calculate_duration
 echo "End time: $current_time"
 echo "Total duration: $duration seconds"
 echo "Please reboot when finished updating"
-#!/bin/bash
+
 
 # First confirmation to reboot
 if zenity --question --title="Reboot Confirmation" --text="Do you want to reboot now?" --width=300; then
@@ -850,4 +886,3 @@ if zenity --question --title="Reboot Confirmation" --text="Do you want to reboot
 else
     echo "Reboot process canceled."
 fi
-
