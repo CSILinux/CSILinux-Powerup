@@ -242,11 +242,13 @@ echo $key | sudo -S add-apt-repository --no-update ppa:obsproject/obs-studio -y
 echo $key | sudo -S apt update
 sudo apt upgrade -y
 
+
+
 # Get the currently running kernel version
 current_kernel=$(uname -r)
 
-# Get the latest installed kernel version
-latest_kernel=$(dpkg --list | grep 'linux-image' | awk '{ print $2 }' | sort -V | tail -n 1 | sed 's/^linux-image-//')
+# Get the latest installed kernel version by looking at vmlinuz files in /boot
+latest_kernel=$(ls /boot/vmlinuz-* | sort -V | tail -n 1 | sed -r 's/.*vmlinuz-([^-]+)-([^-]+)$/\1-\2/')
 
 # Compare the current running kernel with the latest installed kernel
 if [ "$current_kernel" != "$latest_kernel" ]; then
