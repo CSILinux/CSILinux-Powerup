@@ -1,5 +1,5 @@
 #!/bin/bash
-echo "welcome to CSI Linux 2024..."
+echo "Welcome to CSI Linux 2024.  This will take a while, but the update has a LOT of content..."
 key=$1
 cd /tmp
 update_current_time() {
