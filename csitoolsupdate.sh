@@ -106,6 +106,7 @@ disable_services() {
         "bettercap.service"
         "clamav-daemon.service"
         "clamav-freshclam.service"
+	"clamav-milter.service"
         "cups-browsed.service"
         "cups.service"
         "dnsmasq.service"
@@ -113,9 +114,9 @@ disable_services() {
         "i2p"
         "i2pd"
         "kismet.service"
+	"libvirtd.service"
         "lokinet"
         "lokinet-testnet.service"
-        "open-vm-tools.service"
         "openfortivpn@.service"
         "openvpn-client@.service"
         "openvpn-server@.service"
@@ -123,6 +124,7 @@ disable_services() {
         "openvpn@.service"
         "privoxy.service"
         "rsync.service"
+	"xl2tpd.service"
     )
 
     # Iterate through the list and disable each service
