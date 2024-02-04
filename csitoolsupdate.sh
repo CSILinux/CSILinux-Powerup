@@ -242,9 +242,10 @@ install_packages() {
 
 
 echo "To remember the null output " > /dev/null 2>&1
-
+echo "# Setting up CSI Linux environemnt..."
 setup_new_csi_user_and_system
 install_csi_tools
+cis_lvl_1
 
 echo "# Setting up repo environment"
 cd /tmp
