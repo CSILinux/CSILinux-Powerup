@@ -240,7 +240,7 @@ echo $key | sudo -S add-apt-repository --no-update ppa:cappelikan/ppa -y
 echo $key | sudo -S add-apt-repository --no-update ppa:apt-fast/stable -y
 echo $key | sudo -S add-apt-repository --no-update ppa:obsproject/obs-studio -y
 echo $key | sudo -S apt update
-sudo apt upgrade -y
+echo $key | sudo -S  apt upgrade -y
 
 current_kernel=$(uname -r)
 
@@ -262,7 +262,7 @@ if [[ "$current_kernel" != "$latest_kernel" ]]; then
         zenity --info --title="Run Powerup Again" --text="Remember to save your work before you hit OK and run the powerup script again after the system has rebooted." --width=300 --height=200
         # User confirmed the information, now reboot
         echo "Rebooting the system..."
-        sudo reboot
+        echo $key | sudo -S reboot
     else
         # User chose not to reboot
         echo "Continuing without rebooting."
@@ -270,7 +270,6 @@ if [[ "$current_kernel" != "$latest_kernel" ]]; then
 else
     echo "The running kernel is the latest installed version."
 fi
-
 
 
 cd /tmp
