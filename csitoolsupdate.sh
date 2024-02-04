@@ -219,6 +219,24 @@ setup_new_csi_user_and_system() {
     echo "All specified services have been disabled."
 }
 
+install_from_requirements_url() {
+    local requirements_url="$1"
+    echo "Downloading requirements from $requirements_url..."
+    curl -s "$requirements_url" -o /tmp/requirements.txt
+    
+    local total_packages=$(wc -l < /tmp/requirements.txt)
+    local current_package=0
+    
+    echo "Installing Python packages..."
+    while IFS= read -r package; do
+        let current_package++
+        echo -ne "Installing packages: $current_package/$total_packages\r"
+        python3 -m pip install "$package" --quiet > /dev/null 2>&1
+    done < /tmp/requirements.txt
+    
+    echo -ne '\n'
+    echo "Installation complete."
+}
 
 cis_lvl_1() {
     echo "1.7 Warning Banners - Configuring system banners..."
@@ -444,107 +462,10 @@ install_packages apt_video
 echo "# Installing Bulk Packages from apps.txt"
 install_packages apt_bulk_packages
 
-# List of Python packages for computer forensic tools
-computer_forensic_tools=(
-    "bs4"
-    "chardet"
-    "ConfigParser"
-    "dfvfs"
-    "dnsdumpster"
-    "dnslib"
-    "exifread"
-    "fake-useragent"
-    "h8mail"
-    "icmplib"
-    "idna"
-    "libesedb-python"
-    "libregf-python"
-    "lxml"
-    "nest_asyncio"
-    "oauth2"
-    "osrframework"
-    "pylnk3"
-    "pywebview"
-    "rarfile"
-    "redis"
-    "sounddevice"
-    "stix2"
-    "termcolor"
-    "tqdm"
-    "truffleHog"
-    "yara-python"
-    "zipstream"
-)
 
-# List of Python packages for online forensic tools
-online_forensic_tools=(
-    "grequests"
-    "i2py"
-    "i2p.socket"
-    "image"
-    "instaloader"
-    "pyexiv2"
-    "pyngrok"
-    "reload"
-    "requests"
-    "requests-html"
-    "selenium"
-    "simplekml"
-    "soupsieve"
-    "stem"
-    "sublist3r"
-    "tld"
-    "tldextract"
-    "toutatis"
-    "urllib3"
-    "youtube-dl"
-    "zipp"
-    "xmltodict"
-    "PySide2"
-    "PySide6"
-)
-
-# List of Python packages for system utilities
-system_utilities=(
-    "certifi"
-    "exifread"
-    "ffmpeg-python"
-    "geopy"
-    "moviepy"
-    "numpy"
-    "pydub"
-    "pyffmpeg"
-    "pytube"
-    "sounddevice"
-    "streamlink"
-    "tweepy"
-    "pyqtdarktheme"
-    "pyudev"
-    "webdriver_manager"
-    "psutil"
-)
-
-pip_images=(
-    "image"
-    "pytesseract"
-)
-
-python_packages=($(printf "%s\n" "${computer_forensic_tools[@]}" "${online_forensic_tools[@]}" "${pip_images[@]}" "${system_utilities[@]}" | sort -u))
-sorted_packages=($(for pkg in "${python_packages[@]}"; do echo "$pkg"; done | sort | uniq))
-total_packages=${#sorted_packages[@]}
-percentage=0
-echo "# Updating pip for python"
-python3 -m pip install pip --upgrade --quiet  > /dev/null 2>&1
-echo "# Checking Python Dependencies"
-echo "# This may take a while if there are additions or changes since the last time you ran powerup...  Please be patient"
-printf "  - "
-for package in "${sorted_packages[@]}"; do
-    echo "   - $package is being checked..."
-    # printf "."
-    pip install $package --quiet  > /dev/null 2>&1
-done
-echo "  100%"
-
+install_from_requirements_url "https://csilinux.com/downloads/csitools-requirements.txt"
+install_from_requirements_url "https://csilinux.com/downloads/csitools-online-requirements.txt"
+install_from_requirements_url "https://csilinux.com/downloads/csitools-disk-requirements.txt"
 
 echo "# Configuring third party tools from github..."
 # List of repositories and their URLs
