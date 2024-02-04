@@ -19,7 +19,7 @@ add_debian_repository() {
     local repo_url="$1"
     local gpg_key_url="$2"
     local repo_name="$3"
-    curl -fsSL "$gpg_key_url" | sudo -S gpg --dearmor | sudo -S tee "/etc/apt/trusted.gpg.d/$repo_name.gpg"
+    curl -fsSL "$gpg_key_url" | sudo -S gpg --dearmor | sudo -S tee "/etc/apt/trusted.gpg.d/$repo_name.gpg" > /dev/null 2>&1
     if [ $? -eq 0 ]; then
         echo "# GPG key for '$repo_name' updated successfully."
     else
@@ -27,7 +27,7 @@ add_debian_repository() {
         return 1
     fi
     echo "# Updating $repo_name repository"
-    echo "deb [signed-by=/etc/apt/trusted.gpg.d/$repo_name.gpg] $repo_url" | sudo -S tee "/etc/apt/sources.list.d/$repo_name.list"
+    echo "deb [signed-by=/etc/apt/trusted.gpg.d/$repo_name.gpg] $repo_url" | sudo -S tee "/etc/apt/sources.list.d/$repo_name.list" > /dev/null 2>&1
     if [ $? -eq 0 ]; then
         printf "  - Repository '$repo_name' updated successfully."
     else
@@ -42,7 +42,7 @@ update_git_repository() {
     local repo_dir="/opt/$repo_name"
     if [ ! -d "$repo_dir" ]; then
         # Clone the Git repository with sudo
-        echo "$key" | sudo -S git clone "$repo_url" "$repo_dir"
+        echo "$key" | sudo -S git clone "$repo_url" "$repo_dir" > /dev/null 2>&1
         echo "$key" | sudo -S chown csi:csi "$repo_dir"
     fi
     if [ -d "$repo_dir/.git" ]; then
@@ -52,7 +52,7 @@ update_git_repository() {
         if [ -f "$repo_dir/requirements.txt" ]; then
             python3 -m venv "${repo_dir}/${repo_name}-venv"
             source "${repo_dir}/${repo_name}-venv/bin/activate"
-            pip3 install -r requirements.txt
+            pip3 install -r requirements.txt > /dev/null 2>&1
         fi
     else
         echo "   -  ."
@@ -268,13 +268,10 @@ else
     echo "The running kernel is the latest installed version."
 fi
 
-
-
 cd /tmp
 rm apps.txt
 wget https://csilinux.com/downloads/apps.txt -O apps.txt
 mapfile -t apt_bulk_packages < <(grep -vE "^\s*#|^$" apps.txt | sed -e 's/#.*//')
-
 
 apt_computer_forensic_tools=(
     "dcfldd"
