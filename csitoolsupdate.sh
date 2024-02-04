@@ -417,14 +417,18 @@ system_utilities=(
     "sounddevice"
     "streamlink"
     "tweepy"
+    "pyqtdarktheme"
+    "pyudev"
+    "webdriver_manager"
+    "psutil"
 )
 
-pip_image=(
+pip_images=(
     "image"
     "pytesseract"
 )
 
-python_packages=($(printf "%s\n" "${computer_forensic_tools[@]}" "${online_forensic_tools[@]}" "${system_utilities[@]}" | sort -u))
+python_packages=($(printf "%s\n" "${computer_forensic_tools[@]}" "${online_forensic_tools[@]}" "${pip_images[@]}" "${system_utilities[@]}" | sort -u))
 sorted_packages=($(for pkg in "${python_packages[@]}"; do echo "$pkg"; done | sort | uniq))
 total_packages=${#sorted_packages[@]}
 percentage=0
