@@ -434,7 +434,7 @@ sorted_packages=($(for pkg in "${python_packages[@]}"; do echo "$pkg"; done | so
 total_packages=${#sorted_packages[@]}
 percentage=0
 echo "# Updating pip for python"
-python3 -m pip install pip --upgrade --quiet  > /dev/null 2>&1v
+python3 -m pip install pip --upgrade --quiet  > /dev/null 2>&1
 echo "# Checking Python Dependencies"
 echo "# This may take a while if there are additions or changes since the last time you ran powerup...  Please be patient"
 printf "  - "
@@ -865,7 +865,6 @@ disableservices=(
     "apache-htcacheclean@.service"
     "apache2.service"
     "apache2@.service"
-    "avahi-daemon.service"
     "bettercap.service"
     "clamav-daemon.service"
     "clamav-freshclam.service"
@@ -875,13 +874,9 @@ disableservices=(
     "dnsmasq@.service"
     "i2p"
     "i2pd"
-    "iscsid.service"
     "kismet.service"
-    "lm-sensors.service"
     "lokinet"
     "lokinet-testnet.service"
-    "nfs-common.service"
-    "open-iscsi.service"
     "open-vm-tools.service"
     "openfortivpn@.service"
     "openvpn-client@.service"
@@ -889,8 +884,6 @@ disableservices=(
     "openvpn.service"
     "openvpn@.service"
     "privoxy.service"
-    "qemu-kvm.service"
-    "rpcbind.service"
     "rsync.service"
 )
 
