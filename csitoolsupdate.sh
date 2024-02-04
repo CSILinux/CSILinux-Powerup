@@ -1,4 +1,5 @@
 #!/bin/bash
+
 echo "Welcome to CSI Linux 2024.  This will take a while, but the update has a LOT of content..."
 key=$1
 cd /tmp
@@ -57,6 +58,44 @@ update_git_repository() {
     else
         echo "   -  ."
     fi
+}
+
+disable_services() {
+    # Define a list of services to disable
+    local disableservices=(
+        "apache-htcacheclean.service"
+        "apache-htcacheclean@.service"
+        "apache2.service"
+        "apache2@.service"
+        "bettercap.service"
+        "clamav-daemon.service"
+        "clamav-freshclam.service"
+        "cups-browsed.service"
+        "cups.service"
+        "dnsmasq.service"
+        "dnsmasq@.service"
+        "i2p"
+        "i2pd"
+        "kismet.service"
+        "lokinet"
+        "lokinet-testnet.service"
+        "open-vm-tools.service"
+        "openfortivpn@.service"
+        "openvpn-client@.service"
+        "openvpn-server@.service"
+        "openvpn.service"
+        "openvpn@.service"
+        "privoxy.service"
+        "rsync.service"
+    )
+
+    # Iterate through the list and disable each service
+    for service in "${disableservices[@]}"; do
+        echo "Disabling $service..."
+        sudo systemctl disable "$service" > /dev/null 2>&1
+        sudo systemctl stop "$service" > /dev/null 2>&1
+        echo "$service disabled successfully."
+    done
 }
 
 setup_new_csi_user_and_system() {
@@ -143,40 +182,6 @@ setup_new_csi_user_and_system() {
     echo "vm.swappiness=10" | sudo -S tee /etc/sysctl.d/99-sysctl.conf
     echo $key | sudo -S systemctl enable fstrim.timer
     
-    # Services to disable, sorted alphabetically
-    disableservices=(
-        "apache-htcacheclean.service"
-        "apache-htcacheclean@.service"
-        "apache2.service"
-        "apache2@.service"
-        "bettercap.service"
-        "clamav-daemon.service"
-        "clamav-freshclam.service"
-        "cups-browsed.service"
-        "cups.service"
-        "dnsmasq.service"
-        "dnsmasq@.service"
-        "i2p"
-        "i2pd"
-        "kismet.service"
-        "lokinet"
-        "lokinet-testnet.service"
-        "open-vm-tools.service"
-        "openfortivpn@.service"
-        "openvpn-client@.service"
-        "openvpn-server@.service"
-        "openvpn.service"
-        "openvpn@.service"
-        "privoxy.service"
-        "rsync.service"
-    )
-    
-    for service in "${disableservices[@]}"; do
-        echo "Disabling $service..."
-        echo $key | sudo -S systemctl disable "$service" > /dev/null 2>&1
-        echo $key | sudo -S systemctl stop "$service" > /dev/null 2>&1
-        echo "$service disabled successfully."
-    done
     
     echo "All specified services have been disabled."
 }
@@ -281,6 +286,7 @@ install_packages() {
 echo "To remember the null output " > /dev/null 2>&1
 echo "# Setting up CSI Linux environemnt..."
 setup_new_csi_user_and_system
+disable_services
 install_csi_tools
 cis_lvl_1
 
@@ -417,9 +423,6 @@ install_packages apt_video
 
 echo "# Installing Bulk Packages from apps.txt"
 install_packages apt_bulk_packages
-
-
-
 
 # List of Python packages for computer forensic tools
 computer_forensic_tools=(
@@ -935,7 +938,7 @@ echo "$key" | sudo -S chown csi:csi /opt
 # Update the database for locate command
 echo "# Updating the mlocate database..."
 echo "$key" | sudo -S updatedb
-
+disable_services
 echo "System maintenance and cleanup completed successfully."
 
 # Capture the end time
