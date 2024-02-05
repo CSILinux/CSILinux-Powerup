@@ -370,6 +370,8 @@ install_packages() {
                 else
                     # Installation failed, append package name to apt-failed.txt
                     printf "Installation failed for %s, logging to /opt/csitools/apt-failed.txt\n" "$package"
+		    sudo apt purge sleuthkit  > /dev/null 2>&1
+		    sudo apt install -y "$package"
                     echo "$package" | sudo tee -a /opt/csitools/apt-failed.txt > /dev/null
                 fi
             else
