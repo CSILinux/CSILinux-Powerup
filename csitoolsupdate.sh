@@ -4,9 +4,10 @@ echo "Welcome to CSI Linux 2024.  This will take a while, but the update has a L
 key=$1
 echo $key | sudo -S date
 cd /tmp
+
 update_current_time() {
   current_time=$(date +"%Y-%m-%d %H:%M:%S")
-
+}
 
 calculate_duration() {
   start_seconds=$(date -d "$start_time" +%s)
