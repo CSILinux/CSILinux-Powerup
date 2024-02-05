@@ -156,23 +156,16 @@ add_user_to_group() {
 setup_user_environment() {
     USERNAME="csi"
     echo "# Setting up users"
-    # Adding the user and setting password if useradd fails
     useradd -m "$USERNAME" -G sudo -s /bin/bash || echo -e "${USERNAME}\n${USERNAME}\n" | passwd "$USERNAME"
-
-    # Adding user to groups
     add_user_to_group "$USERNAME" vboxsf
     add_user_to_group "$USERNAME" libvirt
     add_user_to_group "$USERNAME" kvm
-
-    # Check if default_user is already set to the desired USERNAME
     if ! grep -q "^default_user\s*$USERNAME" /etc/slim.conf; then
         echo "Setting default_user to $USERNAME in SLiM configuration..."
         echo "default_user $USERNAME" | sudo tee -a /etc/slim.conf > /dev/null
     else
         echo "default_user is already set to $USERNAME."
     fi
-
-    # Prompt for reboot
     read -p "Setup complete. Reboot now? (Y/n): " response
     if [[ "$response" =~ ^[Yy]$ ]]; then
         echo "Rebooting now..."
@@ -183,8 +176,7 @@ setup_user_environment() {
     fi
 }
 
-
-setup_new_csi_user_and_system() {
+setup_new_csi_system() {
     echo "# Setting up users"
     USERNAME="csi"
     # Check if the user "csi" exists and set up the environment
@@ -195,31 +187,20 @@ setup_new_csi_user_and_system() {
 	    echo "User 'csi' does not exist. Creating the user environment."
             setup_user_environment
 	fi
-    
     echo "# System setup starting..."
-    
-    ### System setup
-    # Configuring autorestart
     echo $key | sudo -S bash -c 'echo "$nrconf{restart} = '"'"'a'"'"'" | tee /etc/needrestart/conf.d/autorestart.conf'
-    
-    # Setting environment variables for non-interactive operations
     export DEBIAN_FRONTEND=noninteractive
     export apt_LISTCHANGES_FRONTEND=none
     export DISPLAY=:0.0
     export TERM=xterm
     sudo apt-mark unhold lightdm
-
-    # Configuring dpkg options globally to prefer defaults on package configurations
     echo 'Dpkg::Options {
         "--force-confdef";
         "--force-confold";
     }' | sudo tee /etc/apt/apt.conf.d/99force-conf  
-
-    # Removing specific apt sources and keys
     remove_specific_files() {
         echo $key | sudo -S rm -rf /etc/apt/"$1"
     }
-    
     remove_specific_files sources.list.d/archive_u*
     remove_specific_files sources.list.d/brave*
     remove_specific_files sources.list.d/signal*
@@ -227,8 +208,6 @@ setup_new_csi_user_and_system() {
     remove_specific_files trusted.gpg.d/wine*
     remove_specific_files trusted.gpg.d/brave*
     remove_specific_files trusted.gpg.d/signal*
-    
-    # Checking and removing i386 architecture packages if exists
     if dpkg --print-foreign-architectures | grep -q 'i386'; then
         echo "# Cleaning up old Arch"
         i386_packages=$(dpkg --get-selections | awk '/i386/{print $1}')
@@ -236,29 +215,17 @@ setup_new_csi_user_and_system() {
             echo "Removing i386 packages..."
             echo $key | sudo -S apt remove --purge --allow-remove-essential -y $i386_packages > /dev/null 2>&1
         fi
-        
         echo "# Standardizing Arch"
         echo $key | sudo -S dpkg --remove-architecture i386
     fi
-
-    # Reconfiguring debconf to noninteractive frontend
     echo $key | sudo -S dpkg-reconfigure debconf --frontend=noninteractive
-    
-    # Configuring unconfigured packages
     echo $key | sudo -S DEBIAN_FRONTEND=noninteractive dpkg --configure -a
-    
-    # Updating package lists with NEEDRESTART_MODE environment variable
     echo $key | sudo -S NEEDRESTART_MODE=a apt update --ignore-missing > /dev/null 2>&1
-    
     echo "# Cleaning old tools"
     remove_specific_files /var/lib/tor/hidden_service/
     remove_specific_files /var/lib/tor/other_hidden_service/
-    
-    # Reconfiguring Terminal
     wget -O - https://raw.githubusercontent.com/CSILinux/CSILinux-Powerup/main/csi-linux-terminal.sh | bash > /dev/null 2>&1
     git config --global safe.directory '*'
-    
-    # Configuring system parameters
     echo $key | sudo -S sysctl vm.swappiness=10
     echo "vm.swappiness=10" | sudo -S tee /etc/sysctl.d/99-sysctl.conf
     echo $key | sudo -S systemctl enable fstrim.timer
@@ -269,17 +236,14 @@ install_from_requirements_url() {
     echo "Downloading requirements list"
     rm /tmp/requirements.txt
     curl -s "$requirements_url" -o /tmp/requirements.txt
-    
     local total_packages=$(wc -l < /tmp/requirements.txt)
     local current_package=0
-    
     echo "Installing Python packages..."
     while IFS= read -r package; do
         let current_package++
         echo -ne "Installing packages: $current_package/$total_packages\r"
         python3 -m pip install "$package" --quiet > /dev/null 2>&1
     done < /tmp/requirements.txt
-    
     echo -ne '\n'
     echo "Installation complete."
 }
@@ -388,11 +352,9 @@ install_packages() {
 
 echo "To remember the null output " > /dev/null 2>&1
 echo "# Setting up CSI Linux environemnt..."
-setup_new_csi_user_and_system
+setup_new_csi_system
 fix_broken
 # disable_services
-install_csi_tools
-cis_lvl_1
 
 echo "# Setting up repo environment"
 cd /tmp
@@ -418,6 +380,20 @@ add_repository "ppa" "ppa:obsproject/obs-studio" "" "obs-studio"
 
 echo $key | sudo -S apt update
 echo $key | sudo -S apt upgrade -y
+programs=(bpytop xterm aria2 yad zenity)
+for program in "${programs[@]}"; do
+    if ! which "$program" > /dev/null; then
+        echo "$program is not installed. Attempting to install..." | tee -a "$output_file"
+        echo $key | sudo -S apt-get install -y "$program" | tee -a "$output_file"
+    else
+        echo "$program is already installed." | tee -a "$output_file"
+    fi
+done
+
+
+install_csi_tools
+cis_lvl_1
+
 
 current_kernel=$(uname -r)
 
