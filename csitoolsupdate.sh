@@ -114,7 +114,6 @@ disable_services() {
         "i2p"
         "i2pd"
         "kismet.service"
-	"libvirtd.service"
         "lokinet"
         "lokinet-testnet.service"
         "openfortivpn@.service"
