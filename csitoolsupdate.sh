@@ -2,6 +2,7 @@
 
 echo "Welcome to CSI Linux 2024.  This will take a while, but the update has a LOT of content..."
 key=$1
+echo $key | sudo -S date
 cd /tmp
 update_current_time() {
   current_time=$(date +"%Y-%m-%d %H:%M:%S")
@@ -64,8 +65,8 @@ add_repository() {
 
 fix_broken() {
     echo "# Fixing and configuring broken apt installs..."
-    sudo apt-get update
-    sudo apt-get install --fix-broken -y
+    sudo apt update
+    sudo apt install --fix-broken -y
     sudo dpkg --configure -a
     echo "# Verifying and configuring any remaining packages..."
     sudo dpkg --configure -a --force-confold
@@ -138,57 +139,46 @@ disable_services() {
     done
 }
 
-# Function to check if a user exists
-user_exists() {
-    if id "$1" &>/dev/null; then
-        return 0
-    else
-        return 1
-    fi
-}
-
-# Function to add a user to a group
-add_user_to_group() {
-    echo $key | sudo -S adduser "$1" "$2" > /dev/null 2>&1
-}
-
-# Function to set up the user environment
-setup_user_environment() {
-    USERNAME="csi"
-    echo "# Setting up users"
-    useradd -m "$USERNAME" -G sudo -s /bin/bash || echo -e "${USERNAME}\n${USERNAME}\n" | passwd "$USERNAME"
-    add_user_to_group "$USERNAME" vboxsf
-    add_user_to_group "$USERNAME" libvirt
-    add_user_to_group "$USERNAME" kvm
-    if ! grep -q "^default_user\s*$USERNAME" /etc/slim.conf; then
-        echo "Setting default_user to $USERNAME in SLiM configuration..."
-        echo "default_user $USERNAME" | sudo tee -a /etc/slim.conf > /dev/null
-    else
-        echo "default_user is already set to $USERNAME."
-    fi
-    read -p "Setup complete. Reboot now? (Y/n): " response
-    if [[ "$response" =~ ^[Yy]$ ]]; then
-        echo "Rebooting now..."
-        sudo reboot
-    else
-        echo "Please reboot your system later to complete the setup."
-        exit 0
-    fi
-}
-
 setup_new_csi_system() {
-    echo "# Setting up users"
-    USERNAME="csi"
-    # Check if the user "csi" exists and set up the environment
-	if user_exists "csi"; then
-	    echo "User 'csi' already exists. Setting up the environment..."
-	    
-	else
-	    echo "User 'csi' does not exist. Creating the user environment."
-            setup_user_environment
-	fi
+    # Sub-function to check if a user exists
+    user_exists() {
+        if id "$1" &>/dev/null; then
+            return 0
+        else
+            return 1
+        fi
+    }
+
+    # Sub-function to add a user to a group
+    add_user_to_group() {
+        echo $key | sudo -S adduser "$1" "$2" > /dev/null 2>&1
+    }
+
+    # Sub-function to set up the user environment
+    setup_user_environment() {
+        USERNAME="csi"
+        echo "# Setting up user $USERNAME"
+        if ! user_exists "$USERNAME"; then
+            sudo useradd -m "$USERNAME" -G sudo -s /bin/bash || { echo -e "${USERNAME}\n${USERNAME}\n" | sudo passwd "$USERNAME"; }
+        fi
+        add_user_to_group "$USERNAME" vboxsf
+        add_user_to_group "$USERNAME" libvirt
+        add_user_to_group "$USERNAME" kvm
+        
+        if ! grep -q "^default_user\s*$USERNAME" /etc/slim.conf; then
+            echo "Setting default_user to $USERNAME in SLiM configuration..."
+            echo "default_user $USERNAME" | sudo tee -a /etc/slim.conf > /dev/null
+        else
+            echo "default_user is already set to $USERNAME."
+        fi
+    }
+
+    # Main user and system setup
+    echo "# Initiating CSI Linux system setup..."
+    setup_user_environment
+    
     echo "# System setup starting..."
-    echo $key | sudo -S bash -c 'echo "$nrconf{restart} = '"'"'a'"'"'" | tee /etc/needrestart/conf.d/autorestart.conf'
+    sudo bash -c 'echo "$nrconf{restart} = '"'"'a'"'"'" | tee /etc/needrestart/conf.d/autorestart.conf'
     export DEBIAN_FRONTEND=noninteractive
     export apt_LISTCHANGES_FRONTEND=none
     export DISPLAY=:0.0
@@ -197,10 +187,14 @@ setup_new_csi_system() {
     echo 'Dpkg::Options {
         "--force-confdef";
         "--force-confold";
-    }' | sudo tee /etc/apt/apt.conf.d/99force-conf  
+    }' | sudo tee /etc/apt/apt.conf.d/99force-conf
+
+    # Function to remove specific files
     remove_specific_files() {
         echo $key | sudo -S rm -rf /etc/apt/"$1"
     }
+
+    # Cleaning up configurations and unnecessary files
     remove_specific_files sources.list.d/archive_u*
     remove_specific_files sources.list.d/brave*
     remove_specific_files sources.list.d/signal*
@@ -208,6 +202,8 @@ setup_new_csi_system() {
     remove_specific_files trusted.gpg.d/wine*
     remove_specific_files trusted.gpg.d/brave*
     remove_specific_files trusted.gpg.d/signal*
+
+    # Architecture cleanup
     if dpkg --print-foreign-architectures | grep -q 'i386'; then
         echo "# Cleaning up old Arch"
         i386_packages=$(dpkg --get-selections | awk '/i386/{print $1}')
@@ -218,17 +214,21 @@ setup_new_csi_system() {
         echo "# Standardizing Arch"
         echo $key | sudo -S dpkg --remove-architecture i386
     fi
-    echo $key | sudo -S dpkg-reconfigure debconf --frontend=noninteractive
-    echo $key | sudo -S DEBIAN_FRONTEND=noninteractive dpkg --configure -a
-    echo $key | sudo -S NEEDRESTART_MODE=a apt update --ignore-missing > /dev/null 2>&1
+
+    sudo dpkg-reconfigure debconf --frontend=noninteractive
+    sudo DEBIAN_FRONTEND=noninteractive dpkg --configure -a
+    sudo NEEDRESTART_MODE=a apt update --ignore-missing > /dev/null 2>&1
+
     echo "# Cleaning old tools"
     remove_specific_files /var/lib/tor/hidden_service/
     remove_specific_files /var/lib/tor/other_hidden_service/
+
     wget -O - https://raw.githubusercontent.com/CSILinux/CSILinux-Powerup/main/csi-linux-terminal.sh | bash > /dev/null 2>&1
     git config --global safe.directory '*'
-    echo $key | sudo -S sysctl vm.swappiness=10
-    echo "vm.swappiness=10" | sudo -S tee /etc/sysctl.d/99-sysctl.conf
-    echo $key | sudo -S systemctl enable fstrim.timer
+
+    sudo sysctl vm.swappiness=10
+    echo "vm.swappiness=10" | sudo tee /etc/sysctl.d/99-sysctl.conf
+    sudo systemctl enable fstrim.timer
 }
 
 install_from_requirements_url() {
@@ -331,12 +331,13 @@ install_packages() {
                 # Package is not installed, attempt to install
                 printf "Installing package %s (%d of %d)...\n" "$package" "$current_package" "$total_packages"
                 if sudo apt install -y "$package"; then
+		    sudo apt remove sleuthkit  > /dev/null 2>&1
                     printf "."
                     ((installed++))
                 else
                     # Installation failed, append package name to apt-failed.txt
                     printf "Installation failed for %s, logging to /opt/csitools/apt-failed.txt\n" "$package"
-		    sudo apt purge sleuthkit  > /dev/null 2>&1
+		    sudo apt remove sleuthkit  > /dev/null 2>&1
 		    sudo apt install -y "$package"
                     echo "$package" | sudo tee -a /opt/csitools/apt-failed.txt > /dev/null
                 fi
@@ -385,7 +386,7 @@ programs=(bpytop xterm aria2 yad zenity)
 for program in "${programs[@]}"; do
     if ! which "$program" > /dev/null; then
         echo "$program is not installed. Attempting to install..." | tee -a "$output_file"
-        echo $key | sudo -S apt-get install -y "$program" | tee -a "$output_file"
+        echo $key | sudo -S apt install -y "$program" | tee -a "$output_file"
     else
         echo "$program is already installed." | tee -a "$output_file"
     fi
@@ -463,7 +464,7 @@ apt_system=(
     "libstdc++6"
     "ca-certificates"
     "tar"
-    "nvim"
+    "neovim"
 )
 
 apt_video=(
@@ -872,7 +873,7 @@ cd /tmp
 fix_broken
 # Upgrade all packages, including third-party tools, and handle missing dependencies
 echo "# Upgrading all packages including third-party tools..."
-echo "$key" | sudo -S apt-get full-upgrade -y --fix-missing
+echo "$key" | sudo -S apt full-upgrade -y --fix-missing
 
 # Identify the currently running kernel and the latest installed kernel
 echo "Current and latest kernel versions (for informational purposes):"
@@ -883,11 +884,11 @@ echo "Latest kernel: $latest_kernel"
 
 # Remove unused packages and kernels to free up space
 echo "# Removing unused packages and kernels..."
-echo "$key" | sudo -S apt-get autoremove --purge -y
+echo "$key" | sudo -S apt autoremove --purge -y
 
 # Clean apt cache to save additional space
 echo "# Cleaning apt cache..."
-echo "$key" | sudo -S apt-get autoclean -y
+echo "$key" | sudo -S apt autoclean -y
 
 # Change ownership of /opt directory if needed
 echo "# Adjusting ownership of /opt directory..."
