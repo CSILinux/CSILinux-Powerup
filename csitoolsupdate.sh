@@ -123,6 +123,8 @@ disable_services() {
         "openvpn@.service"
         "privoxy.service"
         "rsync.service"
+	"systemd-networkd-wait-online.service"
+        "NetworkManager-wait-online.service"
 	"xl2tpd.service"
     )
 
@@ -210,6 +212,19 @@ setup_new_csi_user_and_system() {
         "--force-confdef";
         "--force-confold";
     }' | sudo tee /etc/apt/apt.conf.d/99force-conf  
+
+    # Removing specific apt sources and keys
+    remove_specific_files() {
+        echo $key | sudo -S rm -rf /etc/apt/"$1"
+    }
+    
+    remove_specific_files sources.list.d/archive_u*
+    remove_specific_files sources.list.d/brave*
+    remove_specific_files sources.list.d/signal*
+    remove_specific_files sources.list.d/wine*
+    remove_specific_files trusted.gpg.d/wine*
+    remove_specific_files trusted.gpg.d/brave*
+    remove_specific_files trusted.gpg.d/signal*
     
     # Checking and removing i386 architecture packages if exists
     if dpkg --print-foreign-architectures | grep -q 'i386'; then
@@ -232,19 +247,6 @@ setup_new_csi_user_and_system() {
     
     # Updating package lists with NEEDRESTART_MODE environment variable
     echo $key | sudo -S NEEDRESTART_MODE=a apt update --ignore-missing > /dev/null 2>&1
-    
-    # Removing specific apt sources and keys
-    remove_specific_files() {
-        echo $key | sudo -S rm -rf /etc/apt/"$1"
-    }
-    
-    remove_specific_files sources.list.d/archive_u*
-    remove_specific_files sources.list.d/brave*
-    remove_specific_files sources.list.d/signal*
-    remove_specific_files sources.list.d/wine*
-    remove_specific_files trusted.gpg.d/wine*
-    remove_specific_files trusted.gpg.d/brave*
-    remove_specific_files trusted.gpg.d/signal*
     
     echo "# Cleaning old tools"
     remove_specific_files /var/lib/tor/hidden_service/
@@ -672,9 +674,9 @@ tar -xf tsetup.tar.xz
 echo $key | sudo -S cp Telegram/Telegram /usr/bin/telegram-desktop
 
 echo "# Configuring Dark Web Forensic Tools"
-if ! which onionshare > /dev/null; then
-	echo $key | sudo -S snap install onionshare
-fi
+# if ! which onionshare > /dev/null; then
+# 	echo $key | sudo -S snap install onionshare
+# fi
 
 cd /tmp
 if ! which orjail > /dev/null; then
