@@ -352,6 +352,7 @@ install_packages() {
 
 echo "To remember the null output " > /dev/null 2>&1
 echo "# Setting up CSI Linux environemnt..."
+sudo apt-mark hold lightdm
 setup_new_csi_system
 fix_broken
 # disable_services
