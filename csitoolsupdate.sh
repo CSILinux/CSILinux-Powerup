@@ -19,56 +19,45 @@ echo "CSI Linux Powerup Start time: $start_time"
 add_repository() {
     local repo_type="$1"
     local repo_url="$2"
-    local gpg_key_info="$3"  # This should contain both the keyserver and the keys to receive
+    local gpg_key_info="$3"  # Contains the keyserver and the keys to receive for 'key' type
     local repo_name="$4"
 
-    if [ "$repo_type" == "apt" ]; then
-        # Handle Debian/Ubuntu APT repositories
-        curl -fsSL "$gpg_key_info" | sudo gpg --dearmor | sudo tee "/etc/apt/trusted.gpg.d/$repo_name.gpg" > /dev/null 2>&1
-        if [ $? -eq 0 ]; then
-            echo "# GPG key for '$repo_name' updated successfully."
-        else
-            echo "   - Error adding GPG key for '$repo_name'."
+    # First, check if the repository list file already exists
+    if [ -f "/etc/apt/sources.list.d/${repo_name}.list" ]; then
+        echo "Repository '${repo_name}' list file already exists. Skipping addition."
+        return 0
+    fi
+
+    # Since the .list file does not exist, proceed with adding the GPG key (for 'apt' and 'key')
+    if [[ "$repo_type" == "apt" || "$repo_type" == "key" ]] && [ ! -f "/etc/apt/trusted.gpg.d/${repo_name}.gpg" ]; then
+        echo "Adding GPG key for '${repo_name}'..."
+        if [ "$repo_type" == "apt" ]; then
+            curl -fsSL "$gpg_key_info" | sudo gpg --dearmor | sudo tee "/etc/apt/trusted.gpg.d/${repo_name}.gpg" > /dev/null
+        elif [ "$repo_type" == "key" ]; then
+            # Correctly handle the 'key' type using the original working code snippet
+            local keyserver=$(echo "$gpg_key_info" | cut -d ' ' -f1)
+            local recv_keys=$(echo "$gpg_key_info" | cut -d ' ' -f2-)
+            sudo gpg --no-default-keyring --keyring gnupg-ring:/tmp/"$repo_name".gpg --keyserver "$keyserver" --recv-keys $recv_keys
+            sudo gpg --no-default-keyring --keyring gnupg-ring:/tmp/"$repo_name".gpg --export | sudo tee "/etc/apt/trusted.gpg.d/$repo_name.gpg" > /dev/null
+        fi
+        if [ $? -ne 0 ]; then
+            echo "Error adding GPG key for '${repo_name}'."
             return 1
         fi
-        echo "# Updating $repo_name repository"
-        echo "deb [signed-by=/etc/apt/trusted.gpg.d/$repo_name.gpg] $repo_url" | sudo tee "/etc/apt/sources.list.d/$repo_name.list" > /dev/null 2>&1
-        if [ $? -eq 0 ]; then
-            printf "  - Repository '$repo_name' updated successfully.\n"
-        else
-            printf "  - Error adding repository '$repo_name'.\n"
-            return 1
-        fi
+    fi
+
+    # Add the repository
+    echo "Adding repository '${repo_name}'..."
+    if [ "$repo_type" == "apt" ] || [ "$repo_type" == "key" ]; then
+        echo "deb [signed-by=/etc/apt/trusted.gpg.d/${repo_name}.gpg] $repo_url" | sudo tee "/etc/apt/sources.list.d/${repo_name}.list" > /dev/null
     elif [ "$repo_type" == "ppa" ]; then
-        # Handle PPA repositories
         sudo add-apt-repository --no-update -y "$repo_url"
-        if [ $? -eq 0 ]; then
-            echo "# PPA '$repo_name' added successfully."
-        else
-            echo "   - Error adding PPA '$repo_name'."
-            return 1
-        fi
-    elif [ "$repo_type" == "key" ]; then
-        # Handle GPG keys that need to be imported from a keyserver
-        local keyserver=$(echo "$gpg_key_info" | cut -d ' ' -f1)
-        local recv_keys=$(echo "$gpg_key_info" | cut -d ' ' -f2-)
-        sudo gpg --no-default-keyring --keyring gnupg-ring:/tmp/"$repo_name".gpg --keyserver "$keyserver" --recv-keys $recv_keys
-        sudo gpg --no-default-keyring --keyring gnupg-ring:/tmp/"$repo_name".gpg --export | sudo tee "/etc/apt/trusted.gpg.d/$repo_name.gpg" > /dev/null
-        if [ $? -eq 0 ]; then
-            echo "GPG key for '$repo_name' imported successfully."
-        else
-            echo "Error importing GPG key for '$repo_name'."
-            return 1
-        fi
-        echo "deb [signed-by=/etc/apt/trusted.gpg.d/$repo_name.gpg] $repo_url" | sudo tee "/etc/apt/sources.list.d/$repo_name.list" > /dev/null 2>&1
-        if [ $? -eq 0 ]; then
-            echo "Repository '$repo_name' updated successfully."
-        else
-            echo "Error adding repository '$repo_name'."
-            return 1
-        fi
+    fi
+
+    if [ $? -eq 0 ]; then
+        echo "Repository '${repo_name}' added successfully."
     else
-        echo "Invalid repository type specified. Use 'apt', 'ppa', or 'key'."
+        echo "Error adding repository '${repo_name}'."
         return 1
     fi
 }
@@ -851,7 +840,7 @@ echo $key | sudo -S timedatectl set-timezone UTC
 
 # unredactedmagazine
 
-echo $key | sudo -S /opt/csitools/clearlogs
+# echo $key | sudo -S /opt/csitools/clearlogs
 echo $key | sudo -S rm -rf /var/crash/*
 echo $key | sudo -S rm /var/crash/*
 rm ~/.vbox*
