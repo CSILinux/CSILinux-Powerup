@@ -6,7 +6,8 @@ echo $key | sudo -S date
 cd /tmp
 update_current_time() {
   current_time=$(date +"%Y-%m-%d %H:%M:%S")
-}
+
+
 calculate_duration() {
   start_seconds=$(date -d "$start_time" +%s)
   end_seconds=$(date -d "$current_time" +%s)
