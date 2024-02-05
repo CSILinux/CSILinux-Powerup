@@ -275,7 +275,7 @@ setup_new_csi_user_and_system() {
 
 install_from_requirements_url() {
     local requirements_url="$1"
-    echo "Downloading requirements from $requirements_url..."
+    echo "Downloading requirements list"
     rm /tmp/requirements.txt
     curl -s "$requirements_url" -o /tmp/requirements.txt
     
@@ -360,30 +360,36 @@ install_csi_tools() {
 
 install_packages() {
     local -n packages=$1
+    local total_packages=${#packages[@]}
+    local installed=0
+    local current_package=0
+
     # Ensure the directory exists
     echo $key | sudo -S mkdir -p /opt/csitools
+
     for package in "${packages[@]}"; do
+        let current_package++
         # Ignore empty values
         if [[ -n $package ]]; then
             # Check if the package is already installed
             if ! dpkg -l | grep -qw "$package"; then
                 # Package is not installed, attempt to install
-                printf "Attempting to install %s...\n" "$package"
+                printf "Installing package %s (%d of %d)...\n" "$package" "$current_package" "$total_packages"
                 if sudo apt install -y "$package"; then
                     printf "."
                     ((installed++))
                 else
-                    echo "$key" | sudo -S apt remove sleuthkit -y > /dev/null 2>&1
-		    # Installation failed, append package name to apt-failed.txt
+                    # Installation failed, append package name to apt-failed.txt
                     printf "Installation failed for %s, logging to /opt/csitools/apt-failed.txt\n" "$package"
                     echo "$package" | sudo tee -a /opt/csitools/apt-failed.txt > /dev/null
                 fi
             else
                 # Package is already installed, indicate it's skipped
-                printf "Package %s is already installed, skipping.\n" "$package"
+                printf "Package %s is already installed, skipping (%d of %d).\n" "$package" "$current_package" "$total_packages"
             fi
         fi
     done
+    echo "Installation complete. $installed out of $total_packages packages installed."
 }
 
 
