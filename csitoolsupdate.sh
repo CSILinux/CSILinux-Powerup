@@ -98,7 +98,9 @@ update_git_repository() {
 disable_services() {
     # Define a list of services to disable
     local disableservices=(
-        "apache-htcacheclean.service"
+        "systemd-networkd-wait-online.service"
+	"NetworkManager-wait-online.service"
+	"apache-htcacheclean.service"
         "apache-htcacheclean@.service"
         "apache2.service"
         "apache2@.service"
