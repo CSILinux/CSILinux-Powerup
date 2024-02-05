@@ -451,10 +451,8 @@ apt_computer_forensic_tools=(
 
 apt_online_forensic_tools=(
     "brave-browser"
-    "firefox"
     "tor"
     "wireshark"
-    "curl"
     "lokinet"
 )
 
