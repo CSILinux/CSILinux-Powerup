@@ -922,3 +922,4 @@ if zenity --question --title="Reboot Confirmation" --text="Do you want to reboot
 else
     echo "Reboot process canceled."
 fi
+
