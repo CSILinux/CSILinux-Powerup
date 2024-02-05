@@ -206,7 +206,8 @@ setup_new_csi_user_and_system() {
     export apt_LISTCHANGES_FRONTEND=none
     export DISPLAY=:0.0
     export TERM=xterm
-    
+    sudo apt-mark unhold lightdm
+
     # Configuring dpkg options globally to prefer defaults on package configurations
     echo 'Dpkg::Options {
         "--force-confdef";
