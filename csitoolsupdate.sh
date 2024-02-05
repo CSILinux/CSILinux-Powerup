@@ -73,6 +73,16 @@ add_repository() {
     fi
 }
 
+fix_broken() {
+    echo "# Fixing and configuring broken apt installs..."
+    sudo apt-get update
+    sudo apt-get install --fix-broken -y
+    sudo dpkg --configure -a
+    echo "# Verifying and configuring any remaining packages..."
+    sudo dpkg --configure -a --force-confold
+}
+
+
 update_git_repository() {
     local repo_name="$1"
     local repo_url="$2"
@@ -380,6 +390,7 @@ install_packages() {
 echo "To remember the null output " > /dev/null 2>&1
 echo "# Setting up CSI Linux environemnt..."
 setup_new_csi_user_and_system
+fix_broken
 # disable_services
 install_csi_tools
 cis_lvl_1
@@ -882,20 +893,10 @@ fi
 echo "$key" | sudo -S update-initramfs -u
 
 cd /tmp
-
-# Fix any broken packages and configure them
-echo "# Fixing and configuring broken apt installs..."
-echo "$key" | sudo -S apt-get update
-echo "$key" | sudo -S apt-get install --fix-broken -y
-echo "$key" | sudo -S dpkg --configure -a
-
+fix_broken
 # Upgrade all packages, including third-party tools, and handle missing dependencies
 echo "# Upgrading all packages including third-party tools..."
 echo "$key" | sudo -S apt-get full-upgrade -y --fix-missing
-
-# Additional step to ensure all packages are configured correctly
-echo "# Verifying and configuring any remaining packages..."
-echo "$key" | sudo -S dpkg --configure -a --force-confold
 
 # Identify the currently running kernel and the latest installed kernel
 echo "Current and latest kernel versions (for informational purposes):"
