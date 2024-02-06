@@ -180,7 +180,7 @@ setup_new_csi_system() {
     setup_user_environment
     
     echo "# System setup starting..."
-    sudo bash -c 'echo "$nrconf{restart} = '"'"'a'"'"'" | tee /etc/needrestart/conf.d/autorestart.conf'
+    echo "\$nrconf{'restart'} = 'a';" | sudo tee /etc/needrestart/conf.d/autorestart.conf > /dev/null
     export DEBIAN_FRONTEND=noninteractive
     export apt_LISTCHANGES_FRONTEND=none
     export DISPLAY=:0.0
@@ -324,33 +324,39 @@ install_packages() {
     # Ensure the directory exists
     echo $key | sudo -S mkdir -p /opt/csitools
 
+    # Attempt to fix any broken dependencies before starting installations
+    sudo apt --fix-broken install -y
+
     for package in "${packages[@]}"; do
         let current_package++
         # Ignore empty values
         if [[ -n $package ]]; then
             # Check if the package is already installed
             if ! dpkg -l | grep -qw "$package"; then
-                # Package is not installed, attempt to install
                 printf "Installing package %s (%d of %d)...\n" "$package" "$current_package" "$total_packages"
+                # Attempt to install the package
                 if sudo apt install -y "$package"; then
-		    sudo apt remove sleuthkit  > /dev/null 2>&1
                     printf "."
                     ((installed++))
                 else
-                    # Installation failed, append package name to apt-failed.txt
-                    printf "Installation failed for %s, logging to /opt/csitools/apt-failed.txt\n" "$package"
-		    sudo apt remove sleuthkit  > /dev/null 2>&1
-		    sudo apt install -y "$package"
-                    echo "$package" | sudo tee -a /opt/csitools/apt-failed.txt > /dev/null
+                    # If installation failed, try to fix broken dependencies and try again
+                    sudo apt --fix-broken install -y
+                    if sudo apt install -y "$package"; then
+                        printf "."
+                        ((installed++))
+                    else
+                        printf "Installation failed for %s, logging to /opt/csitools/apt-failed.txt\n" "$package"
+                        echo "$package" | sudo tee -a /opt/csitools/apt-failed.txt > /dev/null
+                    fi
                 fi
             else
-                # Package is already installed, indicate it's skipped
                 printf "Package %s is already installed, skipping (%d of %d).\n" "$package" "$current_package" "$total_packages"
             fi
         fi
     done
     echo "Installation complete. $installed out of $total_packages packages installed."
 }
+
 
 
 echo "To remember the null output " > /dev/null 2>&1
