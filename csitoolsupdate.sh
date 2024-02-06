@@ -5,6 +5,7 @@ key=$1
 echo $key | sudo -S date
 cd /tmp
 sudo apt-mark hold lightdm > /dev/null 2>&1
+sudo apt-mark hold sleuthkit > /dev/null 2>&1
 sudo apt remove sleuthkit  > /dev/null 2>&1
 # Function to remove specific files
 remove_specific_files() {
