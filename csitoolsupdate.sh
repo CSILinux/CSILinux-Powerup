@@ -4,6 +4,20 @@ echo "Welcome to CSI Linux 2024.  This will take a while, but the update has a L
 key=$1
 echo $key | sudo -S date
 cd /tmp
+sudo apt remove sleuthkit  > /dev/null 2>&1
+# Function to remove specific files
+remove_specific_files() {
+echo $key | sudo -S rm -rf /etc/apt/"$1"
+}
+
+# Cleaning up configurations and unnecessary files
+remove_specific_files sources.list.d/archive_u*
+remove_specific_files sources.list.d/brave*
+remove_specific_files sources.list.d/signal*
+remove_specific_files sources.list.d/wine*
+remove_specific_files trusted.gpg.d/wine*
+remove_specific_files trusted.gpg.d/brave*
+remove_specific_files trusted.gpg.d/signal*
 
 update_current_time() {
   current_time=$(date +"%Y-%m-%d %H:%M:%S")
@@ -190,20 +204,6 @@ setup_new_csi_system() {
         "--force-confdef";
         "--force-confold";
     }' | sudo tee /etc/apt/apt.conf.d/99force-conf
-
-    # Function to remove specific files
-    remove_specific_files() {
-        echo $key | sudo -S rm -rf /etc/apt/"$1"
-    }
-
-    # Cleaning up configurations and unnecessary files
-    remove_specific_files sources.list.d/archive_u*
-    remove_specific_files sources.list.d/brave*
-    remove_specific_files sources.list.d/signal*
-    remove_specific_files sources.list.d/wine*
-    remove_specific_files trusted.gpg.d/wine*
-    remove_specific_files trusted.gpg.d/brave*
-    remove_specific_files trusted.gpg.d/signal*
 
     # Architecture cleanup
     if dpkg --print-foreign-architectures | grep -q 'i386'; then
