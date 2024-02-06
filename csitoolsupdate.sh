@@ -4,9 +4,9 @@ echo "Welcome to CSI Linux 2024.  This will take a while, but the update has a L
 key=$1
 echo $key | sudo -S date
 cd /tmp
-sudo apt-mark hold lightdm > /dev/null 2>&1
-sudo apt-mark hold sleuthkit > /dev/null 2>&1
-sudo apt remove sleuthkit  > /dev/null 2>&1
+sudo apt-mark hold lightdm
+sudo apt-mark hold sleuthkit
+sudo apt remove sleuthkit
 # Function to remove specific files
 remove_specific_files() {
 echo $key | sudo -S rm -rf /etc/apt/"$1"
@@ -30,10 +30,6 @@ calculate_duration() {
   end_seconds=$(date -d "$current_time" +%s)
   duration=$((end_seconds - start_seconds))
 }
-
-update_current_time
-start_time="$current_time"
-echo "CSI Linux Powerup Start time: $start_time"
 
 add_repository() {
     local repo_type="$1"
@@ -167,7 +163,7 @@ setup_new_csi_system() {
             return 1
         fi
     }
-
+    sudo apt-get install xubuntu-desktop --no-install-recommends
     # Sub-function to add a user to a group
     add_user_to_group() {
         echo $key | sudo -S adduser "$1" "$2" > /dev/null 2>&1
@@ -394,6 +390,7 @@ add_repository "ppa" "ppa:apt-fast/stable" "" "apt-fast"
 add_repository "ppa" "ppa:obsproject/obs-studio" "" "obs-studio"
 
 echo $key | sudo -S apt update
+sudo apt-get install xubuntu-desktop --no-install-recommends
 echo $key | sudo -S apt upgrade -y
 programs=(bpytop xterm aria2 yad zenity)
 for program in "${programs[@]}"; do
