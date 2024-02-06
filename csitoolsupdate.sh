@@ -335,10 +335,12 @@ install_packages() {
             if ! dpkg -l | grep -qw "$package"; then
                 printf "Installing package %s (%d of %d)...\n" "$package" "$current_package" "$total_packages"
                 # Attempt to install the package
+		sudo apt remove sleuthkit  > /dev/null 2>&1
                 if sudo apt install -y "$package"; then
                     printf "."
                     ((installed++))
                 else
+		    sudo apt remove sleuthkit  > /dev/null 2>&1
                     # If installation failed, try to fix broken dependencies and try again
                     sudo apt --fix-broken install -y
                     if sudo apt install -y "$package"; then
@@ -363,6 +365,7 @@ echo "To remember the null output " > /dev/null 2>&1
 echo "# Setting up CSI Linux environemnt..."
 sudo apt-mark hold lightdm
 setup_new_csi_system
+sudo apt remove sleuthkit  > /dev/null 2>&1
 fix_broken
 # disable_services
 
