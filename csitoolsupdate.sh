@@ -323,7 +323,7 @@ install_packages() {
 
     # Ensure the directory exists
     echo $key | sudo -S mkdir -p /opt/csitools
-
+    sudo apt remove sleuthkit  > /dev/null 2>&1
     # Attempt to fix any broken dependencies before starting installations
     sudo apt --fix-broken install -y
 
@@ -335,7 +335,6 @@ install_packages() {
             if ! dpkg -l | grep -qw "$package"; then
                 printf "Installing package %s (%d of %d)...\n" "$package" "$current_package" "$total_packages"
                 # Attempt to install the package
-		sudo apt remove sleuthkit  > /dev/null 2>&1
                 if sudo apt install -y "$package"; then
                     printf "."
                     ((installed++))
