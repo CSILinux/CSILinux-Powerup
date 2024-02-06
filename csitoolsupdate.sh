@@ -393,10 +393,10 @@ echo $key | sudo -S apt upgrade -y
 programs=(bpytop xterm aria2 yad zenity)
 for program in "${programs[@]}"; do
     if ! which "$program" > /dev/null; then
-        echo "$program is not installed. Attempting to install..." | tee -a "$output_file"
-        echo $key | sudo -S apt install -y "$program" | tee -a "$output_file"
+        echo "$program is not installed. Attempting to install..." | tee -a "$output_file" > /dev/null 2>&1
+        echo $key | sudo -S apt install -y "$program" | tee -a "$output_file" > /dev/null 2>&1
     else
-        echo "$program is already installed." | tee -a "$output_file"
+        echo "$program is already installed." | tee -a "$output_file" > /dev/null 2>&1
     fi
 done
 
