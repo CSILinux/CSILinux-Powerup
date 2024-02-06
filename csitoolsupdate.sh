@@ -335,13 +335,13 @@ install_packages() {
             if ! dpkg -l | grep -qw "$package"; then
                 printf "Installing package %s (%d of %d)...\n" "$package" "$current_package" "$total_packages"
                 # Attempt to install the package
-                if sudo apt install -y "$package"; then
+                if sudo apt-get install -y --assume-yes "$package"; then
                     printf "."
                     ((installed++))
                 else
 		    sudo apt remove sleuthkit  > /dev/null 2>&1
                     # If installation failed, try to fix broken dependencies and try again
-                    if sudo apt install -y "$package"; then
+                    if sudo apt-get install -y --assume-yes "$package"; then
                         printf "."
                         ((installed++))
                     else
