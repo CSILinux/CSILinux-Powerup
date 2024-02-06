@@ -4,20 +4,23 @@ echo "Welcome to CSI Linux 2024.  This will take a while, but the update has a L
 key=$1
 echo $key | sudo -S date
 cd /tmp
+sudo apt remove sleuthkit
 sudo apt-mark hold lightdm
 sudo apt-mark hold sleuthkit
-sudo apt remove sleuthkit
+
 # Function to remove specific files
 remove_specific_files() {
-echo $key | sudo -S rm -rf /etc/apt/"$1"
+    echo $key | sudo -S rm -rf /etc/apt/"$1"
+    ls /etc/apt/"$1"
 }
 
 # Cleaning up configurations and unnecessary files
 remove_specific_files sources.list.d/archive_u*
-remove_specific_files sources.list.d/brave*
-remove_specific_files sources.list.d/signal*
-remove_specific_files sources.list.d/wine*
-remove_specific_files trusted.gpg.d/wine*
+remove_specific_files sources.list.d/brave-browser-release.list
+remove_specific_files sources.list.d/signal-xenial.list
+remove_specific_files sources.list.d/signal-desktop-keyring.list
+remove_specific_files sources.list.d/wine.list
+remove_specific_files trusted.gpg.d/wine
 remove_specific_files trusted.gpg.d/brave*
 remove_specific_files trusted.gpg.d/signal*
 
@@ -204,7 +207,7 @@ setup_new_csi_system() {
         "--force-confold";
     }' | sudo tee /etc/apt/apt.conf.d/99force-conf
 
-    # Architecture cleanup
+    echo "# Architecture cleanup"
     if dpkg --print-foreign-architectures | grep -q 'i386'; then
         echo "# Cleaning up old Arch"
         i386_packages=$(dpkg --get-selections | awk '/i386/{print $1}')
@@ -236,7 +239,7 @@ setup_new_csi_system() {
 install_from_requirements_url() {
     local requirements_url="$1"
     echo "Downloading requirements list"
-    rm /tmp/requirements.txt
+    rm /tmp/requirements.txt > /dev/null 2>&1
     curl -s "$requirements_url" -o /tmp/requirements.txt
     local total_packages=$(wc -l < /tmp/requirements.txt)
     local current_package=0
@@ -251,8 +254,8 @@ install_from_requirements_url() {
 }
 
 cis_lvl_1() {
-    echo "1.7 Warning Banners - Configuring system banners..."
-    # Define the security banner with adjusted width
+    echo "Warning Banners - Configuring system banners..."
+    # Define the security banner
     security_banner="
     +---------------------------------------------------------------------------+
     |                             SECURITY NOTICE                               |
@@ -277,7 +280,6 @@ cis_lvl_1() {
     |                                                                           |
     +---------------------------------------------------------------------------+
     "
-
     # Print the security banner
     echo "$security_banner"
     echo "$security_banner" | sudo tee /etc/issue.net /etc/issue /etc/motd > /dev/null
