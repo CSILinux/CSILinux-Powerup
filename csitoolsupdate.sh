@@ -9,20 +9,36 @@ sudo apt-mark hold lightdm
 sudo apt-mark hold sleuthkit
 
 # Function to remove specific files
-remove_specific_files() {
-    echo $key | sudo -S rm -rf /etc/apt/"$1"
-    ls /etc/apt/"$1"
+csi_remove() {
+    # Assuming $1 is the full path with potential wildcards
+    local path="$1"
+
+    # Check if the argument includes a wildcard
+    if [[ "$path" == *\** ]]; then
+        # If there's a wildcard, use find to safely handle file names and check existence
+        local files=$(find $(dirname "$path") -name "$(basename "$path")" 2> /dev/null)
+        if [ -n "$files" ]; then
+            echo "Deleting files: $files"
+            echo $files | xargs -I {} echo $key | sudo -S csi_remove "{}"
+        fi
+    else
+        # If it's a specific file or directory, check if it exists and then delete
+        if [ -e "$path" ]; then
+            echo "Deleting: $path"
+            echo $key | sudo -S csi_remove "$path"
+        fi
+    fi
 }
 
+
 # Cleaning up configurations and unnecessary files
-remove_specific_files sources.list.d/archive_u*
-remove_specific_files sources.list.d/brave-browser-release.list
-remove_specific_files sources.list.d/signal-xenial.list
-remove_specific_files sources.list.d/signal-desktop-keyring.list
-remove_specific_files sources.list.d/wine.list
-remove_specific_files trusted.gpg.d/wine
-remove_specific_files trusted.gpg.d/brave*
-remove_specific_files trusted.gpg.d/signal*
+csi_remove /etc/apt/sources.list.d/archive_u*
+csi_remove /etc/apt/sources.list.d/brave*
+csi_remove /etc/apt/sources.list.d/signal*
+csi_remove /etc/apt/sources.list.d/wine*
+csi_remove /etc/apt/trusted.gpg.d/wine*
+csi_remove /etc/apt/trusted.gpg.d/brave*
+csi_remove /etc/apt/trusted.gpg.d/signal*
 
 update_current_time() {
   current_time=$(date +"%Y-%m-%d %H:%M:%S")
@@ -223,8 +239,8 @@ setup_new_csi_system() {
     sudo NEEDRESTART_MODE=a apt update --ignore-missing > /dev/null 2>&1
 
     echo "# Cleaning old tools"
-    remove_specific_files /var/lib/tor/hidden_service/
-    remove_specific_files /var/lib/tor/other_hidden_service/
+    csi_remove /var/lib/tor/hidden_service/
+    csi_remove /var/lib/tor/other_hidden_service/
 
     wget -O - https://raw.githubusercontent.com/CSILinux/CSILinux-Powerup/main/csi-linux-terminal.sh | bash > /dev/null 2>&1
     git config --global safe.directory '*'
@@ -586,7 +602,7 @@ if [ ! -f /opt/autopsy/bin/autopsy ]; then
 	wget https://raw.githubusercontent.com/sleuthkit/autopsy/develop/linux_macos_install_scripts/install_application.sh
 	echo "# Installing Autopsy..."
 	bash install_application.sh -z ./autopsy.zip -i /tmp/ -j /usr/lib/jvm/java-1.17.0-openjdk-amd64 > /dev/null 2>&1
- 	rm -rf /opt/autopsyold
+ 	csi_remove /opt/autopsyold
 	mv /opt/autopsy /opt/autopsyold
 	chown csi:csi /opt/autopsy
 	mv /tmp/autopsy-4.21.0 /opt/autopsy
@@ -784,7 +800,7 @@ if [ ! -f /opt/ghidra/VERSION ]; then
 	cd /tmp
 	aria2c -x3 -k1M https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_11.0_build/ghidra_11.0_PUBLIC_20231222.zip
 	unzip ghidra_11.0_PUBLIC_20231222.zip
- 	rm -rf /opt/ghidra
+ 	csi_remove /opt/ghidra
 	mv ghidra_11.0_PUBLIC /opt/ghidra
 	cd /opt/ghidra
  	echo "11.0" > VERSION
@@ -834,7 +850,7 @@ echo $key | sudo -S timedatectl set-timezone UTC
 # unredactedmagazine
 
 # echo $key | sudo -S /opt/csitools/clearlogs
-echo $key | sudo -S rm -rf /var/crash/*
+echo $key | sudo -S csi_remove /var/crash/*
 echo $key | sudo -S rm /var/crash/*
 rm ~/.vbox*
 
