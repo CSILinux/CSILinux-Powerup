@@ -4,6 +4,7 @@ echo "Welcome to CSI Linux 2024.  This will take a while, but the update has a L
 key=$1
 echo $key | sudo -S date
 cd /tmp
+sudo apt-mark hold lightdm
 sudo apt remove sleuthkit  > /dev/null 2>&1
 # Function to remove specific files
 remove_specific_files() {
@@ -82,6 +83,7 @@ add_repository() {
 fix_broken() {
     echo "# Fixing and configuring broken apt installs..."
     sudo apt update
+    sudo apt remove sleuthkit  > /dev/null 2>&1
     sudo apt install --fix-broken -y
     sudo dpkg --configure -a
     echo "# Verifying and configuring any remaining packages..."
@@ -211,6 +213,7 @@ setup_new_csi_system() {
         i386_packages=$(dpkg --get-selections | awk '/i386/{print $1}')
         if [ ! -z "$i386_packages" ]; then
             echo "Removing i386 packages..."
+	    sudo apt remove sleuthkit  > /dev/null 2>&1
             echo $key | sudo -S apt remove --purge --allow-remove-essential -y $i386_packages > /dev/null 2>&1
         fi
         echo "# Standardizing Arch"
@@ -325,9 +328,9 @@ install_packages() {
     echo $key | sudo -S mkdir -p /opt/csitools
     sudo apt remove sleuthkit  > /dev/null 2>&1
     # Attempt to fix any broken dependencies before starting installations
-    sudo apt --fix-broken install -y
-
+ 
     for package in "${packages[@]}"; do
+        sudo apt remove sleuthkit  > /dev/null 2>&1
         let current_package++
         # Ignore empty values
         if [[ -n $package ]]; then
@@ -341,7 +344,6 @@ install_packages() {
                 else
 		    sudo apt remove sleuthkit  > /dev/null 2>&1
                     # If installation failed, try to fix broken dependencies and try again
-                    sudo apt --fix-broken install -y
                     if sudo apt install -y "$package"; then
                         printf "."
                         ((installed++))
@@ -362,7 +364,7 @@ install_packages() {
 
 echo "To remember the null output " > /dev/null 2>&1
 echo "# Setting up CSI Linux environemnt..."
-sudo apt-mark hold lightdm
+
 setup_new_csi_system
 sudo apt remove sleuthkit  > /dev/null 2>&1
 fix_broken
@@ -395,6 +397,7 @@ echo $key | sudo -S apt upgrade -y
 programs=(bpytop xterm aria2 yad zenity)
 for program in "${programs[@]}"; do
     if ! which "$program" > /dev/null; then
+        sudo apt remove sleuthkit  > /dev/null 2>&1
         echo "$program is not installed. Attempting to install..." | tee -a "$output_file" > /dev/null 2>&1
         echo $key | sudo -S apt install -y "$program" | tee -a "$output_file" > /dev/null 2>&1
     else
@@ -436,7 +439,7 @@ else
     echo "The running kernel is the latest installed version."
 fi
 
-
+echo $key | sudo -S spt remove sleuthkit -y 
 cd /tmp
 rm apps.txt
 wget https://csilinux.com/downloads/apps.txt -O apps.txt
