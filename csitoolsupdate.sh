@@ -1,9 +1,23 @@
 #!/bin/bash
 
-echo "Welcome to CSI Linux 2024.  This will take a while, but the update has a LOT of content..."
+echo "Welcome to CSI Linux 2024. This will take a while, but the update has a LOT of content..."
 key=$1
+powerup_options_string=$2
+
+# Use sudo with the provided key
 echo $key | sudo -S date
+
 cd /tmp
+
+# Assuming powerup_options_string is a comma-separated list of selected options
+# Convert the string back into an array
+IFS=',' read -r -a powerup_options <<< "$powerup_options_string"
+
+# Example of iterating over the options and performing actions based on selected options
+for option in "${powerup_options[@]}"; do
+    echo "Processing option: $option"
+done
+
 sudo apt remove sleuthkit
 sudo apt-mark hold lightdm
 sudo apt-mark hold sleuthkit
@@ -143,8 +157,6 @@ disable_services() {
 	"clamav-milter.service"
         "cups-browsed.service"
         "cups.service"
-        "dnsmasq.service"
-        "dnsmasq@.service"
         "i2p"
         "i2pd"
         "kismet.service"
