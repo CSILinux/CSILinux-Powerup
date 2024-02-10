@@ -10,9 +10,11 @@ cd /tmp
 IFS=',' read -r -a powerup_options <<< "$powerup_options_string"
 
 
-sudo apt remove sleuthkit
+sudo apt remove sleuthkit > /dev/null 2>&1
 sudo apt-mark hold lightdm
+echo lightdm hold | dpkg --set-selections
 sudo apt-mark hold sleuthkit
+echo sleuthkit hold | dpkg --set-selections
 
 # Function to remove specific files
 csi_remove() {
