@@ -101,8 +101,81 @@ customize_and_repackage() {
 	add_repository "apt" "https://packages.microsoft.com/repos/code stable main" "https://packages.microsoft.com/keys/microsoft.asc" "vscode"
 
     # Update and install packages after adding all repositories
-    chroot "$SQUASHFS_DIR" /bin/bash -c "apt-get update && apt-get install -y xubuntu-desktop curl slim aria2c"
-
+    chroot "$SQUASHFS_DIR" /bin/bash -c "apt-get update && apt-get install -y xubuntu-desktop --no-install-recommends"
+    chroot "$SQUASHFS_DIR" /bin/bash -c "apt-get install -y xubuntu-desktop curl gpg slim aria2c thunar* "
+chroot "$SQUASHFS_DIR" /bin/bash -c "apt-get remove -y \
+    aisleriot \
+    brltty \
+    duplicity \
+    empathy empathy-common \
+    example-content \
+    gnome-accessibility-themes \
+    gnome-contacts \
+    gnome-mahjongg \
+    gnome-mines \
+    gnome-orca \
+    gnome-screensaver \
+    gnome-sudoku \
+    gnome-video-effects \
+    landscape-common \
+    libreoffice-avmedia-backend-gstreamer \
+    libreoffice-base-core \
+    libreoffice-calc \
+    libreoffice-common \
+    libreoffice-core \
+    libreoffice-draw \
+    libreoffice-gnome \
+    libreoffice-gtk \
+    libreoffice-impress \
+    libreoffice-math \
+    libreoffice-ogltrans \
+    libreoffice-pdfimport \
+    libreoffice-style-galaxy \
+    libreoffice-style-human \
+    libreoffice-writer \
+    libsane libsane-common \
+    python3-uno \
+    rhythmbox rhythmbox-plugins rhythmbox-plugin-zeitgeist \
+    sane-utils \
+    shotwell shotwell-common \
+    telepathy-gabble telepathy-haze telepathy-idle telepathy-indicator telepathy-logger telepathy-mission-control-5 telepathy-salut \
+    totem totem-common totem-plugins \
+    printer-driver-brlaser \
+    printer-driver-foo2zjs printer-driver-foo2zjs-common \
+    printer-driver-m2300w \
+    printer-driver-ptouch \
+    printer-driver-splix \
+    lightdm \
+    sleuthkit \
+    account-plugin-aim \
+    account-plugin-facebook \
+    account-plugin-flickr \
+    account-plugin-jabber \
+    account-plugin-salut \
+    account-plugin-yahoo \
+    landscape-client-ui-install \
+    unity-lens-music \
+    unity-lens-photos \
+    unity-lens-video \
+    unity-scope-audacious \
+    unity-scope-chromiumbookmarks \
+    unity-scope-clementine \
+    unity-scope-colourlovers \
+    unity-scope-devhelp \
+    unity-scope-firefoxbookmarks \
+    unity-scope-gmusicbrowser \
+    unity-scope-gourmet \
+    unity-scope-guayadeque \
+    unity-scope-musicstores \
+    unity-scope-musique \
+    unity-scope-openclipart \
+    unity-scope-texdoc \
+    unity-scope-tomboy \
+    unity-scope-video-remote \
+    unity-scope-virtualbox \
+    unity-scope-zotero \
+    unity-webapps-common \
+    nautilus"
 
     # Bootloader and branding customizations
     # Ensure these sed commands and update-alternatives calls are adjusted for your specific customizations
@@ -151,8 +224,8 @@ mksquashfs "$SQUASHFS_DIR" "$EXTRACT_DIR/casper/filesystem.squashfs" -comp zstd 
 printf $(du -sx --block-size=1 "$SQUASHFS_DIR" | cut -f1) > "$EXTRACT_DIR/casper/filesystem.size"
 
 # Create the new ISO with support for both BIOS and UEFI
-xorriso -as mkisofs -r -V "CSI Linux" -o "$OUTPUT_ISO" \
-    -J -l -b isolinux/isolinux.bin -c isolinux/boot.cat -no-emul-boot \
-    -boot-load-size 4 -boot-info-table -isohybrid-mbr "$EXTRACT_DIR"/isolinux/isohdpfx.bin \
-    -eltorito-alt-boot -e /EFI/BOOT/BOOTx64.EFI -no-emul-boot -isohybrid-gpt-basdat \
+xorriso -as mkisofs -r -V "CSI Linux" -o "$OUTPUT_ISO"\
+    -J -l -b isolinux/isolinux.bin -c isolinux/boot.cat -no-emul-boot\
+    -boot-load-size 4 -boot-info-table -isohybrid-mbr "$EXTRACT_DIR"/isolinux/isohdpfx.bin\
+    -eltorito-alt-boot -e /EFI/BOOT/BOOTx64.EFI -no-emul-boot -isohybrid-gpt-basdat\
     "$EXTRACT_DIR"
