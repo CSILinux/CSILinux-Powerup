@@ -53,6 +53,7 @@ customize_and_repackage() {
     mount --bind /proc "$SQUASHFS_DIR/proc"
     mount --bind /sys "$SQUASHFS_DIR/sys"
     mount --bind /dev "$SQUASHFS_DIR/dev"
+    cp /etc/resolv.conf "$SQUASHFS_DIR/etc/resolv.conf"
 
     # Pre-setup: Install curl in chroot for fetching GPG keys
     chroot "$SQUASHFS_DIR" /bin/bash -c "apt-get update && apt-get install -y curl"
