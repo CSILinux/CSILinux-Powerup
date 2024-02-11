@@ -186,7 +186,7 @@ setup_new_csi_system() {
             return 1
         fi
     }
-    sudo apt-get install xubuntu-desktop --no-install-recommends
+    # sudo apt-get install xubuntu-desktop --no-install-recommends
     # Sub-function to add a user to a group
     add_user_to_group() {
         echo $key | sudo -S adduser "$1" "$2" > /dev/null 2>&1
@@ -410,7 +410,7 @@ add_repository "ppa" "ppa:apt-fast/stable" "" "apt-fast"
 add_repository "ppa" "ppa:obsproject/obs-studio" "" "obs-studio"
 
 echo $key | sudo -S apt update
-sudo apt-get install xubuntu-desktop --no-install-recommends
+# sudo apt-get install xubuntu-desktop --no-install-recommends
 echo $key | sudo -S apt upgrade -y
 programs=(bpytop xterm aria2 yad zenity)
 for program in "${programs[@]}"; do
