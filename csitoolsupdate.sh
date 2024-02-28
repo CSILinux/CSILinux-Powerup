@@ -10,11 +10,11 @@ cd /tmp
 IFS=',' read -r -a powerup_options <<< "$powerup_options_string"
 
 
-sudo apt remove sleuthkit > /dev/null 2>&1
-sudo apt-mark hold lightdm
-echo lightdm hold | dpkg --set-selections
-sudo apt-mark hold sleuthkit
-echo sleuthkit hold | dpkg --set-selections
+sudo apt remove sleuthkit &>/dev/null
+sudo apt-mark hold lightdm &>/dev/null
+echo lightdm hold | dpkg --set-selections &>/dev/null
+sudo apt-mark hold sleuthkit &>/dev/null
+echo sleuthkit hold | dpkg --set-selections &>/dev/null
 
 # Function to remove specific files
 csi_remove() {
@@ -40,13 +40,13 @@ csi_remove() {
 
 
 # Cleaning up configurations and unnecessary files
-csi_remove /etc/apt/sources.list.d/archive_u*
-csi_remove /etc/apt/sources.list.d/brave*
-csi_remove /etc/apt/sources.list.d/signal*
-csi_remove /etc/apt/sources.list.d/wine*
-csi_remove /etc/apt/trusted.gpg.d/wine*
-csi_remove /etc/apt/trusted.gpg.d/brave*
-csi_remove /etc/apt/trusted.gpg.d/signal*
+csi_remove /etc/apt/sources.list.d/archive_u* &>/dev/null
+csi_remove /etc/apt/sources.list.d/brave* &>/dev/null
+csi_remove /etc/apt/sources.list.d/signal* &>/dev/null
+csi_remove /etc/apt/sources.list.d/wine* &>/dev/null
+csi_remove /etc/apt/trusted.gpg.d/wine* &>/dev/null
+csi_remove /etc/apt/trusted.gpg.d/brave* &>/dev/null
+csi_remove /etc/apt/trusted.gpg.d/signal* &>/dev/null
 
 update_current_time() {
   current_time=$(date +"%Y-%m-%d %H:%M:%S")
@@ -107,7 +107,7 @@ add_repository() {
 fix_broken() {
     echo "# Fixing and configuring broken apt installs..."
     sudo apt update
-    sudo apt remove sleuthkit  > /dev/null 2>&1
+    sudo apt remove sleuthkit  &>/dev/null
     sudo apt install --fix-broken -y
     sudo dpkg --configure -a
     echo "# Verifying and configuring any remaining packages..."
@@ -171,8 +171,8 @@ disable_services() {
     # Iterate through the list and disable each service
     for service in "${disableservices[@]}"; do
         echo "Disabling $service..."
-        sudo systemctl disable "$service" > /dev/null 2>&1
-        sudo systemctl stop "$service" > /dev/null 2>&1
+        sudo systemctl disable "$service" &>/dev/null
+        sudo systemctl stop "$service" &>/dev/null
         echo "$service disabled successfully."
     done
 }
@@ -189,7 +189,7 @@ setup_new_csi_system() {
     # sudo apt-get install xubuntu-desktop --no-install-recommends
     # Sub-function to add a user to a group
     add_user_to_group() {
-        echo $key | sudo -S adduser "$1" "$2" > /dev/null 2>&1
+        echo $key | sudo -S adduser "$1" "$2" &>/dev/null
     }
 
     # Sub-function to set up the user environment
@@ -233,8 +233,8 @@ setup_new_csi_system() {
         i386_packages=$(dpkg --get-selections | awk '/i386/{print $1}')
         if [ ! -z "$i386_packages" ]; then
             echo "Removing i386 packages..."
-	    sudo apt remove sleuthkit  > /dev/null 2>&1
-            echo $key | sudo -S apt remove --purge --allow-remove-essential -y $i386_packages > /dev/null 2>&1
+	    sudo apt remove sleuthkit  &>/dev/null
+            echo $key | sudo -S apt remove --purge --allow-remove-essential -y $i386_packages &>/dev/null
         fi
         echo "# Standardizing Arch"
         echo $key | sudo -S dpkg --remove-architecture i386
@@ -242,13 +242,13 @@ setup_new_csi_system() {
 
     sudo dpkg-reconfigure debconf --frontend=noninteractive
     sudo DEBIAN_FRONTEND=noninteractive dpkg --configure -a
-    sudo NEEDRESTART_MODE=a apt update --ignore-missing > /dev/null 2>&1
+    sudo NEEDRESTART_MODE=a apt update --ignore-missing &>/dev/null
 
     echo "# Cleaning old tools"
     csi_remove /var/lib/tor/hidden_service/
     csi_remove /var/lib/tor/other_hidden_service/
 
-    wget -O - https://raw.githubusercontent.com/CSILinux/CSILinux-Powerup/main/csi-linux-terminal.sh | bash > /dev/null 2>&1
+    wget -O - https://raw.githubusercontent.com/CSILinux/CSILinux-Powerup/main/csi-linux-terminal.sh | bash &>/dev/null
     git config --global safe.directory '*'
 
     sudo sysctl vm.swappiness=10
@@ -259,7 +259,7 @@ setup_new_csi_system() {
 install_from_requirements_url() {
     local requirements_url="$1"
     echo "Downloading requirements list"
-    rm /tmp/requirements.txt > /dev/null 2>&1
+    rm /tmp/requirements.txt &>/dev/null
     curl -s "$requirements_url" -o /tmp/requirements.txt
     local total_packages=$(wc -l < /tmp/requirements.txt)
     local current_package=0
@@ -267,7 +267,7 @@ install_from_requirements_url() {
     while IFS= read -r package; do
         let current_package++
         echo -ne "Installing packages: $current_package/$total_packages\r"
-        python3 -m pip install "$package" --quiet > /dev/null 2>&1
+        python3 -m pip install "$package" --quiet &>/dev/null
     done < /tmp/requirements.txt
     echo -ne '\n'
     echo "Installation complete."
@@ -321,20 +321,20 @@ install_csi_tools() {
     aria2c -x3 -k1M https://csilinux.com/downloads/csitools.zip
     echo "# Installing CSI Tools"
     echo "$key" | sudo -S unzip -o csitools.zip -d /opt/
-    echo "$key" | sudo -S chown csi:csi -R /opt/csitools  > /dev/null 2>&1
-    echo "$key" | sudo -S chmod +x /opt/csitools/* -R > /dev/null 2>&1
-    echo "$key" | sudo -S chmod +x /opt/csitools/* > /dev/null 2>&1
-    echo "$key" | sudo -S chmod +x ~/Desktop/*.desktop > /dev/null 2>&1
-    echo "$key" | sudo -S chown csi:csi /usr/bin/bash-wrapper > /dev/null 2>&1
-    echo "$key" | sudo -S chown csi:csi /home/csi -R > /dev/null 2>&1
-    echo "$key" | sudo -S chmod +x /usr/bin/bash-wrapper  > /dev/null 2>&1
-    echo "$key" | sudo -S mkdir /iso > /dev/null 2>&1
-    echo "$key" | sudo -S chown csi:csi /iso -R > /dev/null 2>&1
-    tar -xf /opt/csitools/assets/Win11-blue.tar.xz --directory /home/csi/.icons/ > /dev/null 2>&1
-    echo "$key" | sudo -S /bin/sed -i 's/http\:\/\/in./http\:\/\//g' /etc/apt/sources.list > /dev/null 2>&1
-    echo "$key" | sudo bash -c 'echo "\$nrconf{\"restart\"} = \"a\";" > /etc/needrestart/conf.d/autorestart.conf' > /dev/null > /dev/null 2>&1
-    echo "$key" | sudo -S chmod +x /opt/csitools/powerup > /dev/null 2>&1
-    echo "$key" | sudo -S ln -sf /opt/csitools/powerup /usr/local/bin/powerup > /dev/null 2>&1
+    echo "$key" | sudo -S chown csi:csi -R /opt/csitools  &>/dev/null
+    echo "$key" | sudo -S chmod +x /opt/csitools/* -R &>/dev/null
+    echo "$key" | sudo -S chmod +x /opt/csitools/* &>/dev/null
+    echo "$key" | sudo -S chmod +x ~/Desktop/*.desktop &>/dev/null
+    echo "$key" | sudo -S chown csi:csi /usr/bin/bash-wrapper &>/dev/null
+    echo "$key" | sudo -S chown csi:csi /home/csi -R &>/dev/null
+    echo "$key" | sudo -S chmod +x /usr/bin/bash-wrapper  &>/dev/null
+    echo "$key" | sudo -S mkdir /iso &>/dev/null
+    echo "$key" | sudo -S chown csi:csi /iso -R &>/dev/null
+    tar -xf /opt/csitools/assets/Win11-blue.tar.xz --directory /home/csi/.icons/ &>/dev/null
+    echo "$key" | sudo -S /bin/sed -i 's/http\:\/\/in./http\:\/\//g' /etc/apt/sources.list &>/dev/null
+    echo "$key" | sudo bash -c 'echo "\$nrconf{\"restart\"} = \"a\";" > /etc/needrestart/conf.d/autorestart.conf' > /dev/null &>/dev/null
+    echo "$key" | sudo -S chmod +x /opt/csitools/powerup &>/dev/null
+    echo "$key" | sudo -S ln -sf /opt/csitools/powerup /usr/local/bin/powerup &>/dev/null
 }
 
 install_packages() {
@@ -345,11 +345,11 @@ install_packages() {
 
     # Ensure the directory exists
     echo $key | sudo -S mkdir -p /opt/csitools
-    sudo apt remove sleuthkit  > /dev/null 2>&1
+    sudo apt remove sleuthkit  &>/dev/null
     # Attempt to fix any broken dependencies before starting installations
  
     for package in "${packages[@]}"; do
-        sudo apt remove sleuthkit  > /dev/null 2>&1
+        sudo apt remove sleuthkit  &>/dev/null
         let current_package++
         # Ignore empty values
         if [[ -n $package ]]; then
@@ -361,7 +361,7 @@ install_packages() {
                     printf "."
                     ((installed++))
                 else
-		    sudo apt remove sleuthkit  > /dev/null 2>&1
+		    sudo apt remove sleuthkit  &>/dev/null
                     # If installation failed, try to fix broken dependencies and try again
                     if sudo apt-get install -y --assume-yes "$package"; then
                         printf "."
@@ -379,11 +379,11 @@ install_packages() {
     echo "Installation complete. $installed out of $total_packages packages installed."
 }
 
-echo "To remember the null output " > /dev/null 2>&1
+echo "To remember the null output " &>/dev/null
 echo "# Setting up CSI Linux environment..."
 
 setup_new_csi_system
-sudo apt remove sleuthkit  > /dev/null 2>&1
+sudo apt remove sleuthkit  &>/dev/null
 fix_broken
 # disable_services
 
@@ -416,11 +416,11 @@ echo $key | sudo -S apt upgrade -y
 programs=(bpytop xterm aria2 yad zenity)
 for program in "${programs[@]}"; do
     if ! which "$program" > /dev/null; then
-        sudo apt remove sleuthkit  > /dev/null 2>&1
-        echo "$program is not installed. Attempting to install..." | tee -a "$output_file" > /dev/null 2>&1
-        echo $key | sudo -S apt install -y "$program" | tee -a "$output_file" > /dev/null 2>&1
+        sudo apt remove sleuthkit  &>/dev/null
+        echo "$program is not installed. Attempting to install..." | tee -a "$output_file" &>/dev/null
+        echo $key | sudo -S apt install -y "$program" | tee -a "$output_file" &>/dev/null
     else
-        echo "$program is already installed." | tee -a "$output_file" > /dev/null 2>&1
+        echo "$program is already installed." | tee -a "$output_file" &>/dev/null
     fi
 done
 
@@ -430,7 +430,7 @@ cis_lvl_1
 
 
 current_kernel=$(uname -r)
-
+echo $key | sudo -S mainline --install-latest
 # Get the latest installed kernel version, ensuring consistent formatting with current_kernel
 latest_kernel=$(find /boot -name "vmlinuz-*" | sort -V | tail -n 1 | sed -r 's/.*vmlinuz-([^ ]+).*/\1/')
 
@@ -520,7 +520,7 @@ install_from_requirements_url "https://csilinux.com/downloads/csitools-requireme
 
 dos2unix /opt/csitools/resetdns
 
-echo $key | sudo -S ln -s /usr/bin/python3 /usr/bin/python > /dev/null 2>&1
+echo $key | sudo -S ln -s /usr/bin/python3 /usr/bin/python &>/dev/null
 
 
 echo "# Configuring Investigation Tools"
@@ -617,7 +617,7 @@ for option in "${powerup_options[@]}"; do
 			for entry in "${repositories[@]}"; do
 				IFS="|" read -r repo_name repo_url <<< "$entry"
 				echo "# Checking $entry"
-				update_git_repository "$repo_name" "$repo_url"  > /dev/null 2>&1
+				update_git_repository "$repo_name" "$repo_url"  &>/dev/null
 			done
 			if [ ! -f /opt/routeconverter/RouteConverterLinux.jar ]; then
 				cd /opt
@@ -625,10 +625,10 @@ for option in "${powerup_options[@]}"; do
 				cd routeconverter
 				wget https://static.routeconverter.com/download/RouteConverterLinux.jar
 			fi
-			if ! which maltego > /dev/null 2>&1; then
+			if ! which maltego &>/dev/null; then
 				cd /tmp
-				wget https://csilinux.com/downloads/Maltego.deb > /dev/null 2>&1
-				echo $key | sudo -S apt install ./Maltego.deb -y > /dev/null 2>&1
+				wget https://csilinux.com/downloads/Maltego.deb &>/dev/null
+				echo $key | sudo -S apt install ./Maltego.deb -y &>/dev/null
 			fi
 			if ! which discord > /dev/null; then
 				echo "disord"
@@ -642,7 +642,7 @@ for option in "${powerup_options[@]}"; do
 			fi
 
 			if ! which sn0int; then
-				echo $key | sudo -S apt install -y sn0int -y > /dev/null 2>&1
+				echo $key | sudo -S apt install -y sn0int -y &>/dev/null
 			fi
 			if [ ! -f /opt/PhoneInfoga/phoneinfoga ]; then
 				cd /opt
@@ -654,16 +654,16 @@ for option in "${powerup_options[@]}"; do
 			fi
 			if [ ! -f /opt/Storm-Breaker/install.sh ]; then
 				cd /opt
-				git clone https://github.com/ultrasecurity/Storm-Breaker.git > /dev/null 2>&1
+				git clone https://github.com/ultrasecurity/Storm-Breaker.git &>/dev/null
 				cd Storm-Breaker
-				pip install -r requirments.txt --quiet > /dev/null 2>&1
-				echo $key | sudo -S bash install.sh > /dev/null 2>&1
+				pip install -r requirments.txt --quiet &>/dev/null
+				echo $key | sudo -S bash install.sh &>/dev/null
 				echo $key | sudo -S apt install -y apache2 apache2-bin apache2-data apache2-utils libapache2-mod-php8.1 libapr1 libaprutil1 libaprutil1-dbd-sqlite3 libaprutil1-ldap php php-common php8.1 php8.1-cli php8.1-common php8.1-opcache php8.1-readline	
 			else
 				cd /opt/Storm-Breaker
-				git reset --hard HEAD; git pull > /dev/null 2>&1
-				pip install -r requirments.txt --quiet > /dev/null 2>&1
-				echo $key | sudo -S bash install.sh > /dev/null 2>&1
+				git reset --hard HEAD; git pull &>/dev/null
+				pip install -r requirments.txt --quiet &>/dev/null
+				echo $key | sudo -S bash install.sh &>/dev/null
 			fi
 
 			wget https://github.com/telegramdesktop/tdesktop/releases/download/v4.14.12/tsetup.4.14.12.tar.xz -O tsetup.tar.xz
@@ -681,7 +681,7 @@ for option in "${powerup_options[@]}"; do
 			for entry in "${repositories[@]}"; do
 				IFS="|" read -r repo_name repo_url <<< "$entry"
 				echo "# Checking $entry"
-				update_git_repository "$repo_name" "$repo_url"  > /dev/null 2>&1
+				update_git_repository "$repo_name" "$repo_url"  &>/dev/null
 			done			
 			if ! which onionshare > /dev/null; then
 				echo $key | sudo -S snap install onionshare
@@ -747,11 +747,11 @@ for option in "${powerup_options[@]}"; do
 				wget https://github.com/sleuthkit/sleuthkit/releases/download/sleuthkit-4.12.1/sleuthkit-java_4.12.1-1_amd64.deb -O sleuthkit-java.deb
 				echo $key | sudo -S apt install ./sleuthkit-java.deb -y
 				echo "$ Installing Autopsy prereqs..."
-				wget https://raw.githubusercontent.com/sleuthkit/autopsy/develop/linux_macos_install_scripts/install_prereqs_ubuntu.sh > /dev/null 2>&1
+				wget https://raw.githubusercontent.com/sleuthkit/autopsy/develop/linux_macos_install_scripts/install_prereqs_ubuntu.sh &>/dev/null
 				echo $key | sudo -S bash install_prereqs_ubuntu.sh
 				wget https://raw.githubusercontent.com/sleuthkit/autopsy/develop/linux_macos_install_scripts/install_application.sh
 				echo "# Installing Autopsy..."
-				bash install_application.sh -z ./autopsy.zip -i /tmp/ -j /usr/lib/jvm/java-1.17.0-openjdk-amd64 > /dev/null 2>&1
+				bash install_application.sh -z ./autopsy.zip -i /tmp/ -j /usr/lib/jvm/java-1.17.0-openjdk-amd64 &>/dev/null
 				csi_remove /opt/autopsyold
 				mv /opt/autopsy /opt/autopsyold
 				chown csi:csi /opt/autopsy
@@ -785,7 +785,7 @@ for option in "${powerup_options[@]}"; do
 			for entry in "${repositories[@]}"; do
 				IFS="|" read -r repo_name repo_url <<< "$entry"
 				echo "# Checking $entry"
-				update_git_repository "$repo_name" "$repo_url"  > /dev/null 2>&1
+				update_git_repository "$repo_name" "$repo_url"  &>/dev/null
 			done			
             ;;
         "media-forensics")
@@ -935,10 +935,10 @@ if [ -f /opt/Osintgram/main.py ]; then
 	cd /opt/Osintgram
 	rm -f .git/index
     git reset
-	git reset --hard HEAD; git pull  > /dev/null 2>&1
-	mv src/* .  > /dev/null 2>&1
-	find . -type f -exec sed -i 's/from\ src\ //g' {} + > /dev/null 2>&1
-	find . -type f -exec sed -i 's/src.Osintgram/Osintgram/g' {} + > /dev/null 2>&1
+	git reset --hard HEAD; git pull  &>/dev/null
+	mv src/* .  &>/dev/null
+	find . -type f -exec sed -i 's/from\ src\ //g' {} + &>/dev/null
+	find . -type f -exec sed -i 's/src.Osintgram/Osintgram/g' {} + &>/dev/null
 fi
 
 echo "# Configuring Background"
