@@ -16,33 +16,6 @@ echo lightdm hold | dpkg --set-selections &>/dev/null
 sudo apt-mark hold sleuthkit &>/dev/null
 echo sleuthkit hold | dpkg --set-selections &>/dev/null
 
-restore_backup_to_root() {
-    local backup_dir="/tmp/restore"  # Define the temporary extraction directory
-    local backup_file_name="csitools"
-    local archive_path="$backup_dir/$backup_file_name.7z"  # Specify the full path to the .7z archive
-
-    # Ensure the temporary extraction directory exists
-    sudo mkdir -p "$backup_dir"
-
-    # Step 1: Extract the .7z archive to the specified temporary directory
-    sudo 7z x -o "$backup_dir" "$archive_path"
-
-    # The .tar file should now be in the specified temporary directory
-    local tar_file="$backup_dir/$backup_file_name.tar"
-
-    # Check if the .tar file exists and extract it to the root directory
-    if [ -f "$tar_file" ]; then
-        # Step 2: Extract the .tar archive to the root directory, preserving symlinks
-        sudo tar -xpf "$tar_file" -C /
-        echo "Backup restored successfully."
-	read -p "CSI Tools Updates"
-        # Optionally, remove the .tar file after extraction
-        sudo rm "$tar_file"
-    else
-        echo "Backup .tar file not found. Please check the archive path and try again."
-    fi
-}
-
 
 # Function to remove specific files
 csi_remove() {
@@ -341,29 +314,62 @@ cis_lvl_1() {
     echo "Coming soon...."
 }
 
-
 install_csi_tools() {
+    local backup_dir="/tmp/restore"
+    local backup_file_name="csitools"
+    local archive_path="$backup_dir/$backup_file_name.7z"
+
     echo "Downloading CSI Tools"
-    cd /tmp
-    echo "$key" | sudo -S rm csi*.*
+    mkdir -p "$backup_dir"
+    cd "$backup_dir" || return
+    sudo rm -f csi*.*
     aria2c -x3 -k1M https://csilinux.com/downloads/csitools.7z
+
+    # Call restore_backup_to_root here
     echo "# Installing CSI Tools"
-    restore_backup_to_root
-    echo "$key" | sudo -S chown csi:csi -R /opt/csitools  &>/dev/null
-    echo "$key" | sudo -S chmod +x /opt/csitools/* -R &>/dev/null
-    echo "$key" | sudo -S chmod +x /opt/csitools/* &>/dev/null
-    echo "$key" | sudo -S chmod +x ~/Desktop/*.desktop &>/dev/null
-    echo "$key" | sudo -S chown csi:csi /usr/bin/bash-wrapper &>/dev/null
-    echo "$key" | sudo -S chown csi:csi /home/csi -R &>/dev/null
-    echo "$key" | sudo -S chmod +x /usr/bin/bash-wrapper  &>/dev/null
-    echo "$key" | sudo -S mkdir /iso &>/dev/null
-    echo "$key" | sudo -S chown csi:csi /iso -R &>/dev/null
-    tar -xf /opt/csitools/assets/Win11-blue.tar.xz --directory /home/csi/.icons/ &>/dev/null
-    echo "$key" | sudo -S /bin/sed -i 's/http\:\/\/in./http\:\/\//g' /etc/apt/sources.list &>/dev/null
-    echo "$key" | sudo bash -c 'echo "\$nrconf{\"restart\"} = \"a\";" > /etc/needrestart/conf.d/autorestart.conf' > /dev/null &>/dev/null
-    echo "$key" | sudo -S chmod +x /opt/csitools/powerup &>/dev/null
-    echo "$key" | sudo -S ln -sf /opt/csitools/powerup /usr/local/bin/powerup &>/dev/null
+    restore_backup_to_root "$backup_dir" "$backup_file_name"
+
+    # Assuming the CSI Tools are now restored to their appropriate location (/opt/csitools), set permissions
+    sudo chown csi:csi -R /opt/csitools
+    sudo chmod +x /opt/csitools/* -R
+    sudo chmod +x ~/Desktop/*.desktop
+    sudo chown csi:csi /usr/bin/bash-wrapper
+    sudo chown csi:csi /home/csi -R
+    sudo chmod +x /usr/bin/bash-wrapper
+    sudo mkdir -p /iso
+    sudo chown csi:csi /iso -R
+    sudo tar -xf /opt/csitools/assets/Win11-blue.tar.xz --directory /home/csi/.icons/
+    sudo sed -i 's/http\:\/\/in./http\:\/\//g' /etc/apt/sources.list
+    sudo bash -c 'echo "\$nrconf{\"restart\"} = \"a\";" > /etc/needrestart/conf.d/autorestart.conf'
+    sudo chmod +x /opt/csitools/powerup
+    sudo ln -sf /opt/csitools/powerup /usr/local/bin/powerup
 }
+
+restore_backup_to_root() {
+    local backup_dir=$1  # Use the first parameter as the backup directory
+    local backup_file_name=$2  # Use the second parameter as the backup file name
+    local archive_path="$backup_dir/$backup_file_name.7z"
+
+    # Ensure the temporary extraction directory exists
+    sudo mkdir -p "$backup_dir"
+
+    # Extract the .7z archive to the specified temporary directory
+    sudo 7z x -o"$backup_dir" "$archive_path"
+
+    # The .tar file should now be in the specified temporary directory
+    local tar_file="$backup_dir/$backup_file_name.tar"
+
+    # Check if the .tar file exists and extract it to the root directory
+    if [ -f "$tar_file" ]; then
+        sudo tar -xpf "$tar_file" -C /
+        echo "Backup restored successfully."
+        read -p "CSI Tools Updates"
+        sudo rm "$tar_file"
+    else
+        echo "Backup .tar file not found. Please check the archive path and try again."
+    fi
+}
+
 
 install_packages() {
     local -n packages=$1
@@ -409,7 +415,6 @@ install_packages() {
 
 echo "To remember the null output " &>/dev/null
 echo "# Setting up CSI Linux environment..."
-
 setup_new_csi_system
 sudo apt remove sleuthkit  &>/dev/null
 fix_broken
@@ -451,36 +456,6 @@ for program in "${programs[@]}"; do
         echo "$program is already installed." | tee -a "$output_file" &>/dev/null
     fi
 done
-
-current_kernel=$(uname -r)
-echo $key | sudo -S mainline --install-latest
-# Get the latest installed kernel version, ensuring consistent formatting with current_kernel
-latest_kernel=$(find /boot -name "vmlinuz-*" | sort -V | tail -n 1 | sed -r 's/.*vmlinuz-([^ ]+).*/\1/')
-
-# Echo kernel versions for debugging purposes
-echo "Currently running kernel: $current_kernel"
-echo "Latest installed kernel: $latest_kernel"
-
-# Compare the current running kernel with the latest installed kernel
-if [[ "$current_kernel" != "$latest_kernel" ]]; then
-    # A newer kernel is installed. Ask the user if they want to reboot.
-    zenity_response=$(zenity --question --title="Reboot Required" --text="A newer kernel is installed ($latest_kernel).\nDo you want to reboot into the new kernel now?" --width=300 --height=200; echo $?)
-
-    # Check the zenity response: 0 for yes, 1 for no
-    if [ "$zenity_response" -eq 0 ]; then
-        # User chose to reboot, warn them to run the powerup again after reboot
-        zenity --info --title="Run Powerup Again" --text="Remember to save your work before you hit OK and run the powerup script again after the system has rebooted." --width=300 --height=200
-        # User confirmed the information, now reboot
-        echo "Rebooting the system..."
-        echo $key | sudo -S reboot
-    else
-        # User chose not to reboot
-        echo "Continuing without rebooting."
-    fi
-else
-    echo "The running kernel is the latest installed version."
-fi
-
 
 install_csi_tools
 cis_lvl_1
@@ -536,31 +511,11 @@ apt_image=(
 )
 
 
-echo "# Installing System Utility Packages"
-install_packages apt_system
 
-echo "# Installing Bulk Packages from apps.txt"
-install_packages apt_bulk_packages
 
 install_from_requirements_url "https://csilinux.com/downloads/csitools-requirements.txt"
-
 dos2unix /opt/csitools/resetdns
-
 echo $key | sudo -S ln -s /usr/bin/python3 /usr/bin/python &>/dev/null
-
-
-echo "# Configuring Investigation Tools"
-
-
-if ! which calibre > /dev/null; then
-	echo "# Installing calibre"
-	echo $key | sudo -S -v && wget -nv -O- https://download.calibre-ebook.com/linux-installer.sh | echo $key | sudo -S sh /dev/stdin
-fi 
-
-
-
-
-
 
 
 echo $key | sudo -S timedatectl set-timezone UTC
@@ -584,22 +539,46 @@ for option in "${powerup_options[@]}"; do
     echo "Processing option: $option"
     case $option in
         "all")
-            for option in "${base_names[@]}"; do
-                if [[ $option != "all" ]]; then
-                    process_option "$option"
-                fi
-            done
-            ;;
+		for option in "${base_names[@]}"; do
+		if [[ $option != "all" ]]; then
+		    process_option "$option"
+		fi
+		done
+  		echo "# Installing Bulk Packages from apps.txt"
+		install_packages apt_bulk_packages
+		;;
         "os-update")
-            echo "Updating operating system..."
-            
-
-			# Identify the currently running kernel and the latest installed kernel
-			echo "Current and latest kernel versions (for informational purposes):"
-			current_kernel=$(uname -r)
-			latest_kernel=$(dpkg --list | grep linux-image | sort -V | tail -n 1 | awk '{print $2}' | sed 's/^linux-image-//')
-			echo "Current kernel: $current_kernel"
-			echo "Latest kernel: $latest_kernel"
+           	echo "Updating operating system..."
+		current_kernel=$(uname -r)
+		echo $key | sudo -S mainline --install-latest
+		# Get the latest installed kernel version, ensuring consistent formatting with current_kernel
+		latest_kernel=$(find /boot -name "vmlinuz-*" | sort -V | tail -n 1 | sed -r 's/.*vmlinuz-([^ ]+).*/\1/')
+		
+		# Echo kernel versions for debugging purposes
+		echo "Currently running kernel: $current_kernel"
+		echo "Latest installed kernel: $latest_kernel"
+		
+		# Compare the current running kernel with the latest installed kernel
+		if [[ "$current_kernel" != "$latest_kernel" ]]; then
+		    # A newer kernel is installed. Ask the user if they want to reboot.
+		    zenity_response=$(zenity --question --title="Reboot Required" --text="A newer kernel is installed ($latest_kernel).\nDo you want to reboot into the new kernel now?" --width=300 --height=200; echo $?)
+		
+		    # Check the zenity response: 0 for yes, 1 for no
+		    if [ "$zenity_response" -eq 0 ]; then
+		        # User chose to reboot, warn them to run the powerup again after reboot
+		        zenity --info --title="Run Powerup Again" --text="Remember to save your work before you hit OK and run the powerup script again after the system has rebooted." --width=300 --height=200
+		        # User confirmed the information, now reboot
+		        echo "Rebooting the system..."
+		        echo $key | sudo -S reboot
+		    else
+		        # User chose not to reboot
+		        echo "Continuing without rebooting."
+		    fi
+		else
+		    echo "The running kernel is the latest installed version."
+		fi
+  		
+     
             ;;
         "secure-comms")
             echo "Installing secure communication tools..."
@@ -938,10 +917,15 @@ for option in "${powerup_options[@]}"; do
             # Command to install threat intelligence tools
             ;;
         "system-tools")
-            echo "Installing additional system tools..."
-			cd /tmp
-            # Command to install system tools
-            ;;
+		echo "Installing additional system tools..."
+		cd /tmp
+		install_packages apt_system
+		echo "# Configuring Investigation Tools"
+		if ! which calibre > /dev/null; then
+			echo "# Installing calibre"
+			echo $key | sudo -S -v && wget -nv -O- https://download.calibre-ebook.com/linux-installer.sh | echo $key | sudo -S sh /dev/stdin
+		fi 
+		;;
         "media")
             echo "Setting up media tools..."
 			cd /tmp
