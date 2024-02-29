@@ -344,8 +344,8 @@ cis_lvl_1() {
 install_csi_tools() {
     echo "Downloading CSI Tools"
     cd /tmp
-    echo "$key" | sudo -S rm csi*.zip
-    aria2c -x3 -k1M https://csilinux.com/downloads/csitools.zip
+    echo "$key" | sudo -S rm csi*.*
+    aria2c -x3 -k1M https://csilinux.com/downloads/csitools.7z
     echo "# Installing CSI Tools"
     restore_backup_to_root
     echo "$key" | sudo -S chown csi:csi -R /opt/csitools  &>/dev/null
