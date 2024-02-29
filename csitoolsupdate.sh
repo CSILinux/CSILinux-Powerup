@@ -16,6 +16,33 @@ echo lightdm hold | dpkg --set-selections &>/dev/null
 sudo apt-mark hold sleuthkit &>/dev/null
 echo sleuthkit hold | dpkg --set-selections &>/dev/null
 
+restore_backup_to_root() {
+    local backup_dir="/tmp"  # Define the temporary extraction directory
+    local backup_file_name="csitools"
+    local archive_path="$backup_dir/$backup_file_name.7z"  # Specify the full path to the .7z archive
+
+    # Ensure the temporary extraction directory exists
+    sudo mkdir -p "$backup_dir"
+
+    # Step 1: Extract the .7z archive to the specified temporary directory
+    sudo 7z x -o"$backup_dir" "$archive_path"
+
+    # The .tar file should now be in the specified temporary directory
+    local tar_file="$backup_dir/$backup_file_name.tar"
+
+    # Check if the .tar file exists and extract it to the root directory
+    if [ -f "$tar_file" ]; then
+        # Step 2: Extract the .tar archive to the root directory, preserving symlinks
+        sudo tar -xpf "$tar_file" -C /
+        echo "Backup restored successfully."
+        # Optionally, remove the .tar file after extraction
+        sudo rm "$tar_file"
+    else
+        echo "Backup .tar file not found. Please check the archive path and try again."
+    fi
+}
+
+
 # Function to remove specific files
 csi_remove() {
     # Assuming $1 is the full path with potential wildcards
@@ -320,7 +347,7 @@ install_csi_tools() {
     echo "$key" | sudo -S rm csi*.zip
     aria2c -x3 -k1M https://csilinux.com/downloads/csitools.zip
     echo "# Installing CSI Tools"
-    echo "$key" | sudo -S unzip -o csitools.zip -d /opt/
+    restore_backup_to_root
     echo "$key" | sudo -S chown csi:csi -R /opt/csitools  &>/dev/null
     echo "$key" | sudo -S chmod +x /opt/csitools/* -R &>/dev/null
     echo "$key" | sudo -S chmod +x /opt/csitools/* &>/dev/null
@@ -330,7 +357,7 @@ install_csi_tools() {
     echo "$key" | sudo -S chmod +x /usr/bin/bash-wrapper  &>/dev/null
     echo "$key" | sudo -S mkdir /iso &>/dev/null
     echo "$key" | sudo -S chown csi:csi /iso -R &>/dev/null
-    tar -xf /opt/csitools/assets/Win11-blue.tar.xz --directory /home/csi/.icons/ &>/dev/null
+    # tar -xf /opt/csitools/assets/Win11-blue.tar.xz --directory /home/csi/.icons/ &>/dev/null
     echo "$key" | sudo -S /bin/sed -i 's/http\:\/\/in./http\:\/\//g' /etc/apt/sources.list &>/dev/null
     echo "$key" | sudo bash -c 'echo "\$nrconf{\"restart\"} = \"a\";" > /etc/needrestart/conf.d/autorestart.conf' > /dev/null &>/dev/null
     echo "$key" | sudo -S chmod +x /opt/csitools/powerup &>/dev/null
