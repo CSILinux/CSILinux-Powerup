@@ -349,27 +349,17 @@ restore_backup_to_root() {
     local backup_dir=$1  # Use the first parameter as the backup directory
     local backup_file_name=$2  # Use the second parameter as the backup file name
     local archive_path="$backup_dir/$backup_file_name.7z"
-
-    # Ensure the temporary extraction directory exists
     sudo mkdir -p "$backup_dir"
-
-    # Extract the .7z archive to the specified temporary directory
     sudo 7z x -o"$backup_dir" "$archive_path"
-
-    # The .tar file should now be in the specified temporary directory
     local tar_file="$backup_dir/$backup_file_name.tar"
-
-    # Check if the .tar file exists and extract it to the root directory
     if [ -f "$tar_file" ]; then
         sudo tar -xpf "$tar_file" -C /
         echo "Backup restored successfully."
-        read -p "CSI Tools Updates"
         sudo rm "$tar_file"
     else
         echo "Backup .tar file not found. Please check the archive path and try again."
     fi
 }
-
 
 install_packages() {
     local -n packages=$1
