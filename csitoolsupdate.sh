@@ -61,7 +61,7 @@ calculate_duration() {
 add_repository() {
     local repo_type="$1"
     local repo_url="$2"
-    local gpg_key_info="$3"  # Contains the keyserver and the keys to receive for 'key' type
+    local gpg_key_info="$3"  # Contains the keyserver and the keys to receiving for 'key' type
     local repo_name="$4"
 
     # First, check if the repository list file already exists
@@ -199,9 +199,9 @@ setup_new_csi_system() {
         if ! user_exists "$USERNAME"; then
             sudo useradd -m "$USERNAME" -G sudo -s /bin/bash || { echo -e "${USERNAME}\n${USERNAME}\n" | sudo passwd "$USERNAME"; }
         fi
-        add_user_to_group "$USERNAME" vboxsf
-        add_user_to_group "$USERNAME" libvirt
-        add_user_to_group "$USERNAME" kvm
+        add_user_to_group "$USERNAME" vboxsf &>/dev/null
+        add_user_to_group "$USERNAME" libvirt &>/dev/null
+        add_user_to_group "$USERNAME" kvm &>/dev/null
         
         if ! grep -q "^default_user\s*$USERNAME" /etc/slim.conf; then
             echo "Setting default_user to $USERNAME in SLiM configuration..."
@@ -221,11 +221,11 @@ setup_new_csi_system() {
     export apt_LISTCHANGES_FRONTEND=none
     export DISPLAY=:0.0
     export TERM=xterm
-    sudo apt-mark unhold lightdm
+    sudo apt-mark hold lightdm &>/dev/null
     echo 'Dpkg::Options {
         "--force-confdef";
         "--force-confold";
-    }' | sudo tee /etc/apt/apt.conf.d/99force-conf
+    }' | sudo tee /etc/apt/apt.conf.d/99force-conf &>/dev/null
 
     echo "# Architecture cleanup"
     if dpkg --print-foreign-architectures | grep -q 'i386'; then
@@ -233,20 +233,20 @@ setup_new_csi_system() {
         i386_packages=$(dpkg --get-selections | awk '/i386/{print $1}')
         if [ ! -z "$i386_packages" ]; then
             echo "Removing i386 packages..."
-	    sudo apt remove sleuthkit  &>/dev/null
-            echo $key | sudo -S apt remove --purge --allow-remove-essential -y $i386_packages &>/dev/null
+	    sudo apt remove sleuthkit &>/dev/null
+            echo $key | sudo -S apt remove --purge --allow-remove-essential -y $i386_packages
         fi
         echo "# Standardizing Arch"
         echo $key | sudo -S dpkg --remove-architecture i386
     fi
 
     sudo dpkg-reconfigure debconf --frontend=noninteractive
-    sudo DEBIAN_FRONTEND=noninteractive dpkg --configure -a
+    sudo DEBIAN_FRONTEND=noninteractive dpkg --configure -a  &>/dev/null
     sudo NEEDRESTART_MODE=a apt update --ignore-missing &>/dev/null
 
     echo "# Cleaning old tools"
-    csi_remove /var/lib/tor/hidden_service/
-    csi_remove /var/lib/tor/other_hidden_service/
+    csi_remove /var/lib/tor/hidden_service/ &>/dev/null
+    csi_remove /var/lib/tor/other_hidden_service/ &>/dev/null
 
     wget -O - https://raw.githubusercontent.com/CSILinux/CSILinux-Powerup/main/csi-linux-terminal.sh | bash &>/dev/null
     git config --global safe.directory '*'
@@ -424,11 +424,6 @@ for program in "${programs[@]}"; do
     fi
 done
 
-
-install_csi_tools
-cis_lvl_1
-
-
 current_kernel=$(uname -r)
 echo $key | sudo -S mainline --install-latest
 # Get the latest installed kernel version, ensuring consistent formatting with current_kernel
@@ -458,6 +453,9 @@ else
     echo "The running kernel is the latest installed version."
 fi
 
+
+install_csi_tools
+cis_lvl_1
 echo $key | sudo -S spt remove sleuthkit -y 
 cd /tmp
 rm apps.txt
