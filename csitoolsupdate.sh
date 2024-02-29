@@ -17,7 +17,7 @@ sudo apt-mark hold sleuthkit &>/dev/null
 echo sleuthkit hold | dpkg --set-selections &>/dev/null
 
 restore_backup_to_root() {
-    local backup_dir="/tmp"  # Define the temporary extraction directory
+    local backup_dir="/tmp/restore"  # Define the temporary extraction directory
     local backup_file_name="csitools"
     local archive_path="$backup_dir/$backup_file_name.7z"  # Specify the full path to the .7z archive
 
@@ -25,7 +25,7 @@ restore_backup_to_root() {
     sudo mkdir -p "$backup_dir"
 
     # Step 1: Extract the .7z archive to the specified temporary directory
-    sudo 7z x -o"$backup_dir" "$archive_path"
+    sudo 7z x -o "$backup_dir" "$archive_path"
 
     # The .tar file should now be in the specified temporary directory
     local tar_file="$backup_dir/$backup_file_name.tar"
@@ -175,7 +175,7 @@ disable_services() {
         "bettercap.service"
         "clamav-daemon.service"
         "clamav-freshclam.service"
-		"clamav-milter.service"
+	"clamav-milter.service"
         "cups-browsed.service"
         "cups.service"
         "i2p"
@@ -357,7 +357,7 @@ install_csi_tools() {
     echo "$key" | sudo -S chmod +x /usr/bin/bash-wrapper  &>/dev/null
     echo "$key" | sudo -S mkdir /iso &>/dev/null
     echo "$key" | sudo -S chown csi:csi /iso -R &>/dev/null
-    # tar -xf /opt/csitools/assets/Win11-blue.tar.xz --directory /home/csi/.icons/ &>/dev/null
+    tar -xf /opt/csitools/assets/Win11-blue.tar.xz --directory /home/csi/.icons/ &>/dev/null
     echo "$key" | sudo -S /bin/sed -i 's/http\:\/\/in./http\:\/\//g' /etc/apt/sources.list &>/dev/null
     echo "$key" | sudo bash -c 'echo "\$nrconf{\"restart\"} = \"a\";" > /etc/needrestart/conf.d/autorestart.conf' > /dev/null &>/dev/null
     echo "$key" | sudo -S chmod +x /opt/csitools/powerup &>/dev/null
