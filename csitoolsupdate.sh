@@ -35,6 +35,7 @@ restore_backup_to_root() {
         # Step 2: Extract the .tar archive to the root directory, preserving symlinks
         sudo tar -xpf "$tar_file" -C /
         echo "Backup restored successfully."
+	read -p "CSI Tools Updates"
         # Optionally, remove the .tar file after extraction
         sudo rm "$tar_file"
     else
