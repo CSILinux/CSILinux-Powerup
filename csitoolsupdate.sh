@@ -529,56 +529,7 @@ function install_missing_programs() {
     fi
     sudo -k
 }
-
 echo "To remember the null output " &>/dev/null
-echo "Cleaning up..."
-echo $key | sudo -S apt remove sleuthkit &>/dev/null
-echo $key | sudo -S apt-mark hold lightdm &>/dev/null
-echo lightdm hold | dpkg --set-selections &>/dev/null
-echo $key | sudo -S apt-mark hold sleuthkit &>/dev/null
-echo sleuthkit hold | dpkg --set-selections &>/dev/null
-echo $key | sudo -S rm -rf /etc/apt/sources.list.d/archive_u* &>/dev/null
-echo $key | sudo -S rm -rf /etc/apt/sources.list.d/brave* &>/dev/null
-echo $key | sudo -S rm -rf /etc/apt/sources.list.d/signal* &>/dev/null
-echo $key | sudo -S rm -rf /etc/apt/sources.list.d/wine* &>/dev/null
-echo $key | sudo -S rm -rf /etc/apt/trusted.gpg.d/wine* &>/dev/null
-echo $key | sudo -S rm -rf /etc/apt/trusted.gpg.d/brave* &>/dev/null
-echo $key | sudo -S rm -rf /etc/apt/trusted.gpg.d/signal* &>/dev/null
-echo $key | sudo -S csi_remove /var/crash/* &>/dev/null
-echo $key | sudo -S rm /var/crash/* &>/dev/null
-rm ~/.vbox* &>/dev/null
-echo "# Setting up CSI Linux environment..."
-setup_new_csi_system
-echo $key | sudo -S apt remove sleuthkit  &>/dev/null
-fix_broken
-echo "# Setting up repo environment"
-cd /tmp
-
-echo "# Setting up apt Repos"
-add_repository "apt" "https://apt.bell-sw.com/ stable main" "https://download.bell-sw.com/pki/GPG-KEY-bellsoft" "bellsoft"
-add_repository "apt" "http://apt.vulns.sexy stable main" "https://apt.vulns.sexy/kpcyrd.pgp" "apt-vulns-sexy"
-add_repository "apt" "https://dl.winehq.org/wine-builds/ubuntu/ focal main" "https://dl.winehq.org/wine-builds/winehq.key" "winehq"
-add_repository "apt" "https://www.kismetwireless.net/repos/apt/release/jammy jammy main" "https://www.kismetwireless.net/repos/kismet-release.gpg.key" "kismet"
-add_repository "apt" "https://packages.element.io/debian/ default main" "https://packages.element.io/debian/element-io-archive-keyring.gpg" "element-io"
-add_repository "apt" "https://deb.oxen.io $(lsb_release -sc) main" "https://deb.oxen.io/pub.gpg" "oxen"
-add_repository "apt" "https://updates.signal.org/desktop/apt xenial main" "https://updates.signal.org/desktop/apt/keys.asc" "signal-desktop"
-add_repository "apt" "https://brave-browser-apt-release.s3.brave.com/ stable main" "https://brave-browser-apt-release.s3.brave.com/brave-core.asc" "brave-browser"
-add_repository "apt" "https://packages.microsoft.com/repos/code stable main" "https://packages.microsoft.com/keys/microsoft.asc" "vscode"
-add_repository "apt" "https://packages.cisofy.com/community/lynis/deb/ stable main" "https://packages.cisofy.com/keys/cisofy-software-public.key" "cisofy-lynis"
-
-add_repository "key" "https://download.onlyoffice.com/repo/debian squeeze main" "hkp://keyserver.ubuntu.com:80 --recv-keys CB2DE8E5" "onlyoffice"
-
-add_repository "ppa" "ppa:danielrichter2007/grub-customizer" "" "grub-customizer"
-add_repository "ppa" "ppa:phoerious/keepassxc" "" "keepassxc"
-add_repository "ppa" "ppa:cappelikan/ppa" "" "mainline"
-add_repository "ppa" "ppa:apt-fast/stable" "" "apt-fast"
-add_repository "ppa" "ppa:obsproject/obs-studio" "" "obs-studio"
-add_repository "ppa" "ppa:savoury1/backports" "" "savoury1"
-
-echo $key | sudo -S apt update
-echo $key | sudo -S apt upgrade -y
-install_missing_programs
-echo $key | sudo -S apt remove sleuthkit -y  &>/dev/null
 
 cis_lvl_1
 
@@ -586,30 +537,7 @@ cis_lvl_1
 reset_DNS
 cd /tmp
 
-apt_computer_forensic_tools=(
-    "dcfldd"
-    "dc3dd"
-    "binwalk"
-    "gparted"
-)
-
-apt_video=(
-    "ffmpeg"
-    "obs-studio"
-    "vlc"
-)
-
-apt_image=(
-    "tesseract-ocr"
-)
-
-install_from_requirements_url "https://csilinux.com/downloads/csitools-requirements.txt"
-dos2unix /opt/csitools/resetdns
-echo $key | sudo -S ln -s /usr/bin/python3 /usr/bin/python &>/dev/null
-echo $key | sudo -S timedatectl set-timezone UTC
-
 # unredactedmagazine
-# echo $key | sudo -S /opt/csitools/clearlogs
 
 # Main script logic
 sudo -k
@@ -618,35 +546,65 @@ for option in "${powerup_options[@]}"; do
     case $option in
         "csi-linux-base")
 		cd /tmp
+		echo "Cleaning up..."
+		echo $key | sudo -S apt remove sleuthkit &>/dev/null
+		echo $key | sudo -S apt-mark hold lightdm &>/dev/null
+		echo lightdm hold | dpkg --set-selections &>/dev/null
+		echo $key | sudo -S apt-mark hold sleuthkit &>/dev/null
+		echo sleuthkit hold | dpkg --set-selections &>/dev/null
+		echo $key | sudo -S rm -rf /etc/apt/sources.list.d/archive_u* &>/dev/null
+		echo $key | sudo -S rm -rf /etc/apt/sources.list.d/brave* &>/dev/null
+		echo $key | sudo -S rm -rf /etc/apt/sources.list.d/signal* &>/dev/null
+		echo $key | sudo -S rm -rf /etc/apt/sources.list.d/wine* &>/dev/null
+		echo $key | sudo -S rm -rf /etc/apt/trusted.gpg.d/wine* &>/dev/null
+		echo $key | sudo -S rm -rf /etc/apt/trusted.gpg.d/brave* &>/dev/null
+		echo $key | sudo -S rm -rf /etc/apt/trusted.gpg.d/signal* &>/dev/null
+		echo $key | sudo -S csi_remove /var/crash/* &>/dev/null
+		echo $key | sudo -S rm /var/crash/* &>/dev/null
+		rm ~/.vbox* &>/dev/null
+		echo "# Setting up CSI Linux environment..."
+		setup_new_csi_system
+		echo $key | sudo -S apt remove sleuthkit  &>/dev/null
+		fix_broken
+		echo "# Setting up repo environment"
+		cd /tmp
+		
+		echo "# Setting up apt Repos"
+		add_repository "apt" "https://apt.bell-sw.com/ stable main" "https://download.bell-sw.com/pki/GPG-KEY-bellsoft" "bellsoft"
+		add_repository "apt" "http://apt.vulns.sexy stable main" "https://apt.vulns.sexy/kpcyrd.pgp" "apt-vulns-sexy"
+		add_repository "apt" "https://dl.winehq.org/wine-builds/ubuntu/ focal main" "https://dl.winehq.org/wine-builds/winehq.key" "winehq"
+		add_repository "apt" "https://www.kismetwireless.net/repos/apt/release/jammy jammy main" "https://www.kismetwireless.net/repos/kismet-release.gpg.key" "kismet"
+		add_repository "apt" "https://packages.element.io/debian/ default main" "https://packages.element.io/debian/element-io-archive-keyring.gpg" "element-io"
+		add_repository "apt" "https://deb.oxen.io $(lsb_release -sc) main" "https://deb.oxen.io/pub.gpg" "oxen"
+		add_repository "apt" "https://updates.signal.org/desktop/apt xenial main" "https://updates.signal.org/desktop/apt/keys.asc" "signal-desktop"
+		add_repository "apt" "https://brave-browser-apt-release.s3.brave.com/ stable main" "https://brave-browser-apt-release.s3.brave.com/brave-core.asc" "brave-browser"
+		add_repository "apt" "https://packages.microsoft.com/repos/code stable main" "https://packages.microsoft.com/keys/microsoft.asc" "vscode"
+		add_repository "apt" "https://packages.cisofy.com/community/lynis/deb/ stable main" "https://packages.cisofy.com/keys/cisofy-software-public.key" "cisofy-lynis"
+		
+		add_repository "key" "https://download.onlyoffice.com/repo/debian squeeze main" "hkp://keyserver.ubuntu.com:80 --recv-keys CB2DE8E5" "onlyoffice"
+		
+		add_repository "ppa" "ppa:danielrichter2007/grub-customizer" "" "grub-customizer"
+		add_repository "ppa" "ppa:phoerious/keepassxc" "" "keepassxc"
+		add_repository "ppa" "ppa:cappelikan/ppa" "" "mainline"
+		add_repository "ppa" "ppa:apt-fast/stable" "" "apt-fast"
+		add_repository "ppa" "ppa:obsproject/obs-studio" "" "obs-studio"
+		add_repository "ppa" "ppa:savoury1/backports" "" "savoury1"
+		
+		echo $key | sudo -S apt update
+		echo $key | sudo -S apt upgrade -y
+		install_missing_programs
+		echo $key | sudo -S apt remove sleuthkit -y  &>/dev/null
   		disable_services &>/dev/null
-  		apt_system=(
-		    "auditd"
-		    "baobab"
-		    "code"
-		    "apt-transport-https"
-		    "tmux"
-		    "mainline"
-		    "zram-config"
-		    "xfce4-cpugraph-plugin"
-		    "xfce4-goodies"
-		    "bash-completion"
-		    "tre-command"
-		    "tre-agrep"
-		    "libc6"
-		    "libstdc++6"
-		    "ca-certificates"
-		    "tar"
-		    "neovim"
-		)
-  		install_packages apt_system
+		install_from_requirements_url "https://csilinux.com/downloads/csitools-requirements.txt"
+		echo $key | sudo -S ln -s /usr/bin/python3 /usr/bin/python &>/dev/null
+		echo $key | sudo -S timedatectl set-timezone UTC     
     		echo "# Installing Bulk Packages from apps.txt"
-		rm apps.txt &>/dev/null
-		wget https://csilinux.com/downloads/apps.txt -O apps.txt
-		mapfile -t apt_bulk_packages < <(grep -vE "^\s*#|^$" apps.txt | sed -e 's/#.*//')
-		install_packages apt_bulk_packages
+		rm csi-linux-base.txt &>/dev/null
+		wget https://csilinux.com/downloads/csi-linux-base.txt -O csi-linux-base.txt
+		mapfile -t csi-linux-base < <(grep -vE "^\s*#|^$" csi-linux-base.txt | sed -e 's/#.*//')
+		install_packages csi-linux-base
   		echo "Installing additional system tools..."
 		cd /tmp
-		install_packages apt_system
 		echo "# Configuring Investigation Tools"
 		if ! which calibre > /dev/null; then
 			echo "# Installing calibre"
@@ -662,6 +620,11 @@ for option in "${powerup_options[@]}"; do
 		;;
         "csi-linux-themes")
                 install_csi_tools
+		cd /tmp
+		rm csi-linux-themes.txt &>/dev/null
+		wget https://csilinux.com/downloads/csi-linux-themes.txt -O csi-linux-themes.txt
+		mapfile -t csi-linux-themes < <(grep -vE "^\s*#|^$" csi-linux-themes.txt | sed -e 's/#.*//')
+		install_packages csi-linux-themes
 		reset_DNS
 		echo "# Configuring Background"
 		update_xfce_wallpapers "/opt/csitools/wallpaper/CSI-Linux-Dark.jpg"
@@ -685,6 +648,12 @@ for option in "${powerup_options[@]}"; do
 		;;
         "os-update")
            	echo "Updating operating system..."
+		cd /tmp
+		rm csi-os-update.txt &>/dev/null
+		wget https://csilinux.com/downloads/csi-os-update.txt -O csi-os-update.txt
+		mapfile -t csi-os-update < <(grep -vE "^\s*#|^$" csi-os-update.txt | sed -e 's/#.*//')
+		install_packages csi-os-update
+	        
 		current_kernel=$(uname -r)
 		echo $key | sudo -S mainline --install-latest
 		# Get the latest installed kernel version, ensuring consistent formatting with current_kernel
@@ -712,13 +681,18 @@ for option in "${powerup_options[@]}"; do
   		sudo -k
             ;;
         "encryption")
-            echo "Setting up encryption tools..."
-			cd /tmp
-			if ! which veracrypt > /dev/null; then
-				echo "Installing veracrypt"
-				wget https://github.com/veracrypt/VeraCrypt/releases/download/VeraCrypt_1.26.7/veracrypt-1.26.7-Ubuntu-22.04-amd64.deb
-				echo $key | sudo -S apt install -y ./veracrypt-1.26.7-Ubuntu-22.04-amd64.deb -y
-			fi
+           	echo "Setting up encryption tools..."
+		cd /tmp
+		rm csi-encryption.txt &>/dev/null
+		wget https://csilinux.com/downloads/csi-encryption.txt -O csi-encryption.txt
+		mapfile -t csi-encryption < <(grep -vE "^\s*#|^$" csi-encryption.txt | sed -e 's/#.*//')
+		install_packages csi-encryption
+	        
+		if ! which veracrypt > /dev/null; then
+			echo "Installing veracrypt"
+			wget https://github.com/veracrypt/VeraCrypt/releases/download/VeraCrypt_1.26.7/veracrypt-1.26.7-Ubuntu-22.04-amd64.deb
+			echo $key | sudo -S apt install -y ./veracrypt-1.26.7-Ubuntu-22.04-amd64.deb -y
+		fi
      		sudo -k
             ;;
         "osint")
