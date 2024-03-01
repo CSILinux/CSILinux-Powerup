@@ -19,6 +19,68 @@ prompt_for_sudo() {
     done
 }
 
+install_csi_tools() {
+    local backup_dir="/tmp/restore"
+    local backup_file_name="csitools"
+    local archive_path="$backup_dir/$backup_file_name.7z"
+
+    echo "Preparing for CSI Tools download..."
+    
+    # Ensuring /tmp and backup_dir are clean before downloading CSI Tools
+    echo "Cleaning up old CSI Tools files and directory..."
+    echo "$key" | sudo -S rm -rf "$backup_dir"  # Remove the entire backup_dir
+    
+    # Recreating the backup_dir with appropriate permissions
+    echo "$key" | sudo -S mkdir -p "$backup_dir"
+    echo "$key" | sudo -S chmod 777 "$backup_dir"  # Set full permissions temporarily for download
+
+    echo "Downloading CSI Tools"
+    # Using sudo with aria2c to ensure permissions aren't an issue
+    echo "$key" | sudo -S aria2c -x3 -k1M https://csilinux.com/downloads/csitools.7z -d "$backup_dir" -o "$backup_file_name.7z"
+
+    # Adjust permissions back after download, if necessary
+    echo "$key" | sudo -S chmod 755 "$backup_dir"
+
+    echo "# Installing CSI Tools"
+    restore_backup_to_root "$backup_dir" "$backup_file_name"
+
+    # Post-restoration operations such as setting permissions
+    echo "Setting permissions and configurations for CSI Tools..."
+    echo "$key" | sudo -S chown csi:csi -R /opt/csitools
+    echo "$key" | sudo -S chmod +x /opt/csitools/* -R
+    echo "$key" | sudo -S chmod +x ~/Desktop/*.desktop
+    # Ensure other necessary configurations or permissions adjustments here...
+}
+
+restore_backup_to_root() {
+    sudo -k
+    local backup_dir=$1
+    local backup_file_name=$2
+    local archive_path="$backup_dir/$backup_file_name.7z"
+
+    echo "Restoring CSI Tools backup..."
+    # Extract the .7z file safely
+    if ! echo "$key" | sudo -S 7z x -o"$backup_dir" "$archive_path"; then
+        echo "Failed to extract $archive_path. Please check the file and try again."
+        return 1  # Exit the function with an error status
+    fi
+
+    local tar_file="$backup_dir/$backup_file_name.tar"
+    if [ -f "$tar_file" ]; then
+        echo "Restoring backup from tar file..."
+        if ! echo "$key" | sudo -S tar -xpf "$tar_file" -C /; then
+            echo "Failed to restore from $tar_file. Please check the archive and try again."
+            return 1  # Exit the function with an error status
+        fi
+        echo "Backup restored successfully."
+        echo "$key" | sudo -S rm "$tar_file"
+    else
+        echo "Backup .tar file not found. Please check the archive path and try again."
+        return 1  # Exit the function with an error status
+    fi
+    return 0  # Successfully completed the function
+}
+
 # Attempt to verify the first argument as a sudo password
 key_attempt="$1"
 key=""  # Initialize key as an empty string for clarity
@@ -973,7 +1035,7 @@ for option in "${powerup_options[@]}"; do
     		sudo -k
 		;;
         *)
-		echo "Option $option not recognized."
+		install_csi_tools
 		;;
     esac
 done
