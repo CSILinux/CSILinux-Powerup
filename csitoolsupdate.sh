@@ -468,10 +468,10 @@ function install_missing_programs() {
 
 echo "To remember the null output " &>/dev/null
 echo "Cleaning up..."
-sudo apt remove sleuthkit &>/dev/null
-sudo apt-mark hold lightdm &>/dev/null
+echo $key | sudo -S apt remove sleuthkit &>/dev/null
+echo $key | sudo -S apt-mark hold lightdm &>/dev/null
 echo lightdm hold | dpkg --set-selections &>/dev/null
-sudo apt-mark hold sleuthkit &>/dev/null
+echo $key | sudo -S apt-mark hold sleuthkit &>/dev/null
 echo sleuthkit hold | dpkg --set-selections &>/dev/null
 csi_remove /etc/apt/sources.list.d/archive_u* &>/dev/null
 csi_remove /etc/apt/sources.list.d/brave* &>/dev/null
@@ -485,7 +485,7 @@ echo $key | sudo -S rm /var/crash/*
 rm ~/.vbox*
 echo "# Setting up CSI Linux environment..."
 setup_new_csi_system
-sudo apt remove sleuthkit  &>/dev/null
+echo $key | sudo -S apt remove sleuthkit  &>/dev/null
 fix_broken
 echo "# Setting up repo environment"
 cd /tmp
