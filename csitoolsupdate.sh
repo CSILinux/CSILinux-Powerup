@@ -447,7 +447,6 @@ for program in "${programs[@]}"; do
     fi
 done
 
-install_csi_tools
 cis_lvl_1
 echo $key | sudo -S spt remove sleuthkit -y 
 cd /tmp
@@ -528,14 +527,25 @@ fi
 for option in "${powerup_options[@]}"; do
     echo "Processing option: $option"
     case $option in
-        "all")
-		for option in "${base_names[@]}"; do
-		if [[ $option != "all" ]]; then
-		    process_option "$option"
-		fi
-		done
+        "csi-linux")
   		echo "# Installing Bulk Packages from apps.txt"
 		install_packages apt_bulk_packages
+  		echo "Installing additional system tools..."
+		cd /tmp
+		install_packages apt_system
+		echo "# Configuring Investigation Tools"
+		if ! which calibre > /dev/null; then
+			echo "# Installing calibre"
+			echo $key | sudo -S -v && wget -nv -O- https://download.calibre-ebook.com/linux-installer.sh | echo $key | sudo -S sh /dev/stdin
+		fi
+                echo "Setting up media tools..."
+		if ! which xnview > /dev/null; then
+			wget  wget https://download.xnview.com/XnViewMP-linux-x64.deb
+			echo $key | sudo -S apt install -y ./XnViewMP-linux-x64.deb
+		fi
+		;;
+          "csitools")
+                install_csi_tools
 		;;
         "os-update")
            	echo "Updating operating system..."
@@ -569,11 +579,6 @@ for option in "${powerup_options[@]}"; do
 		fi
   		
      
-            ;;
-        "secure-comms")
-            echo "Installing secure communication tools..."
-			cd /tmp
-            # Command to install secure communication tools
             ;;
         "encryption")
             echo "Setting up encryption tools..."
@@ -664,11 +669,7 @@ for option in "${powerup_options[@]}"; do
 			wget https://github.com/telegramdesktop/tdesktop/releases/download/v4.14.12/tsetup.4.14.12.tar.xz -O tsetup.tar.xz
 			tar -xf tsetup.tar.xz
 			echo $key | sudo -S cp Telegram/Telegram /usr/bin/telegram-desktop
-            ;;
-        "dark-web")
-            echo "Setting up dark web analysis tools..."
-			cd /tmp
-			repositories=(
+                        repositories=(
 				"OnionSearch|https://github.com/CSILinux/OnionSearch.git"
 				"i2pchat|https://github.com/vituperative/i2pchat.git"
 			)
@@ -711,15 +712,6 @@ for option in "${powerup_options[@]}"; do
 			fi
 			echo $key | sudo -S service tor stop
 			echo $key | sudo -S service tor start
-			# echo $key | sudo -S groupadd tor-auth
-			# echo $key | sudo -S usermod -a -G tor-auth debian-tor
-			# echo $key | sudo -S usermod -a -G tor-auth csi
-			# echo $key | sudo -S chmod 644 /run/tor/control.authcookie
-			# echo $key | sudo -S chown root:tor-auth /run/tor/control.authcookie
-			# echo $key | sudo -S chmod g+r /run/tor/control.authcookie
-			
-			# i2p
-			cd /tmp
 			wget https://csilinux.com/wp-content/uploads/2024/02/i2pupdate.zip
 			echo $key | sudo -S service i2p stop
 			echo $key | sudo -S service i2pd stop
@@ -782,26 +774,12 @@ for option in "${powerup_options[@]}"; do
 				echo "# Checking $entry"
 				update_git_repository "$repo_name" "$repo_url"  &>/dev/null
 			done			
-            ;;
-        "media-forensics")
-            echo "Installing media forensics tools..."
-			cd /tmp
 			echo "# Installing Video Packages"
 			install_packages apt_video
 			if ! which xnview > /dev/null; then
 				wget  wget https://download.xnview.com/XnViewMP-linux-x64.deb
 				echo $key | sudo -S apt install -y ./XnViewMP-linux-x64.deb
 			fi
-            ;;
-        "mobile-forensics")
-            echo "Installing mobile forensics tools..."
-			cd /tmp
-            # Command to install mobile forensics tools
-            ;;
-        "vehicle-forensics")
-            echo "Installing vehicle forensics tools..."
-			cd /tmp
-            # Command to install vehicle forensics tools
             ;;
         "malware-analysis")
             echo "Setting up malware analysis environment..."
@@ -905,24 +883,6 @@ for option in "${powerup_options[@]}"; do
             echo "Installing threat intelligence tools..."
 			cd /tmp
             # Command to install threat intelligence tools
-            ;;
-        "system-tools")
-		echo "Installing additional system tools..."
-		cd /tmp
-		install_packages apt_system
-		echo "# Configuring Investigation Tools"
-		if ! which calibre > /dev/null; then
-			echo "# Installing calibre"
-			echo $key | sudo -S -v && wget -nv -O- https://download.calibre-ebook.com/linux-installer.sh | echo $key | sudo -S sh /dev/stdin
-		fi 
-		;;
-        "media")
-            echo "Setting up media tools..."
-			cd /tmp
-			if ! which xnview > /dev/null; then
-				wget  wget https://download.xnview.com/XnViewMP-linux-x64.deb
-				echo $key | sudo -S apt install -y ./XnViewMP-linux-x64.deb
-			fi
             ;;
         *)
             echo "Option $option not recognized."
