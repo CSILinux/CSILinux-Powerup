@@ -599,10 +599,10 @@ for option in "${powerup_options[@]}"; do
 		echo $key | sudo -S ln -s /usr/bin/python3 /usr/bin/python &>/dev/null
 		echo $key | sudo -S timedatectl set-timezone UTC     
     		echo "# Installing Bulk Packages from apps.txt"
-		rm csi-linux-base.txt &>/dev/null
-		wget https://csilinux.com/downloads/csi-linux-base.txt -O csi-linux-base.txt
-		mapfile -t csi-linux-base < <(grep -vE "^\s*#|^$" csi-linux-base.txt | sed -e 's/#.*//')
-		install_packages csi-linux-base
+		rm csi_linux_base.txt &>/dev/null
+		wget https://csilinux.com/downloads/csi_linux_base.txt -O csi_linux_base.txt
+		mapfile -t csi_linux_base < <(grep -vE "^\s*#|^$" csi_linux_base.txt | sed -e 's/#.*//')
+		install_packages csi_linux_base
   		echo "Installing additional system tools..."
 		cd /tmp
 		echo "# Configuring Investigation Tools"
@@ -621,10 +621,10 @@ for option in "${powerup_options[@]}"; do
         "csi-linux-themes")
                 install_csi_tools
 		cd /tmp
-		rm csi-linux-themes.txt &>/dev/null
-		wget https://csilinux.com/downloads/csi-linux-themes.txt -O csi-linux-themes.txt
-		mapfile -t csi-linux-themes < <(grep -vE "^\s*#|^$" csi-linux-themes.txt | sed -e 's/#.*//')
-		install_packages csi-linux-themes
+		rm csi_linux_themes.txt &>/dev/null
+		wget https://csilinux.com/downloads/csi_linux_themes.txt -O csi_linux_themes.txt
+		mapfile -t csi_linux_themes < <(grep -vE "^\s*#|^$" csi_linux_themes.txt | sed -e 's/#.*//')
+		install_packages csi_linux_themes
 		reset_DNS
 		echo "# Configuring Background"
 		update_xfce_wallpapers "/opt/csitools/wallpaper/CSI-Linux-Dark.jpg"
@@ -649,10 +649,10 @@ for option in "${powerup_options[@]}"; do
         "os-update")
            	echo "Updating operating system..."
 		cd /tmp
-		rm csi-os-update.txt &>/dev/null
-		wget https://csilinux.com/downloads/csi-os-update.txt -O csi-os-update.txt
-		mapfile -t csi-os-update < <(grep -vE "^\s*#|^$" csi-os-update.txt | sed -e 's/#.*//')
-		install_packages csi-os-update
+		rm csi_os_update.txt &>/dev/null
+		wget https://csilinux.com/downloads/csi_os_update.txt -O csi_os_update.txt
+		mapfile -t csi_os_update < <(grep -vE "^\s*#|^$" csi_os_update.txt | sed -e 's/#.*//')
+		install_packages csi_os_update
 	        
 		current_kernel=$(uname -r)
 		echo $key | sudo -S mainline --install-latest
@@ -683,10 +683,10 @@ for option in "${powerup_options[@]}"; do
         "encryption")
            	echo "Setting up encryption tools..."
 		cd /tmp
-		rm csi-encryption.txt &>/dev/null
-		wget https://csilinux.com/downloads/csi-encryption.txt -O csi-encryption.txt
-		mapfile -t csi-encryption < <(grep -vE "^\s*#|^$" csi-encryption.txt | sed -e 's/#.*//')
-		install_packages csi-encryption
+		rm csi_encryption.txt &>/dev/null
+		wget https://csilinux.com/downloads/csi_encryption.txt -O csi_encryption.txt
+		mapfile -t csi_encryption < <(grep -vE "^\s*#|^$" csi_encryption.txt | sed -e 's/#.*//')
+		install_packages csi_encryption
 	        
 		if ! which veracrypt > /dev/null; then
 			echo "Installing veracrypt"
