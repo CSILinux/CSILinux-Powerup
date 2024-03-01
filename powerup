@@ -145,20 +145,22 @@ install_csi_tools
 
 #!/bin/bash
 
+#!/bin/bash
+
 declare -a base_names=(
-    "csi-linux-base"
-    "csi-linux-themes"
-    "os-update"
-    "encryption"
-    "osint"
-    "incident-response"
-    "computer-forensics"
-    "malware-analysis"
-    "sigint"
+    "csi-linux-base",
+    "csi-linux-themes",
+    "os-update",
+    "encryption",
+    "osint",
+    "incident-response",
+    "computer-forensics",
+    "malware-analysis",
+    "sigint",
     "virtualization"
 )
 
-# Prepare the list for YAD, add "all" option at the beginning
+# Prepare the list for YAD
 list_data="FALSE all "  # Add "all" option
 for name in "${base_names[@]}"; do
     list_data+="FALSE $name "  # Append each base name
@@ -173,7 +175,7 @@ curl -o "$logo_path" "$logo_url"
 
 # Execute YAD with the dynamically built list_data
 selected_options=$(yad --list --title='CSI Linux Powerup' --text="$welcome_msg" --window-icon="$logo_path" --width=400 --height=400 --checklist \
-      --column='Select':CHK --column='Name' $list_data --image="preferences-system" --button=gtk-ok:0 --button=gtk-close:1)
+      --column='Select':CHK --column='Name' $list_data --image="preferences-system" --button=gtk-ok:0 --button=gtk-close:1 --separator="|")
 
 # Check if YAD was cancelled or closed
 if [ $? -ne 0 ]; then
@@ -188,12 +190,16 @@ IFS='|' read -r -a selected_array <<< "$selected_options"
 arg_list=()
 
 # Check if "all" was selected
-if [[ " ${selected_array[*]} " =~ " all " ]]; then
+if printf '%s\n' "${selected_array[@]}" | grep -qx "all"; then
     # Add all base_names to arg_list
     arg_list=("${base_names[@]}")
 else
-    # Add only selected options to arg_list
-    arg_list=("${selected_array[@]}")
+    # Add only selected options to arg_list, skipping "TRUE"
+    for option in "${selected_array[@]}"; do
+        if [[ " ${base_names[*]} " =~ " ${option} " ]]; then
+            arg_list+=("$option")
+        fi
+    done
 fi
 
 # Processing selected options
