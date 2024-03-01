@@ -148,15 +148,15 @@ install_csi_tools
 #!/bin/bash
 
 declare -a base_names=(
-    "csi-linux-base",
-    "csi-linux-themes",
-    "os-update",
-    "encryption",
-    "osint",
-    "incident-response",
-    "computer-forensics",
-    "malware-analysis",
-    "sigint",
+    "csi-linux-base"
+    "csi-linux-themes"
+    "os-update"
+    "encryption"
+    "osint"
+    "incident-response"
+    "computer-forensics"
+    "malware-analysis"
+    "sigint"
     "virtualization"
 )
 
