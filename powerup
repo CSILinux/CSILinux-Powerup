@@ -14,29 +14,33 @@
 # CSI Linux, is strictly prohibited. This script is proprietary and confidential.
 # -----------------------------------------------------------------------------------
 
-# Script content starts here...
+#!/bin/bash
 
 clear
 timestamp=$(date +"%Y-%m-%d_%H-%M-%S")
 output_file="/tmp/powerup-$timestamp.txt"
 
-while true; do
-    key=$(zenity --password --title "Power up your system with an upgrade." --text "Enter your CSI password." --width=400)
-    if [ $? -ne 0 ]; then
-        zenity --info --text="Operation cancelled. Exiting script." --width=400
-        exit 1
-    fi
-    if echo "$key" | sudo -S -k -l &> /dev/null; then
-        break # Exit loop if the password is correct
-    else
-        zenity --error --title="Authentication Failure" --text="Incorrect password or lack of sudo privileges. Please try again." --width=400
-    fi
-done
+# Function to prompt for sudo password and verify
+prompt_for_sudo() {
+    while true; do
+        key=$(zenity --password --title "Power up your system with an upgrade." --text "Enter your CSI password." --width=400)
+        if [ $? -ne 0 ]; then
+            zenity --info --text="Operation cancelled. Exiting script." --width=400
+            exit 1
+        fi
+        if echo "$key" | sudo -S -v -k &> /dev/null; then
+            sudo -k # Reset the sudo timestamp after verification
+            break # Exit loop if the password is correct
+        else
+            zenity --error --title="Authentication Failure" --text="Incorrect password or lack of sudo privileges. Please try again." --width=400
+        fi
+    done
+}
 
-function install_missing_programs() {
+# Function to install missing programs
+install_missing_programs() {
     local programs=(curl bpytop xterm aria2 yad zenity)
     local missing_programs=()
-    local output_file="~/logfile.log" # Specify your output file path
 
     for program in "${programs[@]}"; do
         if ! dpkg -s "$program" &> /dev/null; then
@@ -64,12 +68,65 @@ function install_missing_programs() {
     fi
 }
 
+install_csi_tools() {
+    local backup_dir="/tmp/restore"
+    local backup_file_name="csitools"
+    local archive_path="$backup_dir/$backup_file_name.7z"
+
+    echo "Preparing for CSI Tools download..."
+    
+    # Removing the backup_dir entirely to ensure a clean state
+    echo "Cleaning up old CSI Tools files and directory..."
+    echo "$key" | sudo -S rm -rf $backup_dir  # Remove the entire backup_dir
+    
+    # Recreating the backup_dir
+    echo "$key" | sudo -S mkdir -p "$backup_dir"
+    
+    echo "Downloading CSI Tools"
+    # Ensure we are in the right directory
+    cd "$backup_dir" && aria2c -x3 -k1M https://csilinux.com/downloads/csitools.7z
+
+    echo "# Installing CSI Tools"
+    # Call the function to restore the backup, assuming it is defined elsewhere in your script
+    restore_backup_to_root "$backup_dir" "$backup_file_name"
+
+    # Post-restoration operations such as setting permissions
+    echo "Setting permissions and configurations for CSI Tools..."
+    echo "$key" | sudo -S chown csi:csi -R /opt/csitools
+    echo "$key" | sudo -S chmod +x /opt/csitools/* -R
+    echo "$key" | sudo -S chmod +x ~/Desktop/*.desktop
+    # Additional configuration commands as needed...
+}
+
+restore_backup_to_root() {
+    sudo -k
+    local backup_dir=$1
+    local backup_file_name=$2
+    local archive_path="$backup_dir/$backup_file_name.7z"
+
+    echo "Restoring CSI Tools backup..."
+    echo "$key" | sudo -S 7z x -o"$backup_dir" "$archive_path"
+
+    local tar_file="$backup_dir/$backup_file_name.tar"
+    if [ -f "$tar_file" ]; then
+        echo "Restoring backup from tar file..."
+        echo "$key" | sudo -S tar -xpf "$tar_file" -C /
+        echo "Backup restored successfully."
+        echo "$key" | sudo -S rm "$tar_file"
+    else
+        echo "Backup .tar file not found. Please check the archive path and try again."
+    fi
+}
+
+
+
+# Start of the main script
+prompt_for_sudo
 install_missing_programs
+install_csi_tools
 
 declare -a base_names=(
-    "all"
-    "csitools"
-    "csi-linux"
+    "csi-linux-base"
     "csi-linux-themes"
     "os-update"
     "encryption"
@@ -98,27 +155,31 @@ curl -o "$logo_path" "$logo_url"
 selected_options=$(yad --list --title='CSI Linux Powerup' --text="$welcome_msg" --window-icon="$logo_path" --width=400 --height=400 --checklist \
       --column='Select':CHK --column='Name' $list_data --image="preferences-system" --button=gtk-ok:0 --button=gtk-close:1)
 
-arg_list=()
-
-if [ $? -eq 0 ]; then
-    IFS='|' read -r -a options_array <<< "$selected_options"
-    if [[ " ${options_array[*]} " =~ " all " ]]; then
-        arg_list=("${base_names[@]:1}") # Skip the first element ("all")
-    else
-        arg_list=("${options_array[@]}")
-    fi
-    echo "You have selected the following options:"
-    for option in "${arg_list[@]}"; do
-        echo "- $option"
-    done
-
-    cd /tmp
-    SCRIPT_URL="https://raw.githubusercontent.com/CSILinux/CSILinux-Powerup/main/csitoolsupdate.sh"
-    rm -f ./csitoolsupdate.sh
-    curl -o csitoolsupdate.sh "$SCRIPT_URL" && chmod +x csitoolsupdate.sh
-    echo "Running update now..." | tee "$output_file"
-    ./csitoolsupdate.sh "${arg_list[@]}" | tee -a "$output_file"
-else
-    echo "No options were selected or dialog was closed."
+# Check if YAD was cancelled or closed
+if [ $? -ne 0 ]; then
+    echo "Dialog was cancelled or closed. Exiting script."
     exit 1
 fi
+
+# Parse selected options
+IFS='|' read -r -a arg_list <<< "$selected_options"
+
+# Check if no options were selected
+if [ ${#arg_list[@]} -eq 0 ]; then
+    echo "No options were selected. Exiting script."
+    exit 1
+fi
+
+# Processing selected options
+echo "You have selected the following options:"
+for option in "${arg_list[@]}"; do
+    echo "- $option"
+done
+
+# Assuming $key has been previously set and validated
+cd /tmp
+SCRIPT_URL="https://raw.githubusercontent.com/CSILinux/CSILinux-Powerup/main/csitoolsupdate.sh"
+rm -f ./csitoolsupdate.sh
+curl -o csitoolsupdate.sh "$SCRIPT_URL" && chmod +x csitoolsupdate.sh
+echo "Running update now..." | tee "$output_file"
+./csitoolsupdate.sh $key "${arg_list[@]}" | tee -a "$output_file"
