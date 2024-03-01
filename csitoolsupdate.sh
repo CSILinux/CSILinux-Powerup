@@ -2,7 +2,7 @@
 
 echo "Welcome to CSI Linux 2024. This will take a while, but the update has a LOT of content..."
 
-if [ -z "$1" ] || [ "$(id -u)" -ne 0 ]; then
+if [ -z "$1" ] || [ echo "$key" | sudo -S -v -k &> /dev/null ]; then
     # If $1 is not provided or the script is not run with sudo
     echo "Running the password prompt script..."
     while true; do
@@ -21,7 +21,6 @@ if [ -z "$1" ] || [ "$(id -u)" -ne 0 ]; then
     done
 else
     key=$1
-    powerup_options_string=$2
     # Verify sudo access with the provided key, assuming the script needs to continue running with sudo privileges
     if ! echo "$key" | sudo -S -v; then
         echo "Failed to verify sudo access with the provided key. Exiting."
@@ -30,9 +29,9 @@ else
     sudo -k # Reset the sudo timestamp after verification
 fi
 
-echo "Welcome to CSI Linux 2024. This will take a while, but the update has a LOT of content..."
-key=$1
+
 powerup_options_string=$2
+echo $powerup_options_string
 
 # Use sudo with the provided key
 echo $key | sudo -S sleep 1
