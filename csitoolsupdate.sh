@@ -2,10 +2,6 @@
 
 echo "Welcome to CSI Linux 2024. This will take a while, but the update has a LOT of content..."
 
-#!/bin/bash
-
-echo "Welcome to CSI Linux 2024. This will take a while, but the update has a LOT of content..."
-
 if [ -z "$1" ] || [ "$(id -u)" -ne 0 ]; then
     # If $1 is not provided or the script is not run with sudo
     echo "Running the password prompt script..."
