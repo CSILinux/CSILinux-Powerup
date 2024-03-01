@@ -474,16 +474,16 @@ echo $key | sudo -S apt-mark hold lightdm &>/dev/null
 echo lightdm hold | dpkg --set-selections &>/dev/null
 echo $key | sudo -S apt-mark hold sleuthkit &>/dev/null
 echo sleuthkit hold | dpkg --set-selections &>/dev/null
-csi_remove /etc/apt/sources.list.d/archive_u* &>/dev/null
-csi_remove /etc/apt/sources.list.d/brave* &>/dev/null
-csi_remove /etc/apt/sources.list.d/signal* &>/dev/null
-csi_remove /etc/apt/sources.list.d/wine* &>/dev/null
-csi_remove /etc/apt/trusted.gpg.d/wine* &>/dev/null
-csi_remove /etc/apt/trusted.gpg.d/brave* &>/dev/null
-csi_remove /etc/apt/trusted.gpg.d/signal* &>/dev/null
-echo $key | sudo -S csi_remove /var/crash/*
-echo $key | sudo -S rm /var/crash/*
-rm ~/.vbox*
+echo $key | sudo -S rm -rf /etc/apt/sources.list.d/archive_u* &>/dev/null
+echo $key | sudo -S rm -rf /etc/apt/sources.list.d/brave* &>/dev/null
+echo $key | sudo -S rm -rf /etc/apt/sources.list.d/signal* &>/dev/null
+echo $key | sudo -S rm -rf /etc/apt/sources.list.d/wine* &>/dev/null
+echo $key | sudo -S rm -rf /etc/apt/trusted.gpg.d/wine* &>/dev/null
+echo $key | sudo -S rm -rf /etc/apt/trusted.gpg.d/brave* &>/dev/null
+echo $key | sudo -S rm -rf /etc/apt/trusted.gpg.d/signal* &>/dev/null
+echo $key | sudo -S csi_remove /var/crash/* &>/dev/null
+echo $key | sudo -S rm /var/crash/* &>/dev/null
+rm ~/.vbox* &>/dev/null
 echo "# Setting up CSI Linux environment..."
 setup_new_csi_system
 echo $key | sudo -S apt remove sleuthkit  &>/dev/null
@@ -514,7 +514,7 @@ add_repository "ppa" "ppa:obsproject/obs-studio" "" "obs-studio"
 echo $key | sudo -S apt update
 echo $key | sudo -S apt upgrade -y
 install_missing_programs
-echo $key | sudo -S apt remove sleuthkit -y 
+echo $key | sudo -S apt remove sleuthkit -y  &>/dev/null
 
 cis_lvl_1
 
