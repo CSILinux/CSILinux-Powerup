@@ -264,6 +264,31 @@ setup_new_csi_system() {
     sudo systemctl enable fstrim.timer
 }
 
+update_xfce_wallpapers() {
+    local wallpaper_path="$1"  # Use the first argument as the wallpaper path
+    if [[ -z "$wallpaper_path" ]]; then
+        echo "Usage: update_xfce_wallpapers /path/to/your/wallpaper.jpg"
+        return 1  # Exit the function if no wallpaper path is provided
+    fi
+    if [ ! -f "$wallpaper_path" ]; then
+        echo "The specified wallpaper file does not exist: $wallpaper_path"
+        return 1  # Exit the function if the wallpaper file doesn't exist
+    fi
+    screens=$(xfconf-query -c xfce4-desktop -l | grep -Eo 'screen[^/]+' | uniq)
+    for screen in $screens; do
+        monitors=$(xfconf-query -c xfce4-desktop -l | grep "${screen}/" | grep -Eo 'monitor[^/]+' | uniq)
+        for monitor in $monitors; do
+            workspaces=$(xfconf-query -c xfce4-desktop -l | grep "${screen}/${monitor}/" | grep -Eo 'workspace[^/]+' | uniq)
+            for workspace in $workspaces; do
+                # Construct the property path
+                property_path="/backdrop/${screen}/${monitor}/${workspace}/last-image"
+                echo "Updating wallpaper for ${property_path} to ${wallpaper_path}"
+                xfconf-query -c xfce4-desktop -p "${property_path}" -n -t string -s "${wallpaper_path}"
+            done
+        done
+    done
+}
+
 install_from_requirements_url() {
     local requirements_url="$1"
     echo "Downloading requirements list"
@@ -585,31 +610,15 @@ for option in "${powerup_options[@]}"; do
                 install_csi_tools
 		reset_DNS
 		echo "# Configuring Background"
-		xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg
-		xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitorVirtual1/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg
-		xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitorVirtual-1/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg
-		xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitoreDP-1/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg
-		xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitorHDMI-A-0/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg
-		xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitorVirtual1/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg
-		xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitorVirtual-1/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg
-		xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitoreDP-2/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg
-		xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitorHDMI-A-1/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg
+		update_xfce_wallpapers "/opt/csitools/wallpaper/CSI-Linux-Dark.jpg"
+  		echo "Doing Grub stuff..."
 		if echo $key | sudo -S grep -q "GRUB_DISABLE_OS_PROBER=false" /etc/default/grub; then
 		    echo $key | sudo -S sed -i 's/#GRUB_DISABLE_OS_PROBER=false/GRUB_DISABLE_OS_PROBER=false/g' /etc/default/grub
 		    echo "Grub is already configured for os-probe"
 		fi
-		
-		# Modify GRUB's header to change a setting, ensuring the command only acts if the pattern exists
 		echo "$key" | sudo -S sed -i '/recordfail_broken=/{s/1/0/}' /etc/grub.d/00_header
-		
-		# Disable the mono-xsp4.service if not needed
 		echo "$key" | sudo -S systemctl disable mono-xsp4.service
-		
-		# Update GRUB to apply any changes made to its configuration files
 		echo "$key" | sudo -S update-grub
-		
-		# Install a new Plymouth theme and set it as the default
-		# Redirecting stdout and stderr to /dev/null to suppress command output for cleanliness
 		PLYMOUTH_THEME_PATH="/usr/share/plymouth/themes/vortex-ubuntu/vortex-ubuntu.plymouth"
 		if [ -f "$PLYMOUTH_THEME_PATH" ]; then
 		    echo "$key" | sudo -S update-alternatives --install /usr/share/plymouth/themes/default.plymouth default.plymouth "$PLYMOUTH_THEME_PATH" 100 &> /dev/null
@@ -617,8 +626,6 @@ for option in "${powerup_options[@]}"; do
 		else
 		    echo "Plymouth theme not found: $PLYMOUTH_THEME_PATH"
 		fi
-		
-		# Update initramfs to apply all changes, including Plymouth theme update
 		echo "$key" | sudo -S update-initramfs -u
 		;;
         "os-update")
