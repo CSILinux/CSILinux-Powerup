@@ -506,13 +506,10 @@ install_from_requirements_url "https://csilinux.com/downloads/csitools-requireme
 dos2unix /opt/csitools/resetdns
 echo $key | sudo -S ln -s /usr/bin/python3 /usr/bin/python &>/dev/null
 
-
 echo $key | sudo -S timedatectl set-timezone UTC
 
 # unredactedmagazine
 # echo $key | sudo -S /opt/csitools/clearlogs
-
-
 
 # Main script logic
 if [[ $powerup_options_string == "all" ]]; then
@@ -527,6 +524,9 @@ fi
 for option in "${powerup_options[@]}"; do
     echo "Processing option: $option"
     case $option in
+        "csitools")
+                install_csi_tools
+		;;
         "csi-linux")
   		echo "# Installing Bulk Packages from apps.txt"
 		install_packages apt_bulk_packages
@@ -544,7 +544,7 @@ for option in "${powerup_options[@]}"; do
 			echo $key | sudo -S apt install -y ./XnViewMP-linux-x64.deb
 		fi
 		;;
-          "csitools")
+        "csi-linux-themes")
                 install_csi_tools
 		;;
         "os-update")
@@ -577,8 +577,7 @@ for option in "${powerup_options[@]}"; do
 		else
 		    echo "The running kernel is the latest installed version."
 		fi
-  		
-     
+
             ;;
         "encryption")
             echo "Setting up encryption tools..."
