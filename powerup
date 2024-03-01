@@ -101,7 +101,7 @@ install_csi_tools() {
     
     # Convert all files in /opt/csitools/ and /opt/csitools/helpers from DOS to UNIX format
     echo "Converting DOS format to UNIX format in CSI Tools directories..."
-    find /opt/csitools /opt/csitools/helpers -type f -exec sudo dos2unix {} + 
+    find /opt/csitools /opt/csitools/helpers -type f -exec sudo dos2unix {} + &>/dev/null
 
     echo "CSI Tools installation and configuration completed successfully."
     
@@ -163,7 +163,7 @@ declare -a base_names=(
 # Prepare the list for YAD
 list_data="FALSE all "  # Add "all" option
 for name in "${base_names[@]}"; do
-    list_data+="FALSE $name "  # Append each base name
+    list_data+="FALSE $name "  # Append each base name, space-delimited
 done
 
 welcome_msg="Welcome to the CSI Linux Powerup tool. Choose what sections you either want to install or update below."
