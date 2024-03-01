@@ -108,7 +108,6 @@ install_csi_tools() {
     return 0  # Successfully completed the function
 }
 
-
 restore_backup_to_root() {
     sudo -k
     local backup_dir=$1
