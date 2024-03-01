@@ -518,7 +518,9 @@ install_missing_programs
 echo $key | sudo -S apt remove sleuthkit -y  &>/dev/null
 
 cis_lvl_1
-
+install_csi_tools
+# echo $key | sudo -S ln -s /opt/csitools/csi_app /usr/bin/csi_app &>/dev/null
+reset_DNS
 cd /tmp
 
 apt_computer_forensic_tools=(
@@ -561,9 +563,7 @@ for option in "${powerup_options[@]}"; do
     echo "Processing option: $option"
     case $option in
         "csitools")
-                install_csi_tools
-		# echo $key | sudo -S ln -s /opt/csitools/csi_app /usr/bin/csi_app &>/dev/null
-		reset_DNS
+		echo "CSI Tools"
 		;;
         "csi-linux")
 		cd /tmp
