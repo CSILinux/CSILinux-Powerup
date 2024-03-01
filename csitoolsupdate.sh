@@ -5,7 +5,7 @@ key=$1
 powerup_options_string=$2
 
 # Use sudo with the provided key
-echo $key | sudo -S date
+echo $key | sudo -S sleep 1
 echo $key | sudo -S df -h
 cd /tmp
 IFS=',' read -r -a powerup_options <<< "$powerup_options_string"
@@ -336,13 +336,13 @@ cis_lvl_1() {
     "
     # Print the security banner
     echo "$security_banner"
-    echo "$security_banner" | sudo tee /etc/issue.net /etc/issue /etc/motd > /dev/null
+    echo "$security_banner" | sudo tee /etc/issue.net /etc/issue /etc/motd &>/dev/null
 
     # Configure SSH to use the banner
-    sudo sed -i 's|#Banner none|Banner /etc/issue.net|' /etc/ssh/sshd_config
-    sudo sed -i 's/#PermitRootLogin yes/PermitRootLogin no/' /etc/ssh/sshd_config
-    sudo sed -i 's/#Port 22/Port 2222/' /etc/ssh/sshd_config
-    sudo systemctl restart sshd
+    sudo sed -i 's|#Banner none|Banner /etc/issue.net|' /etc/ssh/sshd_config &>/dev/null
+    sudo sed -i 's/#PermitRootLogin yes/PermitRootLogin no/' /etc/ssh/sshd_config &>/dev/null
+    sudo sed -i 's/#Port 22/Port 2222/' /etc/ssh/sshd_config &>/dev/null
+    sudo systemctl restart sshd &>/dev/null
 
     echo "Coming soon...."
 }
@@ -510,6 +510,7 @@ add_repository "ppa" "ppa:phoerious/keepassxc" "" "keepassxc"
 add_repository "ppa" "ppa:cappelikan/ppa" "" "mainline"
 add_repository "ppa" "ppa:apt-fast/stable" "" "apt-fast"
 add_repository "ppa" "ppa:obsproject/obs-studio" "" "obs-studio"
+add_repository "ppa" "ppa:savoury1/backports" "" "savoury1"
 
 echo $key | sudo -S apt update
 echo $key | sudo -S apt upgrade -y
@@ -566,7 +567,7 @@ for option in "${powerup_options[@]}"; do
 		;;
         "csi-linux")
 		cd /tmp
-  		disable_services
+  		disable_services &>/dev/null
   		apt_system=(
 		    "auditd"
 		    "baobab"
@@ -588,7 +589,7 @@ for option in "${powerup_options[@]}"; do
 		)
   		install_packages apt_system
     		echo "# Installing Bulk Packages from apps.txt"
-		rm apps.txt
+		rm apps.txt &>/dev/null
 		wget https://csilinux.com/downloads/apps.txt -O apps.txt
 		mapfile -t apt_bulk_packages < <(grep -vE "^\s*#|^$" apps.txt | sed -e 's/#.*//')
 		install_packages apt_bulk_packages
