@@ -316,15 +316,14 @@ cis_lvl_1() {
     |                                                                           |
     |         ** Unauthorized Access and Usage is Strictly Prohibited **        |
     |                                                                           |
-    |     This computer system is the property of [Company Name].               |
     | All activities on this system are subject to monitoring and recording for |
     | security purposes. Unauthorized access or usage will be investigated and  |
-    | may result in legal consequences.                                         |
+    |                    may result in legal consequences.                      |
     |                                                                           |
     |        If you are not an authorized user, disconnect immediately.         |
     |                                                                           |
     | By accessing this system, you consent to these terms and acknowledge the  |
-    | importance of computer security.                                          |
+    |                     importance of computer security.                      |
     |                                                                           |
     |            Report any suspicious activity to the IT department.           |
     |                                                                           |
