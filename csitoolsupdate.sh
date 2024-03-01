@@ -601,6 +601,7 @@ for option in "${powerup_options[@]}"; do
     		echo "# Installing Bulk Packages from apps.txt"
 		rm csi_linux_base.txt &>/dev/null
 		wget https://csilinux.com/downloads/csi_linux_base.txt -O csi_linux_base.txt
+  		dos2unix csi_linux_base.txt
 		mapfile -t csi_linux_base < <(grep -vE "^\s*#|^$" csi_linux_base.txt | sed -e 's/#.*//')
 		install_packages csi_linux_base
   		echo "Installing additional system tools..."
@@ -623,6 +624,7 @@ for option in "${powerup_options[@]}"; do
 		cd /tmp
 		rm csi_linux_themes.txt &>/dev/null
 		wget https://csilinux.com/downloads/csi_linux_themes.txt -O csi_linux_themes.txt
+  		dos2unix csi_linux_themes.txt
 		mapfile -t csi_linux_themes < <(grep -vE "^\s*#|^$" csi_linux_themes.txt | sed -e 's/#.*//')
 		install_packages csi_linux_themes
 		reset_DNS
@@ -651,6 +653,7 @@ for option in "${powerup_options[@]}"; do
 		cd /tmp
 		rm csi_os_update.txt &>/dev/null
 		wget https://csilinux.com/downloads/csi_os_update.txt -O csi_os_update.txt
+  		dos2unix csi_os_update.txt
 		mapfile -t csi_os_update < <(grep -vE "^\s*#|^$" csi_os_update.txt | sed -e 's/#.*//')
 		install_packages csi_os_update
 	        
@@ -685,6 +688,7 @@ for option in "${powerup_options[@]}"; do
 		cd /tmp
 		rm csi_encryption.txt &>/dev/null
 		wget https://csilinux.com/downloads/csi_encryption.txt -O csi_encryption.txt
+    		dos2unix csi_encryption.txt
 		mapfile -t csi_encryption < <(grep -vE "^\s*#|^$" csi_encryption.txt | sed -e 's/#.*//')
 		install_packages csi_encryption
 	        
@@ -696,13 +700,12 @@ for option in "${powerup_options[@]}"; do
      		sudo -k
             ;;
         "osint")
-		apt_online_forensic_tools=(
-		    "brave-browser"
-		    "tor"
-		    "wireshark"
-		    "lokinet"
-		)
-  		install_packages apt_online_forensic_tools
+		cd /tmp
+		rm csi_encryption.txt &>/dev/null
+		wget https://csilinux.com/downloads/csi_osint.txt -O csi_osint.txt
+    		dos2unix csi_osint.txt
+		mapfile -t csi_osint < <(grep -vE "^\s*#|^$" csi_osint.txt | sed -e 's/#.*//')
+		install_packages csi_osint
 		echo "# Configuring Online Forensic Tools"
 		cd /tmp
 		echo "# Installing Online Forensic Tools Packages"
@@ -843,6 +846,11 @@ for option in "${powerup_options[@]}"; do
         "incident-response")
 		echo "Installing incident response tools..."
 		cd /tmp
+		rm csi_ir.txt &>/dev/null
+		wget https://csilinux.com/downloads/csi_ir.txt -O csi_ir.txt
+    		dos2unix csi_ir.txt
+		mapfile -t csi_ir < <(grep -vE "^\s*#|^$" csi_ir.txt | sed -e 's/#.*//')
+		install_packages csi_ir
 		# Command to install incident response tools
 		reset_DNS
     		sudo -k
@@ -850,6 +858,11 @@ for option in "${powerup_options[@]}"; do
         "computer-forensics")
             	echo "Installing computer forensics tools..."
 		cd /tmp
+		rm csi_cf.txt &>/dev/null
+		wget https://csilinux.com/downloads/csi_cf.txt -O csi_cf.txt
+    		dos2unix csi_cf.txt
+		mapfile -t csi_cf < <(grep -vE "^\s*#|^$" csi_cf.txt | sed -e 's/#.*//')
+		install_packages csi_cf
 		echo "# Installing Computer Forensic Tools Packages"
 		install_packages apt_computer_forensic_tools
 		install_from_requirements_url "https://csilinux.com/downloads/csitools-disk-requirements.txt"
@@ -908,7 +921,12 @@ for option in "${powerup_options[@]}"; do
             	;;
         "malware-analysis")
             	echo "Setting up malware analysis environment..."
-	    	cd /tmp
+		cd /tmp
+		rm csi_ma.txt &>/dev/null
+		wget https://csilinux.com/downloads/csi_ma.txt -O csi_ma.txt
+    		dos2unix csi_ma.txt
+		mapfile -t csi_ma < <(grep -vE "^\s*#|^$" csi_ma.txt | sed -e 's/#.*//')
+		install_packages csi_ma
 		if [ ! -f /opt/ImHex/imhex.AppImage ]; then
 			cd /opt
 			mkdir ImHex
@@ -956,6 +974,11 @@ for option in "${powerup_options[@]}"; do
 	"sigint")
 		echo "Installing SIGINT tools..."
 		cd /tmp
+		rm csi_sigint.txt &>/dev/null
+		wget https://csilinux.com/downloads/csi_sigint.txt -O csi_sigint.txt
+    		dos2unix csi_sigint.txt
+		mapfile -t csi_sigint < <(grep -vE "^\s*#|^$" csi_sigint.txt | sed -e 's/#.*//')
+		install_packages csi_sigint
 		if ! which wifipumpkin3 > /dev/null; then
 			wget https://github.com/P0cL4bs/wifipumpkin3/releases/download/v1.1.4/wifipumpkin3_1.1.4_all.deb
 			echo $key | sudo -S apt install ./wifipumpkin3_1.1.4_all.deb -y
@@ -1004,7 +1027,12 @@ for option in "${powerup_options[@]}"; do
             	;;
         "virtualization")
 		echo "Setting up virtualization tools..."
-			cd /tmp
+		cd /tmp
+		rm csi_virt.txt &>/dev/null
+		wget https://csilinux.com/downloads/csi_virt.txt -O csi_virt.txt
+    		dos2unix csi_virt.txt
+		mapfile -t csi_virt < <(grep -vE "^\s*#|^$" csi_virt.txt | sed -e 's/#.*//')
+		install_packages csi_virt
 		# Command to install virtualization tools
     		sudo -k
 		;;
