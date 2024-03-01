@@ -1,0 +1,124 @@
+#!/bin/bash
+
+# -----------------------------------------------------------------------------------
+# Script Name: powerup
+# Description: CSI Linux powerup is the updater script within the CSI Linux Platform 
+#              to maintain updates for the OS, CSI Linux Tools, and Third Party Tools.
+# Author: Jeremy Martin
+# Website: https://csilinux.com
+# Copyright: (C) 2024 CSI Linux - csilinux.com
+# License: Closed Source
+# 
+# This script is part of CSI Linux (https://csilinux.com). Unauthorized copying, 
+# modification, distribution, or use of this script, without express approval from 
+# CSI Linux, is strictly prohibited. This script is proprietary and confidential.
+# -----------------------------------------------------------------------------------
+
+# Script content starts here...
+
+clear
+timestamp=$(date +"%Y-%m-%d_%H-%M-%S")
+output_file="/tmp/powerup-$timestamp.txt"
+
+while true; do
+    key=$(zenity --password --title "Power up your system with an upgrade." --text "Enter your CSI password." --width=400)
+    if [ $? -ne 0 ]; then
+        zenity --info --text="Operation cancelled. Exiting script." --width=400
+        exit 1
+    fi
+    if echo "$key" | sudo -S -k -l &> /dev/null; then
+        break # Exit loop if the password is correct
+    else
+        zenity --error --title="Authentication Failure" --text="Incorrect password or lack of sudo privileges. Please try again." --width=400
+    fi
+done
+
+function install_missing_programs() {
+    local programs=(curl bpytop xterm aria2 yad zenity)
+    local missing_programs=()
+    local output_file="~/logfile.log" # Specify your output file path
+
+    for program in "${programs[@]}"; do
+        if ! dpkg -s "$program" &> /dev/null; then
+            echo "$program is not installed. Will attempt to install." | tee -a "$output_file"
+            missing_programs+=("$program")
+        else
+            echo "$program is already installed." | tee -a "$output_file"
+        fi
+    done
+
+    if [ ${#missing_programs[@]} -ne 0 ]; then
+        echo "Updating package lists..." | tee -a "$output_file"
+        echo $key | sudo -S apt-get update | tee -a "$output_file"
+        
+        for program in "${missing_programs[@]}"; do
+            echo "Attempting to install $program..." | tee -a "$output_file"
+            if echo $key | sudo -S apt-get install -y "$program" 2>&1 | tee -a "$output_file"; then
+                echo "$program installed successfully." | tee -a "$output_file"
+            else
+                echo "Failed to install $program. It may not be available in the repository or another error occurred." | tee -a "$output_file"
+            fi
+        done
+    else
+        echo "All programs are already installed." | tee -a "$output_file"
+    fi
+}
+
+install_missing_programs
+
+declare -a base_names=(
+    "all"
+    "csitools"
+    "csi-linux"
+    "csi-linux-themes"
+    "os-update"
+    "encryption"
+    "osint"
+    "incident-response"
+    "computer-forensics"
+    "malware-analysis"
+    "sigint"
+    "virtualization"
+)
+
+# Prepare the list for YAD
+list_data=""
+for name in "${base_names[@]}"; do
+    list_data+="FALSE $name "  # Corrected
+done
+
+welcome_msg="Welcome to the CSI Linux Powerup tool. Choose what sections you either want to install or update below."
+logo_url="https://csilinux.com/wp-content/uploads/2023/08/CSILinux-Menu.png"
+logo_path="/tmp/CSILinux-Menu.png"
+
+# Download the logo image
+curl -o "$logo_path" "$logo_url"
+
+# Execute YAD with the dynamically built list_data
+selected_options=$(yad --list --title='CSI Linux Powerup' --text="$welcome_msg" --window-icon="$logo_path" --width=400 --height=400 --checklist \
+      --column='Select':CHK --column='Name' $list_data --image="preferences-system" --button=gtk-ok:0 --button=gtk-close:1)
+
+arg_list=()
+
+if [ $? -eq 0 ]; then
+    IFS='|' read -r -a options_array <<< "$selected_options"
+    if [[ " ${options_array[*]} " =~ " all " ]]; then
+        arg_list=("${base_names[@]:1}") # Skip the first element ("all")
+    else
+        arg_list=("${options_array[@]}")
+    fi
+    echo "You have selected the following options:"
+    for option in "${arg_list[@]}"; do
+        echo "- $option"
+    done
+
+    cd /tmp
+    SCRIPT_URL="https://raw.githubusercontent.com/CSILinux/CSILinux-Powerup/main/csitoolsupdate.sh"
+    rm -f ./csitoolsupdate.sh
+    curl -o csitoolsupdate.sh "$SCRIPT_URL" && chmod +x csitoolsupdate.sh
+    echo "Running update now..." | tee "$output_file"
+    ./csitoolsupdate.sh "${arg_list[@]}" | tee -a "$output_file"
+else
+    echo "No options were selected or dialog was closed."
+    exit 1
+fi
