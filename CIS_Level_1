@@ -1,0 +1,136 @@
+cis_lvl_1() {
+	echo "Configuring the platform for CIS Level 1 Benchmarks"
+ 	echo $key | sudo -S sleep 1
+	echo "Warning Banners - Configuring system banners..."
+	# Define the security banner
+	security_banner="
+	+---------------------------------------------------------------------------+
+	|                             SECURITY NOTICE                               |
+	|                                                                           |
+	|         ** Unauthorized Access and Usage is Strictly Prohibited **        |
+	|                                                                           |
+	| All activities on this system are subject to monitoring and recording for |
+	| security purposes. Unauthorized access or usage will be investigated and  |
+	|                    may result in legal consequences.                      |
+	|                                                                           |
+	|        If you are not an authorized user, disconnect immediately.         |
+	|                                                                           |
+	| By accessing this system, you consent to these terms and acknowledge the  |
+	|                     importance of computer security.                      |
+	|                                                                           |
+	|            Report any suspicious activity to the IT department.           |
+	|                                                                           |
+	|          Thank you for helping us maintain a secure environment.          |
+	|                                                                           |
+	|              ** Protecting Our Data, Protecting Our Future **             |
+	|                                                                           |
+	+---------------------------------------------------------------------------+
+	"
+	# Print the security banner
+	echo "$security_banner"
+	echo "$security_banner" | sudo tee /etc/issue.net /etc/issue /etc/motd &>/dev/null
+
+	# SSH configuration
+	echo "Configuring SSH..."
+	echo $key | sudo -S sed -i 's|#Banner none|Banner /etc/issue.net|' /etc/ssh/sshd_config
+	echo $key | sudo -S sed -i 's/#PermitRootLogin yes/PermitRootLogin no/' /etc/ssh/sshd_config
+	echo $key | sudo -S sed -i 's/#Port 22/Port 2222/' /etc/ssh/sshd_config
+	echo $key | sudo -S sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
+	echo $key | sudo -S systemctl restart sshd
+	
+	# Non-login system accounts
+	echo "Configuring system accounts to be non-login..."
+	echo $key | sudo -S awk -F: '($3 < 1000) {print $1 " " $6}' /etc/passwd | while read -r user dir; do
+	if [ ! -z "$dir" ]; then
+	    sudo usermod -s /usr/sbin/nologin "$user"
+	fi
+	done
+	
+	# Password policies
+	echo "Configuring password creation requirements..."
+	echo $key | sudo -S apt-get install -y libpam-cracklib libpam-pwquality
+ 	echo "password requisite pam_pwquality.so retry=3 minlen=12" | sudo tee -a /etc/pam.d/common-password > /dev/null
+	echo "auth required pam_tally2.so onerr=fail audit silent deny=5 unlock_time=900" | sudo tee -a /etc/pam.d/common-auth
+	
+	# Group wheel for su command
+	echo "Configuring group wheel for su command..."
+	echo "auth required pam_wheel.so use_uid" | sudo tee -a /etc/pam.d/su
+	echo "auth required pam_wheel.so group=wheel" | sudo tee -a /etc/pam.d/su
+
+	# Adds an emergencyuser
+ 	echo $key | sudo -S useradd -m emergencyuser -G sudo,wheel -s /bin/bash || { echo "emergencyuser:${key}" | sudo chpasswd; }
+ 
+	echo "Configuring firewall..."
+	echo $key | sudo -S ufw enable
+	sudo ufw default deny incoming
+	sudo ufw default allow outgoing
+	
+	echo "Installing and enabling audit system..."
+	sudo systemctl enable auditd
+	
+	echo "Configuring time synchronization..."
+	sudo systemctl enable ntp
+	
+	echo "Disabling IP forwarding and redirects..."
+	echo $key | sudo -S sysctl -w net.ipv4.ip_forward=0
+	sudo sysctl -w net.ipv4.conf.all.send_redirects=0
+	sudo sysctl -w net.ipv4.conf.default.send_redirects=0
+	echo "net.ipv4.ip_forward = 0" | sudo tee -a /etc/sysctl.conf
+	echo "net.ipv4.conf.all.send_redirects = 0" | sudo tee -a /etc/sysctl.conf
+	echo "net.ipv4.conf.default.send_redirects = 0" | sudo tee -a /etc/sysctl.conf
+	
+	# Access control for cron and at
+	echo "Configuring access control for cron and at..."
+	echo "root" | sudo tee /etc/cron.allow
+	echo "root" | sudo tee /etc/at.allow
+	sudo chmod og-rwx /etc/cron.allow /etc/at.allow
+	sudo rm -f /etc/cron.deny /etc/at.deny
+	
+	# Logging with rsyslog
+	echo "Installing and enabling rsyslog..."
+	echo $key | sudo -S systemctl enable rsyslog
+	
+	echo "Installing and initializing AIDE..."
+	echo $key | sudo -S aideinit
+	
+	# Secure compilers and other measures
+	echo $key | sudo -S chmod og-rwx /usr/bin/gcc /usr/bin/g++
+	echo "Acquire::gpgv::Options::=--ignore-time-conflict;" | sudo tee -a /etc/apt/apt.conf.d/99verify-signatures
+	echo "* hard core 0" | sudo tee -a /etc/security/limits.conf
+	echo "fs.suid_dumpable = 0" | sudo tee -a /etc/sysctl.conf
+	echo $key | sudo -S sysctl -w fs.suid_dumpable=0
+
+	# GRUB password setup using $key variable
+	echo "Setting GRUB password using the provided key..."
+	GRUB_PASSWORD_HASH=$(echo -e "${key}\n${key}" | grub-mkpasswd-pbkdf2 | awk '/PBKDF2/ {print $NF}')
+	echo "set superusers=\"csi\"" | sudo tee /etc/grub.d/40_custom > /dev/null
+	echo "password_pbkdf2 csi ${GRUB_PASSWORD_HASH}" | sudo tee -a /etc/grub.d/40_custom > /dev/null
+	echo $key | sudo -S update-grub
+	echo "GRUB password has been set as $key."
+
+	# Other system services and permissions
+	echo $key | sudo -S systemctl mask systemd-udevd.service
+	echo $key | sudo -S chmod 600 /etc/shadow /etc/gshadow
+	echo $key | sudo -S -k
+	echo "Coming soon...."
+}
+
+prompt_for_sudo() {
+    while true; do
+        key=$(zenity --password --title "Power up your system with an upgrade." --text "Enter your CSI password." --width=400)
+        if [ $? -ne 0 ]; then
+            zenity --info --text="Operation cancelled. Exiting script." --width=400
+            exit 1
+        fi
+        if echo $key | sudo -S -v -k &> /dev/null; then
+            sudo -k # Reset the sudo timestamp after verification
+            echo "sudo access verified."
+            break # Exit loop if the password is correct
+        else
+            zenity --error --title="Authentication Failure" --text="Incorrect password or lack of sudo privileges. Please try again." --width=400
+        fi
+    done
+}
+
+prompt_for_sudo
+cis_lvl_1()
