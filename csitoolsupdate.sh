@@ -9,7 +9,7 @@ prompt_for_sudo() {
             zenity --info --text="Operation cancelled. Exiting script." --width=400
             exit 1
         fi
-        if echo "$key" | sudo -S -v -k &> /dev/null; then
+        if echo $key | sudo -S -v -k &> /dev/null; then
             sudo -k # Reset the sudo timestamp after verification
             echo "Sudo access verified."
             break # Exit loop if the password is correct
@@ -28,31 +28,32 @@ install_csi_tools() {
     
     # Ensuring /tmp and backup_dir are clean before downloading CSI Tools
     echo "Cleaning up old CSI Tools files and directory..."
-    echo "$key" | sudo -S rm -rf "$backup_dir"  # Remove the entire backup_dir
+    echo $key | sudo -S rm -rf "$backup_dir"  # Remove the entire backup_dir
     
     # Recreating the backup_dir with appropriate permissions
-    echo "$key" | sudo -S mkdir -p "$backup_dir"
-    echo "$key" | sudo -S chmod 777 "$backup_dir"  # Set full permissions temporarily for download
+    echo $key | sudo -S mkdir -p "$backup_dir"
+    echo $key | sudo -S chmod 777 "$backup_dir"  # Set full permissions temporarily for download
 
     echo "Downloading CSI Tools"
     # Using sudo with aria2c to ensure permissions aren't an issue
-    echo "$key" | sudo -S aria2c -x3 -k1M https://csilinux.com/downloads/csitools.7z -d "$backup_dir" -o "$backup_file_name.7z"
+    echo $key | sudo -S aria2c -x3 -k1M https://csilinux.com/downloads/csitools.7z -d "$backup_dir" -o "$backup_file_name.7z"
 
     # Adjust permissions back after download, if necessary
-    echo "$key" | sudo -S chmod 755 "$backup_dir"
+    echo $key | sudo -S chmod 755 "$backup_dir"
 
     echo "# Installing CSI Tools"
     restore_backup_to_root "$backup_dir" "$backup_file_name"
 
     # Post-restoration operations such as setting permissions
     echo "Setting permissions and configurations for CSI Tools..."
-    echo "$key" | sudo -S chown csi:csi -R /opt/csitools
-    echo "$key" | sudo -S chmod +x /opt/csitools/* -R
-    echo "$key" | sudo -S chmod +x ~/Desktop/*.desktop
+    echo $key | sudo -S chown csi:csi -R /opt/csitools
+    echo $key | sudo -S chmod +x /opt/csitools/* -R
+    echo $key | sudo -S chmod +x ~/Desktop/*.desktop
     # Ensure other necessary configurations or permissions adjustments here...
 }
 
 restore_backup_to_root() {
+    echo $key | sudo -S sleep 1
     sudo -k
     local backup_dir=$1
     local backup_file_name=$2
@@ -60,7 +61,7 @@ restore_backup_to_root() {
 
     echo "Restoring CSI Tools backup..."
     # Extract the .7z file safely
-    if ! echo "$key" | sudo -S 7z x -o"$backup_dir" "$archive_path"; then
+    if ! echo $key | sudo -S 7z x -o"$backup_dir" "$archive_path"; then
         echo "Failed to extract $archive_path. Please check the file and try again."
         return 1  # Exit the function with an error status
     fi
@@ -68,12 +69,12 @@ restore_backup_to_root() {
     local tar_file="$backup_dir/$backup_file_name.tar"
     if [ -f "$tar_file" ]; then
         echo "Restoring backup from tar file..."
-        if ! echo "$key" | sudo -S tar -xpf "$tar_file" -C /; then
+        if ! echo $key | sudo -S tar -xpf "$tar_file" -C /; then
             echo "Failed to restore from $tar_file. Please check the archive and try again."
             return 1  # Exit the function with an error status
         fi
         echo "Backup restored successfully."
-        echo "$key" | sudo -S rm "$tar_file"
+        echo $key | sudo -S rm "$tar_file"
     else
         echo "Backup .tar file not found. Please check the archive path and try again."
         return 1  # Exit the function with an error status
@@ -118,6 +119,7 @@ cd /tmp
 
 # Function to remove specific files
 csi_remove() {
+    echo $key | sudo -S sleep 1
     # Assuming $1 is the full path with potential wildcards
     local path="$1"
     if [[ "$path" == *\** ]]; then
@@ -147,6 +149,7 @@ calculate_duration() {
 }
 
 add_repository() {
+    echo $key | sudo -S sleep 1
     local repo_type="$1"
     local repo_url="$2"
     local gpg_key_info="$3"  # Contains the keyserver and the keys to receiving for 'key' type
@@ -194,6 +197,7 @@ add_repository() {
 
 fix_broken() {
     echo "# Fixing and configuring broken apt installs..."
+    echo $key | sudo -S sleep 1
     sudo apt update
     sudo apt remove sleuthkit  &>/dev/null
     sudo apt install --fix-broken -y
@@ -208,13 +212,13 @@ update_git_repository() {
     local repo_dir="/opt/$repo_name"
     if [ ! -d "$repo_dir" ]; then
         # Clone the Git repository with sudo
-        echo "$key" | sudo -S git clone "$repo_url" "$repo_dir"
-        echo "$key" | sudo -S chown csi:csi "$repo_dir"
+        echo $key | sudo -S git clone "$repo_url" "$repo_dir"
+        echo $key | sudo -S chown csi:csi "$repo_dir"
     fi
     if [ -d "$repo_dir/.git" ]; then
         cd "$repo_dir" || return
-        echo "$key" | sudo -S git reset --hard HEAD
-        echo "$key" | sudo -S git pull
+        echo $key | sudo -S git reset --hard HEAD
+        echo $key | sudo -S git pull
         if [ -f "$repo_dir/requirements.txt" ]; then
             python3 -m venv "${repo_dir}/${repo_name}-venv"
             source "${repo_dir}/${repo_name}-venv/bin/activate"
@@ -294,6 +298,7 @@ reset_DNS() {
 }
 
 setup_new_csi_system() {
+    echo $key | sudo -S sleep 1
     sudo -k
     # Sub-function to check if a user exists
     user_exists() {
@@ -350,16 +355,16 @@ setup_new_csi_system() {
         i386_packages=$(dpkg --get-selections | awk '/i386/{print $1}')
         if [ ! -z "$i386_packages" ]; then
             echo "Removing i386 packages..."
-	    sudo apt remove sleuthkit &>/dev/null
+	    echo $key | sudo -S apt remove sleuthkit &>/dev/null
             echo $key | sudo -S apt remove --purge --allow-remove-essential -y $i386_packages
         fi
         echo "# Standardizing Arch"
         echo $key | sudo -S dpkg --remove-architecture i386
     fi
 
-    sudo dpkg-reconfigure debconf --frontend=noninteractive
-    sudo DEBIAN_FRONTEND=noninteractive dpkg --configure -a  &>/dev/null
-    sudo NEEDRESTART_MODE=a apt update --ignore-missing &>/dev/null
+    echo $key | sudo -S dpkg-reconfigure debconf --frontend=noninteractive
+    echo $key | sudo -S DEBIAN_FRONTEND=noninteractive dpkg --configure -a  &>/dev/null
+    echo $key | sudo -S NEEDRESTART_MODE=a apt update --ignore-missing &>/dev/null
 
     echo "# Cleaning old tools"
     csi_remove /var/lib/tor/hidden_service/ &>/dev/null
@@ -368,9 +373,9 @@ setup_new_csi_system() {
     wget -O - https://raw.githubusercontent.com/CSILinux/CSILinux-Powerup/main/csi-linux-terminal.sh | bash &>/dev/null
     git config --global safe.directory '*'
 
-    sudo sysctl vm.swappiness=10
+    echo $key | sudo -S sysctl vm.swappiness=10
     echo "vm.swappiness=10" | sudo tee /etc/sysctl.d/99-sysctl.conf
-    sudo systemctl enable fstrim.timer
+    echo $key | sudo -S systemctl enable fstrim.timer
     sudo -k
 }
 
@@ -447,10 +452,10 @@ cis_lvl_1() {
     echo "$security_banner" | sudo tee /etc/issue.net /etc/issue /etc/motd &>/dev/null
 
     # Configure SSH to use the banner
-    sudo sed -i 's|#Banner none|Banner /etc/issue.net|' /etc/ssh/sshd_config &>/dev/null
-    sudo sed -i 's/#PermitRootLogin yes/PermitRootLogin no/' /etc/ssh/sshd_config &>/dev/null
-    sudo sed -i 's/#Port 22/Port 2222/' /etc/ssh/sshd_config &>/dev/null
-    sudo systemctl restart sshd &>/dev/null
+    echo $key | sudo -S sed -i 's|#Banner none|Banner /etc/issue.net|' /etc/ssh/sshd_config &>/dev/null
+    echo $key | sudo -S sed -i 's/#PermitRootLogin yes/PermitRootLogin no/' /etc/ssh/sshd_config &>/dev/null
+    echo $key | sudo -S sed -i 's/#Port 22/Port 2222/' /etc/ssh/sshd_config &>/dev/null
+    echo $key | sudo -S systemctl restart sshd &>/dev/null
     sudo -k
     echo "Coming soon...."
 }
@@ -463,11 +468,11 @@ install_packages() {
 
     # Ensure the directory exists
     echo $key | sudo -S mkdir -p /opt/csitools
-    sudo apt remove sleuthkit  &>/dev/null
+    echo $key | sudo -S apt remove sleuthkit  &>/dev/null
     # Attempt to fix any broken dependencies before starting installations
  
     for package in "${packages[@]}"; do
-        sudo apt remove sleuthkit  &>/dev/null
+        echo $key | sudo -S apt remove sleuthkit  &>/dev/null
         let current_package++
         # Ignore empty values
         if [[ -n $package ]]; then
@@ -475,13 +480,13 @@ install_packages() {
             if ! dpkg -l | grep -qw "$package"; then
                 printf "Installing package %s (%d of %d)...\n" "$package" "$current_package" "$total_packages"
                 # Attempt to install the package
-                if sudo apt-get install -y --assume-yes "$package"; then
+                if echo $key | sudo -S apt-get install -y --assume-yes "$package"; then
                     printf "."
                     ((installed++))
                 else
-		    sudo apt remove sleuthkit  &>/dev/null
+		    echo $key | sudo -S apt remove sleuthkit  &>/dev/null
                     # If installation failed, try to fix broken dependencies and try again
-                    if sudo apt-get install -y --assume-yes "$package"; then
+                    if echo $key | sudo -S apt-get install -y --assume-yes "$package"; then
                         printf "."
                         ((installed++))
                     else
@@ -499,6 +504,7 @@ install_packages() {
 }
 
 function install_missing_programs() {
+    echo $key | sudo -S sleep 1
     local programs=(curl bpytop xterm aria2 yad zenity)
     local missing_programs=()
     local output_file="~/logfile.log" # Specify your output file path
@@ -635,17 +641,17 @@ for option in "${powerup_options[@]}"; do
 		    echo $key | sudo -S sed -i 's/#GRUB_DISABLE_OS_PROBER=false/GRUB_DISABLE_OS_PROBER=false/g' /etc/default/grub
 		    echo "Grub is already configured for os-probe"
 		fi
-		echo "$key" | sudo -S sed -i '/recordfail_broken=/{s/1/0/}' /etc/grub.d/00_header
-		echo "$key" | sudo -S systemctl disable mono-xsp4.service
-		echo "$key" | sudo -S update-grub
+		echo $key | sudo -S sed -i '/recordfail_broken=/{s/1/0/}' /etc/grub.d/00_header
+		echo $key | sudo -S systemctl disable mono-xsp4.service
+		echo $key | sudo -S update-grub
 		PLYMOUTH_THEME_PATH="/usr/share/plymouth/themes/vortex-ubuntu/vortex-ubuntu.plymouth"
 		if [ -f "$PLYMOUTH_THEME_PATH" ]; then
-		    echo "$key" | sudo -S update-alternatives --install /usr/share/plymouth/themes/default.plymouth default.plymouth "$PLYMOUTH_THEME_PATH" 100 &> /dev/null
-		    echo "$key" | sudo -S update-alternatives --set default.plymouth "$PLYMOUTH_THEME_PATH"
+		    echo $key | sudo -S update-alternatives --install /usr/share/plymouth/themes/default.plymouth default.plymouth "$PLYMOUTH_THEME_PATH" 100 &> /dev/null
+		    echo $key | sudo -S update-alternatives --set default.plymouth "$PLYMOUTH_THEME_PATH"
 		else
 		    echo "Plymouth theme not found: $PLYMOUTH_THEME_PATH"
 		fi
-		echo "$key" | sudo -S update-initramfs -u
+		echo $key | sudo -S update-initramfs -u
     		sudo -k
 		;;
         "os-update")
@@ -1046,15 +1052,15 @@ cd /tmp
 sudo -k
 fix_broken
 echo "# Upgrading all packages including third-party tools..."
-echo "$key" | sudo -S apt full-upgrade -y --fix-missing
+echo $key | sudo -S apt full-upgrade -y --fix-missing
 echo "# Removing unused packages and kernels..."
-echo "$key" | sudo -S apt autoremove --purge -y
+echo $key | sudo -S apt autoremove --purge -y
 echo "# Cleaning apt cache..."
-echo "$key" | sudo -S apt autoclean -y
+echo $key | sudo -S apt autoclean -y
 echo "# Adjusting ownership of /opt directory..."
-echo "$key" | sudo -S chown csi:csi /opt
+echo $key | sudo -S chown csi:csi /opt
 echo "# Updating the mlocate database..."
-echo "$key" | sudo -S updatedb
+echo $key | sudo -S updatedb
 echo "System maintenance and cleanup completed successfully."
 
 update_current_time
@@ -1069,7 +1075,7 @@ if zenity --question --title="Reboot Confirmation" --text="Do you want to reboot
     if zenity --question --title="Save Your Work" --text="Please make sure to save all your work before rebooting. Continue with reboot?" --width=300; then
         # Final confirmation before reboot
         echo "Rebooting now..."
-        echo "$key" | sudo -S reboot
+        echo $key | sudo -S reboot
     else
         echo "Reboot canceled. Please save your work."
     fi
