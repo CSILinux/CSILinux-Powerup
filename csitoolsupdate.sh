@@ -1,6 +1,40 @@
 #!/bin/bash
 
 echo "Welcome to CSI Linux 2024. This will take a while, but the update has a LOT of content..."
+
+#!/bin/bash
+
+echo "Welcome to CSI Linux 2024. This will take a while, but the update has a LOT of content..."
+
+if [ -z "$1" ] || [ "$(id -u)" -ne 0 ]; then
+    # If $1 is not provided or the script is not run with sudo
+    echo "Running the password prompt script..."
+    while true; do
+        key=$(zenity --password --title "Power up your system with an upgrade." --text "Enter your CSI password." --width=400)
+        if [ $? -ne 0 ]; then
+            zenity --info --text="Operation cancelled. Exiting script." --width=400
+            exit 1
+        fi
+        # Verify if the entered password is correct
+        if echo "$key" | sudo -S -v -k &> /dev/null; then
+            sudo -k # Reset the sudo timestamp after verification
+            break # Exit loop if the password is correct
+        else
+            zenity --error --title="Authentication Failure" --text="Incorrect password or lack of sudo privileges. Please try again." --width=400
+        fi
+    done
+else
+    key=$1
+    powerup_options_string=$2
+    # Verify sudo access with the provided key, assuming the script needs to continue running with sudo privileges
+    if ! echo "$key" | sudo -S -v; then
+        echo "Failed to verify sudo access with the provided key. Exiting."
+        exit 1
+    fi
+    sudo -k # Reset the sudo timestamp after verification
+fi
+
+echo "Welcome to CSI Linux 2024. This will take a while, but the update has a LOT of content..."
 key=$1
 powerup_options_string=$2
 
@@ -184,9 +218,11 @@ reset_DNS() {
     else
         echo "Internet connection is not working. Please check your network."
     fi
+    sudo -k
 }
 
 setup_new_csi_system() {
+    sudo -k
     # Sub-function to check if a user exists
     user_exists() {
         if id "$1" &>/dev/null; then
@@ -263,6 +299,7 @@ setup_new_csi_system() {
     sudo sysctl vm.swappiness=10
     echo "vm.swappiness=10" | sudo tee /etc/sysctl.d/99-sysctl.conf
     sudo systemctl enable fstrim.timer
+    sudo -k
 }
 
 update_xfce_wallpapers() {
@@ -342,7 +379,7 @@ cis_lvl_1() {
     sudo sed -i 's/#PermitRootLogin yes/PermitRootLogin no/' /etc/ssh/sshd_config &>/dev/null
     sudo sed -i 's/#Port 22/Port 2222/' /etc/ssh/sshd_config &>/dev/null
     sudo systemctl restart sshd &>/dev/null
-
+    sudo -k
     echo "Coming soon...."
 }
 
@@ -378,6 +415,7 @@ install_csi_tools() {
 }
 
 restore_backup_to_root() {
+    sudo -k
     local backup_dir=$1  # Use the first parameter as the backup directory
     local backup_file_name=$2  # Use the second parameter as the backup file name
     local archive_path="$backup_dir/$backup_file_name.7z"
@@ -433,6 +471,7 @@ install_packages() {
         fi
     done
     echo "Installation complete. $installed out of $total_packages packages installed."
+    sudo -k
 }
 
 function install_missing_programs() {
@@ -464,6 +503,7 @@ function install_missing_programs() {
     else
         echo "All programs are already installed." | tee -a "$output_file"
     fi
+    sudo -k
 }
 
 echo "To remember the null output " &>/dev/null
@@ -518,6 +558,7 @@ echo $key | sudo -S apt remove sleuthkit -y  &>/dev/null
 
 cis_lvl_1
 install_csi_tools
+
 # echo $key | sudo -S ln -s /opt/csitools/csi_app /usr/bin/csi_app &>/dev/null
 reset_DNS
 cd /tmp
@@ -557,7 +598,7 @@ else
         process_option "$option"  # Make sure to define process_option to handle individual options
     done
 fi
-
+sudo -k
 for option in "${powerup_options[@]}"; do
     echo "Processing option: $option"
     case $option in
@@ -606,6 +647,7 @@ for option in "${powerup_options[@]}"; do
 			echo $key | sudo -S apt install -y ./XnViewMP-linux-x64.deb
 		fi
 		reset_DNS
+  		sudo -k
 		;;
         "csi-linux-themes")
                 install_csi_tools
@@ -628,6 +670,7 @@ for option in "${powerup_options[@]}"; do
 		    echo "Plymouth theme not found: $PLYMOUTH_THEME_PATH"
 		fi
 		echo "$key" | sudo -S update-initramfs -u
+    		sudo -k
 		;;
         "os-update")
            	echo "Updating operating system..."
@@ -655,7 +698,7 @@ for option in "${powerup_options[@]}"; do
 		    echo "The running kernel is the latest installed version."
 		fi
 		reset_DNS
-
+  		sudo -k
             ;;
         "encryption")
             echo "Setting up encryption tools..."
@@ -665,6 +708,7 @@ for option in "${powerup_options[@]}"; do
 				wget https://github.com/veracrypt/VeraCrypt/releases/download/VeraCrypt_1.26.7/veracrypt-1.26.7-Ubuntu-22.04-amd64.deb
 				echo $key | sudo -S apt install -y ./veracrypt-1.26.7-Ubuntu-22.04-amd64.deb -y
 			fi
+     		sudo -k
             ;;
         "osint")
 		apt_online_forensic_tools=(
@@ -809,12 +853,14 @@ for option in "${powerup_options[@]}"; do
 		echo $key | sudo -S service i2pd stop
 		echo $key | sudo -S unzip -o i2pupdate.zip -d /usr/share/i2p
 		reset_DNS
+    		sudo -k
            	;;
         "incident-response")
 		echo "Installing incident response tools..."
 		cd /tmp
 		# Command to install incident response tools
 		reset_DNS
+    		sudo -k
 		;;
         "computer-forensics")
             	echo "Installing computer forensics tools..."
@@ -920,6 +966,7 @@ for option in "${powerup_options[@]}"; do
 			wget https://github.com/java-decompiler/jd-gui/releases/download/v1.6.6/jd-gui-1.6.6.deb
 			echo $key | sudo -S apt install -y ./jd-gui-1.6.6.deb
 		fi
+    		sudo -k
 		;;
 	"sigint")
 		echo "Installing SIGINT tools..."
@@ -968,11 +1015,13 @@ for option in "${powerup_options[@]}"; do
 			echo $key | sudo -S snap connect chirp-snap:raw-usb
 		fi
 		reset_DNS
+    		sudo -k
             	;;
         "virtualization")
 		echo "Setting up virtualization tools..."
 			cd /tmp
 		# Command to install virtualization tools
+    		sudo -k
 		;;
         *)
 		echo "Option $option not recognized."
@@ -981,6 +1030,7 @@ for option in "${powerup_options[@]}"; do
 done
 
 cd /tmp
+sudo -k
 fix_broken
 echo "# Upgrading all packages including third-party tools..."
 echo "$key" | sudo -S apt full-upgrade -y --fix-missing
@@ -1006,7 +1056,7 @@ if zenity --question --title="Reboot Confirmation" --text="Do you want to reboot
     if zenity --question --title="Save Your Work" --text="Please make sure to save all your work before rebooting. Continue with reboot?" --width=300; then
         # Final confirmation before reboot
         echo "Rebooting now..."
-        sudo reboot
+        echo "$key" | sudo -S reboot
     else
         echo "Reboot canceled. Please save your work."
     fi
