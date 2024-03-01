@@ -541,7 +541,6 @@ apt_image=(
     "tesseract-ocr"
 )
 
-
 install_from_requirements_url "https://csilinux.com/downloads/csitools-requirements.txt"
 dos2unix /opt/csitools/resetdns
 echo $key | sudo -S ln -s /usr/bin/python3 /usr/bin/python &>/dev/null
@@ -551,14 +550,6 @@ echo $key | sudo -S timedatectl set-timezone UTC
 # echo $key | sudo -S /opt/csitools/clearlogs
 
 # Main script logic
-if [[ $powerup_options_string == "all" ]]; then
-    update_all_options
-else
-    IFS=',' read -r -a powerup_options <<< "$powerup_options_string"
-    for option in "${powerup_options[@]}"; do
-        process_option "$option"  # Make sure to define process_option to handle individual options
-    done
-fi
 sudo -k
 for option in "${powerup_options[@]}"; do
     echo "Processing option: $option"
