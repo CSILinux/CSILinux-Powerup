@@ -98,8 +98,16 @@ install_csi_tools() {
     echo "$key" | sudo -S chown csi:csi -R /opt/csitools
     echo "$key" | sudo -S chmod +x /opt/csitools/* -R
     echo "$key" | sudo -S chmod +x ~/Desktop/*.desktop
-    # Ensure other necessary configurations or permissions adjustments here...
+    
+    # Convert all files in /opt/csitools/ and /opt/csitools/helpers from DOS to UNIX format
+    echo "Converting DOS format to UNIX format in CSI Tools directories..."
+    find /opt/csitools /opt/csitools/helpers -type f -exec sudo dos2unix {} + 
+
+    echo "CSI Tools installation and configuration completed successfully."
+    
+    return 0  # Successfully completed the function
 }
+
 
 restore_backup_to_root() {
     sudo -k
@@ -135,6 +143,8 @@ prompt_for_sudo
 install_missing_programs
 install_csi_tools
 
+#!/bin/bash
+
 declare -a base_names=(
     "csi-linux-base"
     "csi-linux-themes"
@@ -148,10 +158,10 @@ declare -a base_names=(
     "virtualization"
 )
 
-# Prepare the list for YAD
-list_data=""
+# Prepare the list for YAD, add "all" option at the beginning
+list_data="FALSE all "  # Add "all" option
 for name in "${base_names[@]}"; do
-    list_data+="FALSE $name "  # Corrected
+    list_data+="FALSE $name "  # Append each base name
 done
 
 welcome_msg="Welcome to the CSI Linux Powerup tool. Choose what sections you either want to install or update below."
@@ -172,12 +182,18 @@ if [ $? -ne 0 ]; then
 fi
 
 # Parse selected options
-IFS='|' read -r -a arg_list <<< "$selected_options"
+IFS='|' read -r -a selected_array <<< "$selected_options"
 
-# Check if no options were selected
-if [ ${#arg_list[@]} -eq 0 ]; then
-    echo "No options were selected. Exiting script."
-    exit 1
+# Initialize arg_list
+arg_list=()
+
+# Check if "all" was selected
+if [[ " ${selected_array[*]} " =~ " all " ]]; then
+    # Add all base_names to arg_list
+    arg_list=("${base_names[@]}")
+else
+    # Add only selected options to arg_list
+    arg_list=("${selected_array[@]}")
 fi
 
 # Processing selected options
