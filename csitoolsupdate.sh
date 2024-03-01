@@ -8,21 +8,27 @@ powerup_options_string=$2
 echo $key | sudo -S date
 cd /tmp
 IFS=',' read -r -a powerup_options <<< "$powerup_options_string"
-
-
+echo "Cleaning up..."
 sudo apt remove sleuthkit &>/dev/null
 sudo apt-mark hold lightdm &>/dev/null
 echo lightdm hold | dpkg --set-selections &>/dev/null
 sudo apt-mark hold sleuthkit &>/dev/null
 echo sleuthkit hold | dpkg --set-selections &>/dev/null
-
+csi_remove /etc/apt/sources.list.d/archive_u* &>/dev/null
+csi_remove /etc/apt/sources.list.d/brave* &>/dev/null
+csi_remove /etc/apt/sources.list.d/signal* &>/dev/null
+csi_remove /etc/apt/sources.list.d/wine* &>/dev/null
+csi_remove /etc/apt/trusted.gpg.d/wine* &>/dev/null
+csi_remove /etc/apt/trusted.gpg.d/brave* &>/dev/null
+csi_remove /etc/apt/trusted.gpg.d/signal* &>/dev/null
+echo $key | sudo -S csi_remove /var/crash/*
+echo $key | sudo -S rm /var/crash/*
+rm ~/.vbox*
 
 # Function to remove specific files
 csi_remove() {
     # Assuming $1 is the full path with potential wildcards
     local path="$1"
-
-    # Check if the argument includes a wildcard
     if [[ "$path" == *\** ]]; then
         # If there's a wildcard, use find to safely handle file names and check existence
         local files=$(find $(dirname "$path") -name "$(basename "$path")" 2> /dev/null)
@@ -38,16 +44,6 @@ csi_remove() {
         fi
     fi
 }
-
-
-# Cleaning up configurations and unnecessary files
-csi_remove /etc/apt/sources.list.d/archive_u* &>/dev/null
-csi_remove /etc/apt/sources.list.d/brave* &>/dev/null
-csi_remove /etc/apt/sources.list.d/signal* &>/dev/null
-csi_remove /etc/apt/sources.list.d/wine* &>/dev/null
-csi_remove /etc/apt/trusted.gpg.d/wine* &>/dev/null
-csi_remove /etc/apt/trusted.gpg.d/brave* &>/dev/null
-csi_remove /etc/apt/trusted.gpg.d/signal* &>/dev/null
 
 update_current_time() {
   current_time=$(date +"%Y-%m-%d %H:%M:%S")
@@ -115,7 +111,6 @@ fix_broken() {
     sudo dpkg --configure -a --force-confold
 }
 
-
 update_git_repository() {
     local repo_name="$1"
     local repo_url="$2"
@@ -176,6 +171,34 @@ disable_services() {
         sudo systemctl stop "$service" &>/dev/null
         echo "$service disabled successfully."
     done
+}
+
+reset_DNS() {
+    echo "# Checking and updating /etc/resolv.conf"
+    sudo mv /etc/resolv.conf /etc/resolv.conf.bak
+    echo "nameserver 127.0.0.53" | sudo tee /etc/resolv.conf > /dev/null
+    echo "nameserver 127.3.2.1" | sudo tee -a /etc/resolv.conf > /dev/null
+    echo "DNS nameservers updated."
+
+    # Restart systemd-resolved service
+    sudo systemctl restart systemd-resolved
+
+    # Wait for systemd-resolved to be active
+    while ! systemctl is-active --quiet systemd-resolved; do
+        echo "Waiting for systemd-resolved to restart..."
+        sleep 1
+    done
+    echo "systemd-resolved restarted successfully."
+
+    # Perform connectivity test
+    if ping -c 1 8.8.8.8 >/dev/null; then
+        echo "Internet connection is working."
+        if ! ping -c 1 google.com >/dev/null; then
+            yad --title "Connectivity Issue" --text "The internet is working, but DNS is not working. Please check your resolv.conf file" --button=gtk-ok:0
+        fi
+    else
+        echo "Internet connection is not working. Please check your network."
+    fi
 }
 
 setup_new_csi_system() {
@@ -450,9 +473,7 @@ done
 cis_lvl_1
 echo $key | sudo -S spt remove sleuthkit -y 
 cd /tmp
-rm apps.txt
-wget https://csilinux.com/downloads/apps.txt -O apps.txt
-mapfile -t apt_bulk_packages < <(grep -vE "^\s*#|^$" apps.txt | sed -e 's/#.*//')
+
 
 
 apt_computer_forensic_tools=(
@@ -460,33 +481,6 @@ apt_computer_forensic_tools=(
     "dc3dd"
     "binwalk"
     "gparted"
-)
-
-apt_online_forensic_tools=(
-    "brave-browser"
-    "tor"
-    "wireshark"
-    "lokinet"
-)
-
-apt_system=(
-    "auditd"
-    "baobab"
-    "code"
-    "apt-transport-https"
-    "tmux"
-    "mainline"
-    "zram-config"
-    "xfce4-cpugraph-plugin"
-    "xfce4-goodies"
-    "bash-completion"
-    "tre-command"
-    "tre-agrep"
-    "libc6"
-    "libstdc++6"
-    "ca-certificates"
-    "tar"
-    "neovim"
 )
 
 apt_video=(
@@ -526,9 +520,35 @@ for option in "${powerup_options[@]}"; do
     case $option in
         "csitools")
                 install_csi_tools
+		reset_DNS
 		;;
         "csi-linux")
-  		echo "# Installing Bulk Packages from apps.txt"
+		cd /tmp
+  		disable_services
+  		apt_system=(
+		    "auditd"
+		    "baobab"
+		    "code"
+		    "apt-transport-https"
+		    "tmux"
+		    "mainline"
+		    "zram-config"
+		    "xfce4-cpugraph-plugin"
+		    "xfce4-goodies"
+		    "bash-completion"
+		    "tre-command"
+		    "tre-agrep"
+		    "libc6"
+		    "libstdc++6"
+		    "ca-certificates"
+		    "tar"
+		    "neovim"
+		)
+  		install_packages apt_system
+    		echo "# Installing Bulk Packages from apps.txt"
+		rm apps.txt
+		wget https://csilinux.com/downloads/apps.txt -O apps.txt
+		mapfile -t apt_bulk_packages < <(grep -vE "^\s*#|^$" apps.txt | sed -e 's/#.*//')
 		install_packages apt_bulk_packages
   		echo "Installing additional system tools..."
 		cd /tmp
@@ -543,9 +563,47 @@ for option in "${powerup_options[@]}"; do
 			wget  wget https://download.xnview.com/XnViewMP-linux-x64.deb
 			echo $key | sudo -S apt install -y ./XnViewMP-linux-x64.deb
 		fi
+		reset_DNS
 		;;
         "csi-linux-themes")
                 install_csi_tools
+		reset_DNS
+		echo "# Configuring Background"
+		xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg
+		xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitorVirtual1/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg
+		xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitorVirtual-1/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg
+		xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitoreDP-1/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg
+		xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitorHDMI-A-0/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg
+		xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitorVirtual1/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg
+		xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitorVirtual-1/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg
+		xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitoreDP-2/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg
+		xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitorHDMI-A-1/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg
+		if echo $key | sudo -S grep -q "GRUB_DISABLE_OS_PROBER=false" /etc/default/grub; then
+		    echo $key | sudo -S sed -i 's/#GRUB_DISABLE_OS_PROBER=false/GRUB_DISABLE_OS_PROBER=false/g' /etc/default/grub
+		    echo "Grub is already configured for os-probe"
+		fi
+		
+		# Modify GRUB's header to change a setting, ensuring the command only acts if the pattern exists
+		echo "$key" | sudo -S sed -i '/recordfail_broken=/{s/1/0/}' /etc/grub.d/00_header
+		
+		# Disable the mono-xsp4.service if not needed
+		echo "$key" | sudo -S systemctl disable mono-xsp4.service
+		
+		# Update GRUB to apply any changes made to its configuration files
+		echo "$key" | sudo -S update-grub
+		
+		# Install a new Plymouth theme and set it as the default
+		# Redirecting stdout and stderr to /dev/null to suppress command output for cleanliness
+		PLYMOUTH_THEME_PATH="/usr/share/plymouth/themes/vortex-ubuntu/vortex-ubuntu.plymouth"
+		if [ -f "$PLYMOUTH_THEME_PATH" ]; then
+		    echo "$key" | sudo -S update-alternatives --install /usr/share/plymouth/themes/default.plymouth default.plymouth "$PLYMOUTH_THEME_PATH" 100 &> /dev/null
+		    echo "$key" | sudo -S update-alternatives --set default.plymouth "$PLYMOUTH_THEME_PATH"
+		else
+		    echo "Plymouth theme not found: $PLYMOUTH_THEME_PATH"
+		fi
+		
+		# Update initramfs to apply all changes, including Plymouth theme update
+		echo "$key" | sudo -S update-initramfs -u
 		;;
         "os-update")
            	echo "Updating operating system..."
@@ -560,14 +618,9 @@ for option in "${powerup_options[@]}"; do
 		
 		# Compare the current running kernel with the latest installed kernel
 		if [[ "$current_kernel" != "$latest_kernel" ]]; then
-		    # A newer kernel is installed. Ask the user if they want to reboot.
 		    zenity_response=$(zenity --question --title="Reboot Required" --text="A newer kernel is installed ($latest_kernel).\nDo you want to reboot into the new kernel now?" --width=300 --height=200; echo $?)
-		
-		    # Check the zenity response: 0 for yes, 1 for no
 		    if [ "$zenity_response" -eq 0 ]; then
-		        # User chose to reboot, warn them to run the powerup again after reboot
 		        zenity --info --title="Run Powerup Again" --text="Remember to save your work before you hit OK and run the powerup script again after the system has rebooted." --width=300 --height=200
-		        # User confirmed the information, now reboot
 		        echo "Rebooting the system..."
 		        echo $key | sudo -S reboot
 		    else
@@ -577,6 +630,7 @@ for option in "${powerup_options[@]}"; do
 		else
 		    echo "The running kernel is the latest installed version."
 		fi
+		reset_DNS
 
             ;;
         "encryption")
@@ -589,401 +643,333 @@ for option in "${powerup_options[@]}"; do
 			fi
             ;;
         "osint")
-			echo "# Configuring Online Forensic Tools"
-			cd /tmp
-			echo "# Installing Online Forensic Tools Packages"
-			install_packages apt_online_forensic_tools
-			install_from_requirements_url "https://csilinux.com/downloads/csitools-online-requirements.txt"
-			repositories=(
-				"theHarvester|https://github.com/laramies/theHarvester.git"
-				"ghunt|https://github.com/mxrch/GHunt.git"
-				"sherlock|https://github.com/sherlock-project/sherlock.git"
-				"blackbird|https://github.com/p1ngul1n0/blackbird.git"
-				"Moriarty-Project|https://github.com/AzizKpln/Moriarty-Project"
-				"Rock-ON|https://github.com/SilverPoision/Rock-ON.git"
-				"email2phonenumber|https://github.com/martinvigo/email2phonenumber.git"
-				"Masto|https://github.com/C3n7ral051nt4g3ncy/Masto.git"
-				"FinalRecon|https://github.com/thewhiteh4t/FinalRecon.git"
-				"Goohak|https://github.com/1N3/Goohak.git"
-				"Osintgram|https://github.com/Datalux/Osintgram.git"
-				"spiderfoot|https://github.com/CSILinux/spiderfoot.git"
-				"InstagramOSINT|https://github.com/sc1341/InstagramOSINT.git"
-				"Photon|https://github.com/s0md3v/Photon.git"
-				"ReconDog|https://github.com/s0md3v/ReconDog.git"
-				"Geogramint|https://github.com/Alb-310/Geogramint.git"
-			)
-			# Iterate through the repositories and update them
-			for entry in "${repositories[@]}"; do
-				IFS="|" read -r repo_name repo_url <<< "$entry"
-				echo "# Checking $entry"
-				update_git_repository "$repo_name" "$repo_url"  &>/dev/null
-			done
-			if [ ! -f /opt/routeconverter/RouteConverterLinux.jar ]; then
-				cd /opt
-				mkdir routeconverter
-				cd routeconverter
-				wget https://static.routeconverter.com/download/RouteConverterLinux.jar
-			fi
-			if ! which maltego &>/dev/null; then
-				cd /tmp
-				wget https://csilinux.com/downloads/Maltego.deb &>/dev/null
-				echo $key | sudo -S apt install ./Maltego.deb -y &>/dev/null
-			fi
-			if ! which discord > /dev/null; then
-				echo "disord"
-				wget https://dl.discordapp.net/apps/linux/0.0.27/discord-0.0.27.deb -O /tmp/discord.deb
-				echo $key | sudo -S apt install -y /tmp/discord.deb
-			fi
-
-			if ! which google-chrome > /dev/null; then
-				wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
-				echo $key | sudo -S apt install -y ./google-chrome-stable_current_amd64.deb
-			fi
-
-			if ! which sn0int; then
-				echo $key | sudo -S apt install -y sn0int -y &>/dev/null
-			fi
-			if [ ! -f /opt/PhoneInfoga/phoneinfoga ]; then
-				cd /opt
-				mkdir PhoneInfoga
-				cd PhoneInfoga
-				wget https://raw.githubusercontent.com/sundowndev/phoneinfoga/master/support/scripts/install -O - | sh 
-				echo $key | sudo -S chmod +x ./phoneinfoga
-				echo $key | sudo -S ln -sf ./phoneinfoga /usr/local/bin/phoneinfoga
-			fi
-			if [ ! -f /opt/Storm-Breaker/install.sh ]; then
-				cd /opt
-				git clone https://github.com/ultrasecurity/Storm-Breaker.git &>/dev/null
-				cd Storm-Breaker
-				pip install -r requirments.txt --quiet &>/dev/null
-				echo $key | sudo -S bash install.sh &>/dev/null
-				echo $key | sudo -S apt install -y apache2 apache2-bin apache2-data apache2-utils libapache2-mod-php8.1 libapr1 libaprutil1 libaprutil1-dbd-sqlite3 libaprutil1-ldap php php-common php8.1 php8.1-cli php8.1-common php8.1-opcache php8.1-readline	
-			else
-				cd /opt/Storm-Breaker
-				git reset --hard HEAD; git pull &>/dev/null
-				pip install -r requirments.txt --quiet &>/dev/null
-				echo $key | sudo -S bash install.sh &>/dev/null
-			fi
-
-			wget https://github.com/telegramdesktop/tdesktop/releases/download/v4.14.12/tsetup.4.14.12.tar.xz -O tsetup.tar.xz
-			tar -xf tsetup.tar.xz
-			echo $key | sudo -S cp Telegram/Telegram /usr/bin/telegram-desktop
-                        repositories=(
-				"OnionSearch|https://github.com/CSILinux/OnionSearch.git"
-				"i2pchat|https://github.com/vituperative/i2pchat.git"
-			)
-			# Iterate through the repositories and update them
-			for entry in "${repositories[@]}"; do
-				IFS="|" read -r repo_name repo_url <<< "$entry"
-				echo "# Checking $entry"
-				update_git_repository "$repo_name" "$repo_url"  &>/dev/null
-			done			
-			if ! which onionshare > /dev/null; then
-				echo $key | sudo -S snap install onionshare
-			fi
-			if ! which orjail > /dev/null; then
-					wget https://github.com/orjail/orjail/releases/download/v1.1/orjail_1.1-1_all.deb
-				echo $key | sudo -S apt install ./orjail_1.1-1_all.deb
-			fi
-			
-			if [ ! -f /opt/OxenWallet/oxen-electron-wallet-1.8.1-linux.AppImage ]; then
-				cd /opt
-				mkdir OxenWallet
-				cd OxenWallet
-				wget https://github.com/oxen-io/oxen-electron-gui-wallet/releases/download/v1.8.1/oxen-electron-wallet-1.8.1-linux.AppImage 
-				chmod +x oxen-electron-wallet-1.8.1-linux.AppImage
-			fi
-			
-			## Create TorVPN environment
-			echo $key | sudo -S cp /etc/tor/torrc /etc/tor/torrc.back
-			echo $key | sudo -S sed -i 's/#ControlPort/ControlPort/g' /etc/tor/torrc
-			echo $key | sudo -S sed -i 's/#CookieAuthentication 1/CookieAuthentication 0/g' /etc/tor/torrc
-			echo $key | sudo -S sed -i 's/#SocksPort 9050/SocksPort 9050/g' /etc/tor/torrc
-			echo $key | sudo -S sed -i 's/#RunAsDaemon 1/RunAsDaemon 1/g' /etc/tor/torrc
-			if grep -q "VirtualAddrNetworkIPv4" /etc/tor/torrc; then
-				echo "TorVPN already configured"
-			else
-				echo $key | sudo -S bash -c "echo 'VirtualAddrNetworkIPv4 10.192.0.0/10' >> /etc/tor/torrc"
-				echo $key | sudo -S bash -c "echo 'AutomapHostsOnResolve 1' >> /etc/tor/torrc"
-				echo $key | sudo -S bash -c "echo 'TransPort 9040 IsolateClientAddr IsolateClientProtocol IsolateDestAddr IsolateDestPort' >> /etc/tor/torrc"
-				echo $key | sudo -S bash -c "echo 'DNSPort 5353' >> /etc/tor/torrc"
-				echo "TorVPN configured"
-			fi
-			echo $key | sudo -S service tor stop
-			echo $key | sudo -S service tor start
-			wget https://csilinux.com/wp-content/uploads/2024/02/i2pupdate.zip
-			echo $key | sudo -S service i2p stop
-			echo $key | sudo -S service i2pd stop
-			echo $key | sudo -S unzip -o i2pupdate.zip -d /usr/share/i2p
-            ;;
-        "incident-response")
-            echo "Installing incident response tools..."
-			cd /tmp
-            # Command to install incident response tools
-            ;;
-        "computer-forensics")
-            echo "Installing computer forensics tools..."
-			cd /tmp
-			echo "# Installing Computer Forensic Tools Packages"
-			install_packages apt_computer_forensic_tools
-			install_from_requirements_url "https://csilinux.com/downloads/csitools-disk-requirements.txt"
-			if [ ! -f /opt/autopsy/bin/autopsy ]; then
-				cd /tmp
-				wget https://github.com/sleuthkit/autopsy/releases/download/autopsy-4.21.0/autopsy-4.21.0.zip -O autopsy.zip
-				wget https://github.com/sleuthkit/sleuthkit/releases/download/sleuthkit-4.12.1/sleuthkit-java_4.12.1-1_amd64.deb -O sleuthkit-java.deb
-				echo $key | sudo -S apt install ./sleuthkit-java.deb -y
-				echo "$ Installing Autopsy prereqs..."
-				wget https://raw.githubusercontent.com/sleuthkit/autopsy/develop/linux_macos_install_scripts/install_prereqs_ubuntu.sh &>/dev/null
-				echo $key | sudo -S bash install_prereqs_ubuntu.sh
-				wget https://raw.githubusercontent.com/sleuthkit/autopsy/develop/linux_macos_install_scripts/install_application.sh
-				echo "# Installing Autopsy..."
-				bash install_application.sh -z ./autopsy.zip -i /tmp/ -j /usr/lib/jvm/java-1.17.0-openjdk-amd64 &>/dev/null
-				csi_remove /opt/autopsyold
-				mv /opt/autopsy /opt/autopsyold
-				chown csi:csi /opt/autopsy
-				mv /tmp/autopsy-4.21.0 /opt/autopsy
-				sed -i -e 's/\#jdkhome=\"\/path\/to\/jdk\"/jdkhome=\"\/usr\/lib\/jvm\/java-17-openjdk-amd64\"/g' /opt/autopsy/etc/autopsy.conf
-				cd /opt/autopsy
-				export JAVA_HOME="/usr/lib/jvm/java-17-openjdk-amd64"
-				echo $key | sudo -S chmod +x /opt/autopsy/bin/autopsy
-				echo $key | sudo -S chown csi:csi /opt/autopsy -R
-				bash unix_setup.sh
-				cd ~/Downloads
-				git clone https://github.com/sleuthkit/autopsy_addon_modules.git
-				# /opt/autopsy/bin/autopsy --nosplash
-			fi
-			repositories=(
-				"WLEAPP|https://github.com/abrignoni/WLEAPP.git"
-				"ALEAPP|https://github.com/abrignoni/ALEAPP.git"
-				"iLEAPP|https://github.com/abrignoni/iLEAPP.git"
-				"VLEAPP|https://github.com/abrignoni/VLEAPP.git"
-				"iOS-Snapshot-Triage-Parser|https://github.com/abrignoni/iOS-Snapshot-Triage-Parser.git"
-				"DumpsterDiver|https://github.com/securing/DumpsterDiver.git"
-				"dumpzilla|https://github.com/Busindre/dumpzilla.git"
-				"volatility3|https://github.com/volatilityfoundation/volatility3.git"
-				"autotimeliner|https://github.com/andreafortuna/autotimeliner.git"
-				"RecuperaBit|https://github.com/Lazza/RecuperaBit.git"
-				"dronetimeline|https://github.com/studiawan/dronetimeline.git"
-				"Carbon14|https://github.com/Lazza/Carbon14.git"
-			)
-
-			# Iterate through the repositories and update them
-			for entry in "${repositories[@]}"; do
-				IFS="|" read -r repo_name repo_url <<< "$entry"
-				echo "# Checking $entry"
-				update_git_repository "$repo_name" "$repo_url"  &>/dev/null
-			done			
-			echo "# Installing Video Packages"
-			install_packages apt_video
-			if ! which xnview > /dev/null; then
-				wget  wget https://download.xnview.com/XnViewMP-linux-x64.deb
-				echo $key | sudo -S apt install -y ./XnViewMP-linux-x64.deb
-			fi
-            ;;
-        "malware-analysis")
-            echo "Setting up malware analysis environment..."
-	    	cd /tmp
-			if [ ! -f /opt/ImHex/imhex.AppImage ]; then
-				cd /opt
-				mkdir ImHex
-				cd ImHex
-				wget https://csilinux.com/downloads/imhex.AppImage
-				echo $key | sudo -S chmod +x imhex.AppImage
-			fi
-			if [ ! -f /opt/ghidra/VERSION ]; then
-				cd /tmp
-				aria2c -x3 -k1M https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_11.0_build/ghidra_11.0_PUBLIC_20231222.zip
-				unzip ghidra_11.0_PUBLIC_20231222.zip
-				csi_remove /opt/ghidra
-				mv ghidra_11.0_PUBLIC /opt/ghidra
-				cd /opt/ghidra
-				echo "11.0" > VERSION
-				echo $key | sudo -S chmod +x ghidraRun
-				/bin/sed -i 's/JAVA\_HOME\_OVERRIDE\=/JAVA\_HOME\_OVERRIDE\=\/opt\/ghidra\/amazon-corretto-11.0.19.7.1-linux-x64/g' ./support/launch.properties
-			fi
-			if [ ! -f /opt/cutter/cutter.AppImage ]; then
-				cd /opt
-				mkdir cutter
-				cd cutter
-				wget https://csilinux.com/downloads/cutter.AppImage
-				echo $key | sudo -S chmod +x cutter.AppImage
-			fi
-			if [ ! -f /opt/idafree/ida64 ]; then
-				cd /opt
-				mkdir idafree
-				cd idafree
-				wget -O /opt/idafree/ida64 https://out7.hex-rays.com/files/idafree83_linux.run
-				echo $key | sudo -S chmod +x /opt/idafree/ida64
-			fi
+		apt_online_forensic_tools=(
+		    "brave-browser"
+		    "tor"
+		    "wireshark"
+		    "lokinet"
+		)
+  		install_packages apt_online_forensic_tools
+		echo "# Configuring Online Forensic Tools"
+		cd /tmp
+		echo "# Installing Online Forensic Tools Packages"
+		install_packages apt_online_forensic_tools
+		install_from_requirements_url "https://csilinux.com/downloads/csitools-online-requirements.txt"
+		repositories=(
+			"theHarvester|https://github.com/laramies/theHarvester.git"
+			"ghunt|https://github.com/mxrch/GHunt.git"
+			"sherlock|https://github.com/sherlock-project/sherlock.git"
+			"blackbird|https://github.com/p1ngul1n0/blackbird.git"
+			"Moriarty-Project|https://github.com/AzizKpln/Moriarty-Project"
+			"Rock-ON|https://github.com/SilverPoision/Rock-ON.git"
+			"email2phonenumber|https://github.com/martinvigo/email2phonenumber.git"
+			"Masto|https://github.com/C3n7ral051nt4g3ncy/Masto.git"
+			"FinalRecon|https://github.com/thewhiteh4t/FinalRecon.git"
+			"Goohak|https://github.com/1N3/Goohak.git"
+			"Osintgram|https://github.com/Datalux/Osintgram.git"
+			"spiderfoot|https://github.com/CSILinux/spiderfoot.git"
+			"InstagramOSINT|https://github.com/sc1341/InstagramOSINT.git"
+			"Photon|https://github.com/s0md3v/Photon.git"
+			"ReconDog|https://github.com/s0md3v/ReconDog.git"
+			"Geogramint|https://github.com/Alb-310/Geogramint.git"
+		)
+		# Iterate through the repositories and update them
+		for entry in "${repositories[@]}"; do
+			IFS="|" read -r repo_name repo_url <<< "$entry"
+			echo "# Checking $entry"
+			update_git_repository "$repo_name" "$repo_url"  &>/dev/null
+		done
+		if [ ! -f /opt/routeconverter/RouteConverterLinux.jar ]; then
 			cd /opt
-			mkdir apk-editor-studio
-			cd apk-editor-studio
-			rm apk-editor-studio.AppImage
-			wget https://csilinux.com/downloads/apk-editor-studio.AppImage -O apk-editor-studio.AppImage
-			echo $key | sudo -S chmod +x apk-editor-studio.AppImage
-			if [ ! -f /opt/jd-gui/jd-gui-1.6.6-min.jar ]; then
-				wget https://github.com/java-decompiler/jd-gui/releases/download/v1.6.6/jd-gui-1.6.6.deb
-				echo $key | sudo -S apt install -y ./jd-gui-1.6.6.deb
-			fi
-				;;
-		"sigint")
-			echo "Installing SIGINT tools..."
+			mkdir routeconverter
+			cd routeconverter
+			wget https://static.routeconverter.com/download/RouteConverterLinux.jar
+		fi
+		if ! which maltego &>/dev/null; then
 			cd /tmp
-			if ! which wifipumpkin3 > /dev/null; then
-				wget https://github.com/P0cL4bs/wifipumpkin3/releases/download/v1.1.4/wifipumpkin3_1.1.4_all.deb
-				echo $key | sudo -S apt install ./wifipumpkin3_1.1.4_all.deb -y
-			fi
-			if [ ! -f /opt/fmradio/fmradio.AppImage ]; then
-				echo "Installing fmradio"
-				cd /opt
-				mkdir fmradio
-				cd fmradio
-				wget https://csilinux.com/downloads/fmradio.AppImage
-				echo $key | sudo -S chmod +x fmradio.AppImage
-				echo $key | sudo -S ln -sf fmradio.AppImage /usr/local/bin/fmradio
-			fi
-			
-			if [ ! -f /opt/FlipperZero/qFlipperZero.AppImage ]; then
-				cd /tmp
-				wget https://update.flipperzero.one/builds/qFlipper/1.3.3/qFlipper-x86_64-1.3.3.AppImage
-				mkdir /opt/FlipperZero
-				mv ./qFlipper-x86_64-1.3.3.AppImage /opt/FlipperZero/qFlipperZero.AppImage
-				cd /opt/FlipperZero/
-				echo $key | sudo -S chmod +x /opt/FlipperZero/qFlipperZero.AppImage
-				echo $key | sudo -S ln -sf /opt/FlipperZero/qFlipperZero.AppImage /usr/local/bin/qFlipperZero
-			fi
-			
-			if [ ! -f /opt/proxmark3/client/proxmark3 ]; then
-				cd /tmp
-				wget https://csilinux.com/downloads/proxmark3.zip -O proxmark3.zip
-				echo $key | sudo -S unzip -o -d /opt proxmark3.zip
-				echo $key | sudo -S ln -sf /opt/proxmark3/client/proxmark3 /usr/local/bin/proxmark3
-			fi
-			
-			if [ ! -f /opt/artemis/Artemis ]; then
-				cd /opt
-				wget https://csilinux.com/downloads/Artemis-3.2.1.tar.gz
-				tar -xf Artemis-3.2.1.tar.gz
-				rm Artemis-3.2.1.tar.gz
-			fi
-			
-			if ! which chirp-snap.chirp > /dev/null; then
-				echo "# chirp-snap takes time"
-				echo $key | sudo -S snap install chirp-snap --edge
-				echo $key | sudo -S snap connect chirp-snap:raw-usb
-			fi
-            ;;
+			wget https://csilinux.com/downloads/Maltego.deb &>/dev/null
+			echo $key | sudo -S apt install ./Maltego.deb -y &>/dev/null
+		fi
+		if ! which discord > /dev/null; then
+			echo "disord"
+			wget https://dl.discordapp.net/apps/linux/0.0.27/discord-0.0.27.deb -O /tmp/discord.deb
+			echo $key | sudo -S apt install -y /tmp/discord.deb
+		fi
+		if [ -f /opt/Osintgram/main.py ]; then
+			cd /opt/Osintgram
+			rm -f .git/index
+		    git reset
+			git reset --hard HEAD; git pull  &>/dev/null
+			mv src/* .  &>/dev/null
+			find . -type f -exec sed -i 's/from\ src\ //g' {} + &>/dev/null
+			find . -type f -exec sed -i 's/src.Osintgram/Osintgram/g' {} + &>/dev/null
+		fi
+		if ! which google-chrome > /dev/null; then
+			wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+			echo $key | sudo -S apt install -y ./google-chrome-stable_current_amd64.deb
+		fi
+
+		if ! which sn0int; then
+			echo $key | sudo -S apt install -y sn0int -y &>/dev/null
+		fi
+		if [ ! -f /opt/PhoneInfoga/phoneinfoga ]; then
+			cd /opt
+			mkdir PhoneInfoga
+			cd PhoneInfoga
+			wget https://raw.githubusercontent.com/sundowndev/phoneinfoga/master/support/scripts/install -O - | sh 
+			echo $key | sudo -S chmod +x ./phoneinfoga
+			echo $key | sudo -S ln -sf ./phoneinfoga /usr/local/bin/phoneinfoga
+		fi
+		if [ ! -f /opt/Storm-Breaker/install.sh ]; then
+			cd /opt
+			git clone https://github.com/ultrasecurity/Storm-Breaker.git &>/dev/null
+			cd Storm-Breaker
+			pip install -r requirments.txt --quiet &>/dev/null
+			echo $key | sudo -S bash install.sh &>/dev/null
+			echo $key | sudo -S apt install -y apache2 apache2-bin apache2-data apache2-utils libapache2-mod-php8.1 libapr1 libaprutil1 libaprutil1-dbd-sqlite3 libaprutil1-ldap php php-common php8.1 php8.1-cli php8.1-common php8.1-opcache php8.1-readline	
+		else
+			cd /opt/Storm-Breaker
+			git reset --hard HEAD; git pull &>/dev/null
+			pip install -r requirments.txt --quiet &>/dev/null
+			echo $key | sudo -S bash install.sh &>/dev/null
+		fi
+
+		wget https://github.com/telegramdesktop/tdesktop/releases/download/v4.14.12/tsetup.4.14.12.tar.xz -O tsetup.tar.xz
+		tar -xf tsetup.tar.xz
+		echo $key | sudo -S cp Telegram/Telegram /usr/bin/telegram-desktop
+		repositories=(
+			"OnionSearch|https://github.com/CSILinux/OnionSearch.git"
+			"i2pchat|https://github.com/vituperative/i2pchat.git"
+		)
+		# Iterate through the repositories and update them
+		for entry in "${repositories[@]}"; do
+			IFS="|" read -r repo_name repo_url <<< "$entry"
+			echo "# Checking $entry"
+			update_git_repository "$repo_name" "$repo_url"  &>/dev/null
+		done			
+		if ! which onionshare > /dev/null; then
+			echo $key | sudo -S snap install onionshare
+		fi
+		if ! which orjail > /dev/null; then
+				wget https://github.com/orjail/orjail/releases/download/v1.1/orjail_1.1-1_all.deb
+			echo $key | sudo -S apt install ./orjail_1.1-1_all.deb
+		fi
+		
+		if [ ! -f /opt/OxenWallet/oxen-electron-wallet-1.8.1-linux.AppImage ]; then
+			cd /opt
+			mkdir OxenWallet
+			cd OxenWallet
+			wget https://github.com/oxen-io/oxen-electron-gui-wallet/releases/download/v1.8.1/oxen-electron-wallet-1.8.1-linux.AppImage 
+			chmod +x oxen-electron-wallet-1.8.1-linux.AppImage
+		fi
+		
+		## Create TorVPN environment
+		echo $key | sudo -S cp /etc/tor/torrc /etc/tor/torrc.back
+		echo $key | sudo -S sed -i 's/#ControlPort/ControlPort/g' /etc/tor/torrc
+		echo $key | sudo -S sed -i 's/#CookieAuthentication 1/CookieAuthentication 0/g' /etc/tor/torrc
+		echo $key | sudo -S sed -i 's/#SocksPort 9050/SocksPort 9050/g' /etc/tor/torrc
+		echo $key | sudo -S sed -i 's/#RunAsDaemon 1/RunAsDaemon 1/g' /etc/tor/torrc
+		if grep -q "VirtualAddrNetworkIPv4" /etc/tor/torrc; then
+			echo "TorVPN already configured"
+		else
+			echo $key | sudo -S bash -c "echo 'VirtualAddrNetworkIPv4 10.192.0.0/10' >> /etc/tor/torrc"
+			echo $key | sudo -S bash -c "echo 'AutomapHostsOnResolve 1' >> /etc/tor/torrc"
+			echo $key | sudo -S bash -c "echo 'TransPort 9040 IsolateClientAddr IsolateClientProtocol IsolateDestAddr IsolateDestPort' >> /etc/tor/torrc"
+			echo $key | sudo -S bash -c "echo 'DNSPort 5353' >> /etc/tor/torrc"
+			echo "TorVPN configured"
+		fi
+		echo $key | sudo -S service tor stop
+		echo $key | sudo -S service tor start
+		wget https://csilinux.com/wp-content/uploads/2024/02/i2pupdate.zip
+		echo $key | sudo -S service i2p stop
+		echo $key | sudo -S service i2pd stop
+		echo $key | sudo -S unzip -o i2pupdate.zip -d /usr/share/i2p
+		reset_DNS
+           	;;
+        "incident-response")
+		echo "Installing incident response tools..."
+		cd /tmp
+		# Command to install incident response tools
+		reset_DNS
+		;;
+        "computer-forensics")
+            	echo "Installing computer forensics tools..."
+		cd /tmp
+		echo "# Installing Computer Forensic Tools Packages"
+		install_packages apt_computer_forensic_tools
+		install_from_requirements_url "https://csilinux.com/downloads/csitools-disk-requirements.txt"
+		if [ ! -f /opt/autopsy/bin/autopsy ]; then
+			cd /tmp
+			wget https://github.com/sleuthkit/autopsy/releases/download/autopsy-4.21.0/autopsy-4.21.0.zip -O autopsy.zip
+			wget https://github.com/sleuthkit/sleuthkit/releases/download/sleuthkit-4.12.1/sleuthkit-java_4.12.1-1_amd64.deb -O sleuthkit-java.deb
+			echo $key | sudo -S apt install ./sleuthkit-java.deb -y
+			echo "$ Installing Autopsy prereqs..."
+			wget https://raw.githubusercontent.com/sleuthkit/autopsy/develop/linux_macos_install_scripts/install_prereqs_ubuntu.sh &>/dev/null
+			echo $key | sudo -S bash install_prereqs_ubuntu.sh
+			wget https://raw.githubusercontent.com/sleuthkit/autopsy/develop/linux_macos_install_scripts/install_application.sh
+			echo "# Installing Autopsy..."
+			bash install_application.sh -z ./autopsy.zip -i /tmp/ -j /usr/lib/jvm/java-1.17.0-openjdk-amd64 &>/dev/null
+			csi_remove /opt/autopsyold
+			mv /opt/autopsy /opt/autopsyold
+			chown csi:csi /opt/autopsy
+			mv /tmp/autopsy-4.21.0 /opt/autopsy
+			sed -i -e 's/\#jdkhome=\"\/path\/to\/jdk\"/jdkhome=\"\/usr\/lib\/jvm\/java-17-openjdk-amd64\"/g' /opt/autopsy/etc/autopsy.conf
+			cd /opt/autopsy
+			export JAVA_HOME="/usr/lib/jvm/java-17-openjdk-amd64"
+			echo $key | sudo -S chmod +x /opt/autopsy/bin/autopsy
+			echo $key | sudo -S chown csi:csi /opt/autopsy -R
+			bash unix_setup.sh
+			cd ~/Downloads
+			git clone https://github.com/sleuthkit/autopsy_addon_modules.git
+			# /opt/autopsy/bin/autopsy --nosplash
+		fi
+		repositories=(
+			"WLEAPP|https://github.com/abrignoni/WLEAPP.git"
+			"ALEAPP|https://github.com/abrignoni/ALEAPP.git"
+			"iLEAPP|https://github.com/abrignoni/iLEAPP.git"
+			"VLEAPP|https://github.com/abrignoni/VLEAPP.git"
+			"iOS-Snapshot-Triage-Parser|https://github.com/abrignoni/iOS-Snapshot-Triage-Parser.git"
+			"DumpsterDiver|https://github.com/securing/DumpsterDiver.git"
+			"dumpzilla|https://github.com/Busindre/dumpzilla.git"
+			"volatility3|https://github.com/volatilityfoundation/volatility3.git"
+			"autotimeliner|https://github.com/andreafortuna/autotimeliner.git"
+			"RecuperaBit|https://github.com/Lazza/RecuperaBit.git"
+			"dronetimeline|https://github.com/studiawan/dronetimeline.git"
+			"Carbon14|https://github.com/Lazza/Carbon14.git"
+		)
+
+		# Iterate through the repositories and update them
+		for entry in "${repositories[@]}"; do
+			IFS="|" read -r repo_name repo_url <<< "$entry"
+			echo "# Checking $entry"
+			update_git_repository "$repo_name" "$repo_url"  &>/dev/null
+		done			
+		echo "# Installing Video Packages"
+		install_packages apt_video
+		if ! which xnview > /dev/null; then
+			wget  wget https://download.xnview.com/XnViewMP-linux-x64.deb
+			echo $key | sudo -S apt install -y ./XnViewMP-linux-x64.deb
+		fi
+            	;;
+        "malware-analysis")
+            	echo "Setting up malware analysis environment..."
+	    	cd /tmp
+		if [ ! -f /opt/ImHex/imhex.AppImage ]; then
+			cd /opt
+			mkdir ImHex
+			cd ImHex
+			wget https://csilinux.com/downloads/imhex.AppImage
+			echo $key | sudo -S chmod +x imhex.AppImage
+		fi
+		if [ ! -f /opt/ghidra/VERSION ]; then
+			cd /tmp
+			aria2c -x3 -k1M https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_11.0_build/ghidra_11.0_PUBLIC_20231222.zip
+			unzip ghidra_11.0_PUBLIC_20231222.zip
+			csi_remove /opt/ghidra
+			mv ghidra_11.0_PUBLIC /opt/ghidra
+			cd /opt/ghidra
+			echo "11.0" > VERSION
+			echo $key | sudo -S chmod +x ghidraRun
+			/bin/sed -i 's/JAVA\_HOME\_OVERRIDE\=/JAVA\_HOME\_OVERRIDE\=\/opt\/ghidra\/amazon-corretto-11.0.19.7.1-linux-x64/g' ./support/launch.properties
+		fi
+		if [ ! -f /opt/cutter/cutter.AppImage ]; then
+			cd /opt
+			mkdir cutter
+			cd cutter
+			wget https://csilinux.com/downloads/cutter.AppImage
+			echo $key | sudo -S chmod +x cutter.AppImage
+		fi
+		if [ ! -f /opt/idafree/ida64 ]; then
+			cd /opt
+			mkdir idafree
+			cd idafree
+			wget -O /opt/idafree/ida64 https://out7.hex-rays.com/files/idafree83_linux.run
+			echo $key | sudo -S chmod +x /opt/idafree/ida64
+		fi
+		cd /opt
+		mkdir apk-editor-studio
+		cd apk-editor-studio
+		rm apk-editor-studio.AppImage
+		wget https://csilinux.com/downloads/apk-editor-studio.AppImage -O apk-editor-studio.AppImage
+		echo $key | sudo -S chmod +x apk-editor-studio.AppImage
+		if [ ! -f /opt/jd-gui/jd-gui-1.6.6-min.jar ]; then
+			wget https://github.com/java-decompiler/jd-gui/releases/download/v1.6.6/jd-gui-1.6.6.deb
+			echo $key | sudo -S apt install -y ./jd-gui-1.6.6.deb
+		fi
+		;;
+	"sigint")
+		echo "Installing SIGINT tools..."
+		cd /tmp
+		if ! which wifipumpkin3 > /dev/null; then
+			wget https://github.com/P0cL4bs/wifipumpkin3/releases/download/v1.1.4/wifipumpkin3_1.1.4_all.deb
+			echo $key | sudo -S apt install ./wifipumpkin3_1.1.4_all.deb -y
+		fi
+		if [ ! -f /opt/fmradio/fmradio.AppImage ]; then
+			echo "Installing fmradio"
+			cd /opt
+			mkdir fmradio
+			cd fmradio
+			wget https://csilinux.com/downloads/fmradio.AppImage
+			echo $key | sudo -S chmod +x fmradio.AppImage
+			echo $key | sudo -S ln -sf fmradio.AppImage /usr/local/bin/fmradio
+		fi
+		
+		if [ ! -f /opt/FlipperZero/qFlipperZero.AppImage ]; then
+			cd /tmp
+			wget https://update.flipperzero.one/builds/qFlipper/1.3.3/qFlipper-x86_64-1.3.3.AppImage
+			mkdir /opt/FlipperZero
+			mv ./qFlipper-x86_64-1.3.3.AppImage /opt/FlipperZero/qFlipperZero.AppImage
+			cd /opt/FlipperZero/
+			echo $key | sudo -S chmod +x /opt/FlipperZero/qFlipperZero.AppImage
+			echo $key | sudo -S ln -sf /opt/FlipperZero/qFlipperZero.AppImage /usr/local/bin/qFlipperZero
+		fi
+		
+		if [ ! -f /opt/proxmark3/client/proxmark3 ]; then
+			cd /tmp
+			wget https://csilinux.com/downloads/proxmark3.zip -O proxmark3.zip
+			echo $key | sudo -S unzip -o -d /opt proxmark3.zip
+			echo $key | sudo -S ln -sf /opt/proxmark3/client/proxmark3 /usr/local/bin/proxmark3
+		fi
+		
+		if [ ! -f /opt/artemis/Artemis ]; then
+			cd /opt
+			wget https://csilinux.com/downloads/Artemis-3.2.1.tar.gz
+			tar -xf Artemis-3.2.1.tar.gz
+			rm Artemis-3.2.1.tar.gz
+		fi
+		
+		if ! which chirp-snap.chirp > /dev/null; then
+			echo "# chirp-snap takes time"
+			echo $key | sudo -S snap install chirp-snap --edge
+			echo $key | sudo -S snap connect chirp-snap:raw-usb
+		fi
+		reset_DNS
+            	;;
         "virtualization")
-            echo "Setting up virtualization tools..."
+		echo "Setting up virtualization tools..."
 			cd /tmp
-            # Command to install virtualization tools
-            ;;
-        "threat-intelligence")
-            echo "Installing threat intelligence tools..."
-			cd /tmp
-            # Command to install threat intelligence tools
-            ;;
+		# Command to install virtualization tools
+		;;
         *)
-            echo "Option $option not recognized."
-            ;;
+		echo "Option $option not recognized."
+		;;
     esac
 done
 
-
-if [ -f /opt/Osintgram/main.py ]; then
-	cd /opt/Osintgram
-	rm -f .git/index
-    git reset
-	git reset --hard HEAD; git pull  &>/dev/null
-	mv src/* .  &>/dev/null
-	find . -type f -exec sed -i 's/from\ src\ //g' {} + &>/dev/null
-	find . -type f -exec sed -i 's/src.Osintgram/Osintgram/g' {} + &>/dev/null
-fi
-
-echo "# Configuring Background"
-xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg
-xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitorVirtual1/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg
-xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitorVirtual-1/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg
-xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitoreDP-1/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg
-xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitorHDMI-A-0/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg
-xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitorVirtual1/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg
-xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitorVirtual-1/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg
-xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitoreDP-2/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg
-xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitorHDMI-A-1/workspace0/last-image -n -t string -s /opt/csitools/wallpaper/CSI-Linux-Dark.jpg
-
-echo $key | sudo -S csi_remove /var/crash/*
-echo $key | sudo -S rm /var/crash/*
-rm ~/.vbox*
-
-echo "# Checking resolv.conf"
-echo $key | sudo -S touch /etc/resolv.conf
-echo $key | sudo -S bash -c "mv /etc/resolv.conf /etc/resolv.conf.bak"
-echo $key | sudo -S touch /etc/resolv.conf
-
-if grep -q "nameserver 127.0.0.53" /etc/resolv.conf; then
-    echo "Resolve already configured for Tor"
-else
-    echo $key | sudo -S bash -c "echo 'nameserver 127.0.0.53' > /etc/resolv.conf"
-fi
-if grep -q "nameserver 127.3.2.1" /etc/resolv.conf; then
-    echo "Resolve already configured for Lokinet"
-else
-    echo $key | sudo -S bash -c "echo 'nameserver 127.3.2.1' >> /etc/resolv.conf"
-fi
-if echo $key | sudo -S grep -q "GRUB_DISABLE_OS_PROBER=false" /etc/default/grub; then
-    echo $key | sudo -S sed -i 's/#GRUB_DISABLE_OS_PROBER=false/GRUB_DISABLE_OS_PROBER=false/g' /etc/default/grub
-    echo "Grub is already configured for os-probe"
-fi
-
-# Modify GRUB's header to change a setting, ensuring the command only acts if the pattern exists
-echo "$key" | sudo -S sed -i '/recordfail_broken=/{s/1/0/}' /etc/grub.d/00_header
-
-# Disable the mono-xsp4.service if not needed
-echo "$key" | sudo -S systemctl disable mono-xsp4.service
-
-# Update GRUB to apply any changes made to its configuration files
-echo "$key" | sudo -S update-grub
-
-# Install a new Plymouth theme and set it as the default
-# Redirecting stdout and stderr to /dev/null to suppress command output for cleanliness
-PLYMOUTH_THEME_PATH="/usr/share/plymouth/themes/vortex-ubuntu/vortex-ubuntu.plymouth"
-if [ -f "$PLYMOUTH_THEME_PATH" ]; then
-    echo "$key" | sudo -S update-alternatives --install /usr/share/plymouth/themes/default.plymouth default.plymouth "$PLYMOUTH_THEME_PATH" 100 &> /dev/null
-    echo "$key" | sudo -S update-alternatives --set default.plymouth "$PLYMOUTH_THEME_PATH"
-else
-    echo "Plymouth theme not found: $PLYMOUTH_THEME_PATH"
-fi
-
-# Update initramfs to apply all changes, including Plymouth theme update
-echo "$key" | sudo -S update-initramfs -u
-
-
 cd /tmp
 fix_broken
-# Upgrade all packages, including third-party tools, and handle missing dependencies
 echo "# Upgrading all packages including third-party tools..."
 echo "$key" | sudo -S apt full-upgrade -y --fix-missing
-
-# Remove unused packages and kernels to free up space
 echo "# Removing unused packages and kernels..."
 echo "$key" | sudo -S apt autoremove --purge -y
-
-# Clean apt cache to save additional space
 echo "# Cleaning apt cache..."
 echo "$key" | sudo -S apt autoclean -y
-
-# Change ownership of /opt directory if needed
 echo "# Adjusting ownership of /opt directory..."
 echo "$key" | sudo -S chown csi:csi /opt
-
-# Update the database for locate command
 echo "# Updating the mlocate database..."
 echo "$key" | sudo -S updatedb
-disable_services
 echo "System maintenance and cleanup completed successfully."
 
-
-# Capture the end time
 update_current_time
 calculate_duration
 echo "End time: $current_time"
