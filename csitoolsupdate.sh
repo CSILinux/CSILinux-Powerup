@@ -1,43 +1,58 @@
 #!/bin/bash
-
 echo "Welcome to CSI Linux 2024. This will take a while, but the update has a LOT of content..."
 
-if [ -z "$1" ] || [ echo "$key" | sudo -S -v -k &> /dev/null ]; then
-    # If $1 is not provided or the script is not run with sudo
-    echo "Running the password prompt script..."
+# Define the function to prompt for sudo password
+prompt_for_sudo() {
     while true; do
         key=$(zenity --password --title "Power up your system with an upgrade." --text "Enter your CSI password." --width=400)
         if [ $? -ne 0 ]; then
             zenity --info --text="Operation cancelled. Exiting script." --width=400
             exit 1
         fi
-        # Verify if the entered password is correct
         if echo "$key" | sudo -S -v -k &> /dev/null; then
             sudo -k # Reset the sudo timestamp after verification
+            echo "Sudo access verified."
             break # Exit loop if the password is correct
         else
             zenity --error --title="Authentication Failure" --text="Incorrect password or lack of sudo privileges. Please try again." --width=400
         fi
     done
+}
+
+# Attempt to verify the first argument as a sudo password
+key_attempt="$1"
+key=""  # Initialize key as an empty string for clarity
+
+if echo "$key_attempt" | sudo -S -v -k &> /dev/null; then
+    key="$key_attempt"
+    sudo -k  # Reset the sudo timestamp after verification
+    echo "Sudo access verified with the provided key."
+    shift  # Remove the first argument since it's the sudo password
 else
-    key=$1
-    # Verify sudo access with the provided key, assuming the script needs to continue running with sudo privileges
-    if ! echo "$key" | sudo -S -v; then
-        echo "Failed to verify sudo access with the provided key. Exiting."
-        exit 1
+    echo "First argument is not a sudo password. It will be treated as a powerup option if applicable."
+    # If key_attempt was not empty but failed verification, include it back in arguments for processing
+    if [ -n "$key_attempt" ]; then
+        set -- "$key_attempt" "$@"
     fi
-    sudo -k # Reset the sudo timestamp after verification
 fi
 
+# Prompt for the sudo password if not already verified
+if [ -z "$key" ]; then
+    prompt_for_sudo
+fi
 
-powerup_options_string=$2
-echo $powerup_options_string
+# All remaining arguments are considered as powerup options
+powerup_options=("$@")
+
+echo "Power-up options selected:"
+for option in "${powerup_options[@]}"; do
+    echo "- $option"
+done
 
 # Use sudo with the provided key
 echo $key | sudo -S sleep 1
 echo $key | sudo -S df -h
 cd /tmp
-IFS=',' read -r -a powerup_options <<< "$powerup_options_string"
 
 # Function to remove specific files
 csi_remove() {
@@ -378,54 +393,6 @@ cis_lvl_1() {
     echo "Coming soon...."
 }
 
-install_csi_tools() {
-    local backup_dir="/tmp/restore"
-    local backup_file_name="csitools"
-    local archive_path="$backup_dir/$backup_file_name.7z"
-
-    echo "Downloading CSI Tools"
-    mkdir -p "$backup_dir"
-    cd "$backup_dir" || return
-    sudo rm -f csi*.*
-    aria2c -x3 -k1M https://csilinux.com/downloads/csitools.7z
-
-    # Call restore_backup_to_root here
-    echo "# Installing CSI Tools"
-    restore_backup_to_root "$backup_dir" "$backup_file_name"
-
-    # Assuming the CSI Tools are now restored to their appropriate location (/opt/csitools), set permissions
-    sudo chown csi:csi -R /opt/csitools
-    sudo chmod +x /opt/csitools/* -R
-    sudo chmod +x ~/Desktop/*.desktop
-    sudo chown csi:csi /usr/bin/bash-wrapper
-    sudo chown csi:csi /home/csi -R
-    sudo chmod +x /usr/bin/bash-wrapper
-    sudo mkdir -p /iso
-    sudo chown csi:csi /iso -R
-    sudo tar -xf /opt/csitools/assets/Win11-blue.tar.xz --directory /home/csi/.icons/
-    sudo sed -i 's/http\:\/\/in./http\:\/\//g' /etc/apt/sources.list
-    sudo bash -c 'echo "\$nrconf{\"restart\"} = \"a\";" > /etc/needrestart/conf.d/autorestart.conf'
-    sudo chmod +x /opt/csitools/powerup
-    sudo ln -sf /opt/csitools/powerup /usr/local/bin/powerup
-}
-
-restore_backup_to_root() {
-    sudo -k
-    local backup_dir=$1  # Use the first parameter as the backup directory
-    local backup_file_name=$2  # Use the second parameter as the backup file name
-    local archive_path="$backup_dir/$backup_file_name.7z"
-    sudo mkdir -p "$backup_dir"
-    sudo 7z x -o"$backup_dir" "$archive_path"
-    local tar_file="$backup_dir/$backup_file_name.tar"
-    if [ -f "$tar_file" ]; then
-        sudo tar -xpf "$tar_file" -C /
-        echo "Backup restored successfully."
-        sudo rm "$tar_file"
-    else
-        echo "Backup .tar file not found. Please check the archive path and try again."
-    fi
-}
-
 install_packages() {
     local -n packages=$1
     local total_packages=${#packages[@]}
@@ -552,7 +519,6 @@ install_missing_programs
 echo $key | sudo -S apt remove sleuthkit -y  &>/dev/null
 
 cis_lvl_1
-install_csi_tools
 
 # echo $key | sudo -S ln -s /opt/csitools/csi_app /usr/bin/csi_app &>/dev/null
 reset_DNS
@@ -597,10 +563,7 @@ sudo -k
 for option in "${powerup_options[@]}"; do
     echo "Processing option: $option"
     case $option in
-        "csitools")
-		echo "CSI Tools"
-		;;
-        "csi-linux")
+        "csi-linux-base")
 		cd /tmp
   		disable_services &>/dev/null
   		apt_system=(
