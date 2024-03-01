@@ -8,22 +8,6 @@ powerup_options_string=$2
 echo $key | sudo -S date
 cd /tmp
 IFS=',' read -r -a powerup_options <<< "$powerup_options_string"
-echo "Cleaning up..."
-sudo apt remove sleuthkit &>/dev/null
-sudo apt-mark hold lightdm &>/dev/null
-echo lightdm hold | dpkg --set-selections &>/dev/null
-sudo apt-mark hold sleuthkit &>/dev/null
-echo sleuthkit hold | dpkg --set-selections &>/dev/null
-csi_remove /etc/apt/sources.list.d/archive_u* &>/dev/null
-csi_remove /etc/apt/sources.list.d/brave* &>/dev/null
-csi_remove /etc/apt/sources.list.d/signal* &>/dev/null
-csi_remove /etc/apt/sources.list.d/wine* &>/dev/null
-csi_remove /etc/apt/trusted.gpg.d/wine* &>/dev/null
-csi_remove /etc/apt/trusted.gpg.d/brave* &>/dev/null
-csi_remove /etc/apt/trusted.gpg.d/signal* &>/dev/null
-echo $key | sudo -S csi_remove /var/crash/*
-echo $key | sudo -S rm /var/crash/*
-rm ~/.vbox*
 
 # Function to remove specific files
 csi_remove() {
@@ -426,13 +410,58 @@ install_packages() {
     echo "Installation complete. $installed out of $total_packages packages installed."
 }
 
+function install_missing_programs() {
+    local programs=(curl bpytop xterm aria2 yad zenity)
+    local missing_programs=()
+    local output_file="~/logfile.log" # Specify your output file path
+
+    for program in "${programs[@]}"; do
+        if ! dpkg -s "$program" &> /dev/null; then
+            echo "$program is not installed. Will attempt to install." | tee -a "$output_file"
+            missing_programs+=("$program")
+        else
+            echo "$program is already installed." | tee -a "$output_file"
+        fi
+    done
+
+    if [ ${#missing_programs[@]} -ne 0 ]; then
+        echo "Updating package lists..." | tee -a "$output_file"
+        echo $key | sudo -S apt-get update | tee -a "$output_file"
+        
+        for program in "${missing_programs[@]}"; do
+            echo "Attempting to install $program..." | tee -a "$output_file"
+            if echo $key | sudo -S apt-get install -y "$program" 2>&1 | tee -a "$output_file"; then
+                echo "$program installed successfully." | tee -a "$output_file"
+            else
+                echo "Failed to install $program. It may not be available in the repository or another error occurred." | tee -a "$output_file"
+            fi
+        done
+    else
+        echo "All programs are already installed." | tee -a "$output_file"
+    fi
+}
+
 echo "To remember the null output " &>/dev/null
+echo "Cleaning up..."
+sudo apt remove sleuthkit &>/dev/null
+sudo apt-mark hold lightdm &>/dev/null
+echo lightdm hold | dpkg --set-selections &>/dev/null
+sudo apt-mark hold sleuthkit &>/dev/null
+echo sleuthkit hold | dpkg --set-selections &>/dev/null
+csi_remove /etc/apt/sources.list.d/archive_u* &>/dev/null
+csi_remove /etc/apt/sources.list.d/brave* &>/dev/null
+csi_remove /etc/apt/sources.list.d/signal* &>/dev/null
+csi_remove /etc/apt/sources.list.d/wine* &>/dev/null
+csi_remove /etc/apt/trusted.gpg.d/wine* &>/dev/null
+csi_remove /etc/apt/trusted.gpg.d/brave* &>/dev/null
+csi_remove /etc/apt/trusted.gpg.d/signal* &>/dev/null
+echo $key | sudo -S csi_remove /var/crash/*
+echo $key | sudo -S rm /var/crash/*
+rm ~/.vbox*
 echo "# Setting up CSI Linux environment..."
 setup_new_csi_system
 sudo apt remove sleuthkit  &>/dev/null
 fix_broken
-# disable_services
-
 echo "# Setting up repo environment"
 cd /tmp
 
@@ -457,24 +486,13 @@ add_repository "ppa" "ppa:apt-fast/stable" "" "apt-fast"
 add_repository "ppa" "ppa:obsproject/obs-studio" "" "obs-studio"
 
 echo $key | sudo -S apt update
-# sudo apt-get install xubuntu-desktop --no-install-recommends
 echo $key | sudo -S apt upgrade -y
-programs=(bpytop xterm aria2 yad zenity)
-for program in "${programs[@]}"; do
-    if ! which "$program" > /dev/null; then
-        sudo apt remove sleuthkit  &>/dev/null
-        echo "$program is not installed. Attempting to install..." | tee -a "$output_file" &>/dev/null
-        echo $key | sudo -S apt install -y "$program" | tee -a "$output_file" &>/dev/null
-    else
-        echo "$program is already installed." | tee -a "$output_file" &>/dev/null
-    fi
-done
+install_missing_programs
+echo $key | sudo -S apt remove sleuthkit -y 
 
 cis_lvl_1
-echo $key | sudo -S spt remove sleuthkit -y 
+
 cd /tmp
-
-
 
 apt_computer_forensic_tools=(
     "dcfldd"
@@ -494,12 +512,9 @@ apt_image=(
 )
 
 
-
-
 install_from_requirements_url "https://csilinux.com/downloads/csitools-requirements.txt"
 dos2unix /opt/csitools/resetdns
 echo $key | sudo -S ln -s /usr/bin/python3 /usr/bin/python &>/dev/null
-
 echo $key | sudo -S timedatectl set-timezone UTC
 
 # unredactedmagazine
@@ -520,6 +535,7 @@ for option in "${powerup_options[@]}"; do
     case $option in
         "csitools")
                 install_csi_tools
+		# echo $key | sudo -S ln -s /opt/csitools/csi_app /usr/bin/csi_app &>/dev/null
 		reset_DNS
 		;;
         "csi-linux")
