@@ -6,6 +6,7 @@ powerup_options_string=$2
 
 # Use sudo with the provided key
 echo $key | sudo -S date
+echo $key | sudo -S df -h
 cd /tmp
 IFS=',' read -r -a powerup_options <<< "$powerup_options_string"
 
@@ -151,21 +152,21 @@ disable_services() {
     # Iterate through the list and disable each service
     for service in "${disableservices[@]}"; do
         echo "Disabling $service..."
-        sudo systemctl disable "$service" &>/dev/null
-        sudo systemctl stop "$service" &>/dev/null
+        echo $key | sudo -S systemctl disable "$service" &>/dev/null
+        echo $key | sudo -S systemctl stop "$service" &>/dev/null
         echo "$service disabled successfully."
     done
 }
 
 reset_DNS() {
     echo "# Checking and updating /etc/resolv.conf"
-    sudo mv /etc/resolv.conf /etc/resolv.conf.bak
+    echo $key | sudo -S mv /etc/resolv.conf /etc/resolv.conf.bak
     echo "nameserver 127.0.0.53" | sudo tee /etc/resolv.conf > /dev/null
     echo "nameserver 127.3.2.1" | sudo tee -a /etc/resolv.conf > /dev/null
     echo "DNS nameservers updated."
 
     # Restart systemd-resolved service
-    sudo systemctl restart systemd-resolved
+    echo $key | sudo -S systemctl restart systemd-resolved
 
     # Wait for systemd-resolved to be active
     while ! systemctl is-active --quiet systemd-resolved; do
