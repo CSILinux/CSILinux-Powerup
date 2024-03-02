@@ -153,26 +153,39 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
+# Splitting the selected options string correctly to handle newline issues
+readarray -t selections <<< "$(echo "$selected_options" | sed 's/|/\n/g')"
 
-IFS='|' read -r -a selected_array <<< "$selected_options"
+# Initialize the array to hold the selected options
 arg_list=()
 
-if printf '%s\n' "${selected_array[@]}" | grep -qx "all"; then
-    # Add all base_names to arg_list
-    arg_list=("${base_names[@]}")
+# Flag to indicate if "all" has been selected
+all_selected=false
+
+# Iterate through selections to build the arg_list based on selected values
+for selection in "${selections[@]}"; do
+    if [[ "$selection" == "all" ]]; then
+        all_selected=true
+        break  # No need to continue if "all" is selected
+    elif [[ " ${base_names[*]} " =~ " ${selection} " ]]; then
+        # Add the selection to arg_list if it's a valid base name
+        arg_list+=("$selection")
+    fi
+done
+
+# If "all" is selected, populate arg_list with all base_names except "all"
+if [ "$all_selected" = true ]; then
+    echo "All options have been selected, excluding 'all'."
+    arg_list=("${base_names[@]}")  # Populate arg_list with all base_names
 else
-    # Add only selected options to arg_list, skipping "TRUE"
-    for option in "${selected_array[@]}"; do
-        if [[ " ${base_names[*]} " =~ " ${option} " ]]; then
-            arg_list+=("$option")
-        fi
-    done
+    echo "Specific selections have been made."
 fi
 
 echo "You have selected the following options:"
 for option in "${arg_list[@]}"; do
     echo "- $option"
 done
+
 
 cd /tmp
 SCRIPT_URL="https://raw.githubusercontent.com/CSILinux/CSILinux-Powerup/main/csitoolsupdate.sh"
