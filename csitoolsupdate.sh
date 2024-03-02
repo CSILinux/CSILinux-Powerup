@@ -64,6 +64,7 @@ install_missing_programs() {
     local missing_programs=()
     local output_file="~/logfile.log" # Specify your output file path
 
+    touch $output_file
     for program in "${programs[@]}"; do
         if ! dpkg -s "$program" &> /dev/null; then
             echo "$program is not installed. Will attempt to install." | tee -a "$output_file"
@@ -524,7 +525,6 @@ for option in "${powerup_options[@]}"; do
 		add_repository "apt" "https://packages.cisofy.com/community/lynis/deb/ stable main" "https://packages.cisofy.com/keys/cisofy-software-public.key" "cisofy-lynis"
 		add_repository "apt" "https://download.docker.com/linux/ubuntu focal stable" "https://download.docker.com/linux/ubuntu/gpg" "docker"
     
-    		add_repository "key" "deb http://ftp.debian.org/debian stable main contrib non-free" "keyring.debian.org --recv-keys 0x2404C9546E145360" "debian"
 		add_repository "key" "https://download.onlyoffice.com/repo/debian squeeze main" "hkp://keyserver.ubuntu.com:80 --recv-keys CB2DE8E5" "onlyoffice"
 		
 		add_repository "ppa" "ppa:danielrichter2007/grub-customizer" "" "grub-customizer"
