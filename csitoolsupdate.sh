@@ -62,32 +62,30 @@ cd /tmp
 install_missing_programs() {
     local programs=(curl bpytop xterm aria2 yad zenity)
     local missing_programs=()
-    local output_file="~/logfile.log" # Specify your output file path
 
     touch $output_file
     for program in "${programs[@]}"; do
         if ! dpkg -s "$program" &> /dev/null; then
-            echo "$program is not installed. Will attempt to install." | tee -a "$output_file"
+            echo "$program is not installed. Will attempt to install." 
             missing_programs+=("$program")
         else
-            echo "$program is already installed." | tee -a "$output_file"
+            echo "$program is already installed."
         fi
     done
 
     if [ ${#missing_programs[@]} -ne 0 ]; then
-        echo "Updating package lists..." | tee -a "$output_file"
-        echo $key | sudo -S apt update | tee -a "$output_file"
-        
+        echo "Updating package lists..." 
+        echo $key | sudo -S apt update  
         for program in "${missing_programs[@]}"; do
-            echo "Attempting to install $program..." | tee -a "$output_file"
-            if echo $key | sudo -S apt install -y "$program" 2>&1 | tee -a "$output_file"; then
-                echo "$program installed successfully." | tee -a "$output_file"
+            echo "Attempting to install $program...""
+            if echo $key | sudo -S apt install -y "$program" 2>&1 ; then
+                echo "$program installed successfully." 
             else
-                echo "Failed to install $program. It may not be available in the repository or another error occurred." | tee -a "$output_file"
+                echo "Failed to install $program. It may not be available in the repository or another error occurred."
             fi
         done
     else
-        echo "All programs are already installed." | tee -a "$output_file"
+        echo "Starter programs are already installed."
     fi
 }
 
@@ -153,7 +151,47 @@ restore_backup_to_root() {
     return 0  # Successfully completed the function
 }
 
-install_csi_tools
+install_packages() {
+    local -n packages=$1
+    local total_packages=${#packages[@]}
+    local installed=0
+    local current_package=0
+
+    # Ensure the directory exists
+    echo $key | sudo -S mkdir -p /opt/csitools
+    sudo apt remove sleuthkit  &>/dev/null
+    # Attempt to fix any broken dependencies before starting installations
+ 
+    for package in "${packages[@]}"; do
+        sudo apt remove sleuthkit  &>/dev/null
+        let current_package++
+        # Ignore empty values
+        if [[ -n $package ]]; then
+            # Check if the package is already installed
+            if ! dpkg -l | grep -qw "$package"; then
+                printf "Installing package %s (%d of %d)...\n" "$package" "$current_package" "$total_packages"
+                # Attempt to install the package
+                if sudo apt-get install -y --assume-yes "$package"; then
+                    printf "."
+                    ((installed++))
+                else
+		    sudo apt remove sleuthkit  &>/dev/null
+                    # If installation failed, try to fix broken dependencies and try again
+                    if sudo apt-get install -y --assume-yes "$package"; then
+                        printf "."
+                        ((installed++))
+                    else
+                        printf "Installation failed for %s, logging to /opt/csitools/apt-failed.txt\n" "$package"
+                        echo "$package" | sudo tee -a /opt/csitools/apt-failed.txt > /dev/null
+                    fi
+                fi
+            else
+                printf "Package %s is already installed, skipping (%d of %d).\n" "$package" "$current_package" "$total_packages"
+            fi
+        fi
+    done
+    echo "Installation complete. $installed out of $total_packages packages installed."
+}
 
 # Function to remove specific files
 csi_remove() {
@@ -489,7 +527,7 @@ for option in "${powerup_options[@]}"; do
     case $option in
         "csi-linux-base")
 		cd /tmp
-		echo "Cleaning up..."
+		echo "Cleaning up CSI Linux base..."
 		echo $key | sudo -S apt remove sleuthkit &>/dev/null
 		echo $key | sudo -S apt-mark hold lightdm &>/dev/null
 		echo lightdm hold | dpkg --set-selections &>/dev/null
@@ -534,17 +572,18 @@ for option in "${powerup_options[@]}"; do
 		add_repository "ppa" "ppa:obsproject/obs-studio" "" "obs-studio"
 		add_repository "ppa" "ppa:savoury1/backports" "" "savoury1"
 		add_repository "ppa" "  ppa:alexlarsson/flatpak" "" "flatpack"
-
-		
+  		echo "# Updating APT with updated repos"		
 		echo $key | sudo -S apt update
 		echo $key | sudo -S apt upgrade -y
+  		echo "# Checking Starter Apps"
 		install_missing_programs
 		echo $key | sudo -S apt remove sleuthkit -y  &>/dev/null
+    		echo "# Disabling uneeded Services"
   		disable_services &>/dev/null
 		install_from_requirements_url "https://csilinux.com/downloads/csitools-requirements.txt"
 		echo $key | sudo -S ln -s /usr/bin/python3 /usr/bin/python &>/dev/null
 		echo $key | sudo -S timedatectl set-timezone UTC     
-    		echo "# Installing Bulk Packages from apps.txt"
+    		echo "# Installing CSI Linux Base Packages from apps.txt"
 		rm csi_linux_base.txt &>/dev/null
 		wget https://csilinux.com/downloads/csi_linux_base.txt -O csi_linux_base.txt
   		dos2unix csi_linux_base.txt
@@ -552,14 +591,13 @@ for option in "${powerup_options[@]}"; do
 		install_packages csi_linux_base
   		echo "Installing additional system tools..."
 		cd /tmp
-		echo "# Configuring Investigation Tools"
 		if ! which calibre > /dev/null; then
 			echo "# Installing calibre"
 			echo $key | sudo -S -v && wget -nv -O- https://download.calibre-ebook.com/linux-installer.sh | echo $key | sudo -S sh /dev/stdin
 		fi
                 echo "Setting up media tools..."
 		if ! which xnview > /dev/null; then
-			wget  wget https://download.xnview.com/XnViewMP-linux-x64.deb
+			wget https://download.xnview.com/XnViewMP-linux-x64.deb
 			echo $key | sudo -S apt install -y ./XnViewMP-linux-x64.deb
 		fi
   		# cis_lvl_1 $key
@@ -822,6 +860,12 @@ for option in "${powerup_options[@]}"; do
 			cd ~/Downloads
 			git clone https://github.com/sleuthkit/autopsy_addon_modules.git
 			# /opt/autopsy/bin/autopsy --nosplash
+		fi
+  		if ! which fred > /dev/null; then
+			wget https://csilinux.com/downloads/fred_0.2.0_amd64.deb
+			echo $key | sudo -S apt install -y ./fred_0.2.0_amd64.deb
+   			wget https://csilinux.com/downloads/fred-reports_0.2.0_amd64.deb
+			echo $key | sudo -S apt install -y ./fred-reports_0.2.0_amd64.deb
 		fi
 		repositories=(
 			"WLEAPP|https://github.com/abrignoni/WLEAPP.git"
