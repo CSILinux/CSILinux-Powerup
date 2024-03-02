@@ -583,12 +583,13 @@ for option in "${powerup_options[@]}"; do
 		install_from_requirements_url "https://csilinux.com/downloads/csitools-requirements.txt"
 		echo $key | sudo -S ln -s /usr/bin/python3 /usr/bin/python &>/dev/null
 		echo $key | sudo -S timedatectl set-timezone UTC     
-    		echo "# Installing CSI Linux Base Packages from apps.txt"
-		rm csi_linux_base.txt &>/dev/null
-		wget https://csilinux.com/downloads/csi_linux_base.txt -O csi_linux_base.txt
-  		dos2unix csi_linux_base.txt
-		mapfile -t csi_linux_base < <(grep -vE "^\s*#|^$" csi_linux_base.txt | sed -e 's/#.*//')
-		install_packages csi_linux_base
+
+
+
+
+
+
+
   		echo "Installing additional system tools..."
 		cd /tmp
 		if ! which calibre > /dev/null; then
