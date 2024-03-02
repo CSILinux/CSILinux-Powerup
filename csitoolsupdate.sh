@@ -91,8 +91,6 @@ install_missing_programs() {
     fi
 }
 
-install_missing_programs
-
 install_csi_tools() {
     local backup_dir="/tmp/restore"
     local backup_file_name="csitools"
