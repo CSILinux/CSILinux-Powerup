@@ -117,7 +117,7 @@ install_csi_tools() {
     local backup_dir="/tmp/restore"
     local backup_file_name="csitools"
     local archive_path="$backup_dir/$backup_file_name.7z"
-
+    echo "$key" | sudo -S apt install aria2c -y
     echo "Preparing for CSI Tools download..."
     echo "$key" | sudo -S rm -rf "$backup_dir"  # Remove the entire backup directory
     echo "$key" | sudo -S mkdir -p "$backup_dir"
