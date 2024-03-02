@@ -59,6 +59,39 @@ echo $key | sudo -S sleep 1
 echo $key | sudo -S df -h
 cd /tmp
 
+install_missing_programs() {
+    local programs=(curl bpytop xterm aria2 yad zenity)
+    local missing_programs=()
+    local output_file="~/logfile.log" # Specify your output file path
+
+    for program in "${programs[@]}"; do
+        if ! dpkg -s "$program" &> /dev/null; then
+            echo "$program is not installed. Will attempt to install." | tee -a "$output_file"
+            missing_programs+=("$program")
+        else
+            echo "$program is already installed." | tee -a "$output_file"
+        fi
+    done
+
+    if [ ${#missing_programs[@]} -ne 0 ]; then
+        echo "Updating package lists..." | tee -a "$output_file"
+        echo $key | sudo -S apt update | tee -a "$output_file"
+        
+        for program in "${missing_programs[@]}"; do
+            echo "Attempting to install $program..." | tee -a "$output_file"
+            if echo $key | sudo -S apt install -y "$program" 2>&1 | tee -a "$output_file"; then
+                echo "$program installed successfully." | tee -a "$output_file"
+            else
+                echo "Failed to install $program. It may not be available in the repository or another error occurred." | tee -a "$output_file"
+            fi
+        done
+    else
+        echo "All programs are already installed." | tee -a "$output_file"
+    fi
+}
+
+install_missing_programs
+
 install_csi_tools() {
     local backup_dir="/tmp/restore"
     local backup_file_name="csitools"
