@@ -62,7 +62,7 @@ cd /tmp
 install_missing_programs() {
     local programs=(curl bpytop xterm aria2 yad zenity)
     local missing_programs=()
-    local output_file="~/tmp/outputfile.txt" # Define the output file path correctly
+    local output_file="/tmp/outputfile.txt" # Define the output file path correctly
 
     touch $output_file
     for program in "${programs[@]}"; do
