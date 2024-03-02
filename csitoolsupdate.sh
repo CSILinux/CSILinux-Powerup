@@ -547,6 +547,7 @@ for option in "${powerup_options[@]}"; do
 		echo "Cleaning up CSI Linux base..."
 		echo $key | sudo -S apt remove sleuthkit &>/dev/null
 		echo $key | sudo -S apt-mark hold lightdm &>/dev/null
+		echo $key | sudo -S apt purge postfix &>/dev/null
 		echo lightdm hold | dpkg --set-selections &>/dev/null
 		echo $key | sudo -S apt-mark hold sleuthkit &>/dev/null
 		echo sleuthkit hold | dpkg --set-selections &>/dev/null
