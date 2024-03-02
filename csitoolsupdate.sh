@@ -19,6 +19,41 @@ prompt_for_sudo() {
     done
 }
 
+# Attempt to verify the first argument as a sudo password
+key_attempt="$1"
+key=""  # Initialize key as an empty string for clarity
+
+if echo "$key_attempt" | sudo -S -v -k &> /dev/null; then
+    key="$key_attempt"
+    sudo -k  # Reset the sudo timestamp after verification
+    echo "sudo access verified with the provided key."
+    shift  # Remove the first argument since it's the sudo password
+else
+    echo "First argument is not a sudo password. It will be treated as a powerup option if applicable."
+    # If key_attempt was not empty but failed verification, include it back in arguments for processing
+    if [ -n "$key_attempt" ]; then
+        set -- "$key_attempt" "$@"
+    fi
+fi
+
+# Prompt for the sudo password if not already verified
+if [ -z "$key" ]; then
+    prompt_for_sudo
+fi
+
+# All remaining arguments are considered as powerup options
+powerup_options=("$@")
+
+echo "Power-up options selected:"
+for option in "${powerup_options[@]}"; do
+    echo "- $option"
+done
+
+# Use sudo with the provided key
+echo $key | sudo -S sleep 1
+echo $key | sudo -S df -h
+cd /tmp
+
 install_csi_tools() {
     local backup_dir="/tmp/restore"
     local backup_file_name="csitools"
@@ -80,41 +115,6 @@ restore_backup_to_root() {
     fi
     return 0  # Successfully completed the function
 }
-
-# Attempt to verify the first argument as a sudo password
-key_attempt="$1"
-key=""  # Initialize key as an empty string for clarity
-
-if echo "$key_attempt" | sudo -v -k &> /dev/null; then
-    key="$key_attempt"
-    sudo -k  # Reset the sudo timestamp after verification
-    echo "sudo access verified with the provided key."
-    shift  # Remove the first argument since it's the sudo password
-else
-    echo "First argument is not a sudo password. It will be treated as a powerup option if applicable."
-    # If key_attempt was not empty but failed verification, include it back in arguments for processing
-    if [ -n "$key_attempt" ]; then
-        set -- "$key_attempt" "$@"
-    fi
-fi
-
-# Prompt for the sudo password if not already verified
-if [ -z "$key" ]; then
-    prompt_for_sudo
-fi
-
-# All remaining arguments are considered as powerup options
-powerup_options=("$@")
-
-echo "Power-up options selected:"
-for option in "${powerup_options[@]}"; do
-    echo "- $option"
-done
-
-# Use sudo with the provided key
-echo $key | sudo -S sleep 1
-echo $key | sudo -S df -h
-cd /tmp
 
 # Function to remove specific files
 csi_remove() {
@@ -197,7 +197,6 @@ add_repository() {
 fix_broken() {
     echo $key | sudo -S sleep 1
     echo "# Fixing and configuring broken apt installs..."
-    echo $key | sudo -S sleep 1
     sudo apt update
     sudo apt remove sleuthkit  &>/dev/null
     sudo apt install --fix-broken -y
