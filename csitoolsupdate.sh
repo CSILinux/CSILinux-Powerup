@@ -423,7 +423,8 @@ install_from_requirements_url() {
 }
 
 cis_lvl_1() {
-	echo "Configuring the platform for CIS Level 1 Benchmarks"
+	local key="$1"
+ 	echo "Configuring the platform for CIS Level 1 Benchmarks"
  	echo $key | sudo -S sleep 1
 	echo "Warning Banners - Configuring system banners..."
 	# Define the security banner
@@ -452,7 +453,7 @@ cis_lvl_1() {
 	"
 	# Print the security banner
 	echo "$security_banner"
-	echo "$security_banner" | sudo tee /etc/issue.net /etc/issue /etc/motd &>/dev/null
+	echo "$security_banner" | echo $key | sudo -S tee /etc/issue.net /etc/issue /etc/motd &>/dev/null
 
 	# SSH configuration
 	echo "Configuring SSH..."
@@ -473,13 +474,13 @@ cis_lvl_1() {
 	# Password policies
 	echo "Configuring password creation requirements..."
 	echo $key | sudo -S apt-get install -y libpam-cracklib libpam-pwquality
- 	echo "password requisite pam_pwquality.so retry=3 minlen=12" | sudo tee -a /etc/pam.d/common-password > /dev/null
-	echo "auth required pam_tally2.so onerr=fail audit silent deny=5 unlock_time=900" | sudo tee -a /etc/pam.d/common-auth
+ 	echo "password requisite pam_pwquality.so retry=3 minlen=12" | echo $key | sudo -S tee -a /etc/pam.d/common-password > /dev/null
+	echo "auth required pam_tally2.so onerr=fail audit silent deny=5 unlock_time=900" | echo $key | sudo -S tee -a /etc/pam.d/common-auth
 	
 	# Group wheel for su command
 	echo "Configuring group wheel for su command..."
-	echo "auth required pam_wheel.so use_uid" | sudo tee -a /etc/pam.d/su
-	echo "auth required pam_wheel.so group=wheel" | sudo tee -a /etc/pam.d/su
+	echo "auth required pam_wheel.so use_uid" | echo $key | sudo -S tee -a /etc/pam.d/su
+	echo "auth required pam_wheel.so group=wheel" | echo $key | sudo -S tee -a /etc/pam.d/su
 
 	# Adds an emergencyuser
  	echo $key | sudo -S useradd -m emergencyuser -G sudo,wheel -s /bin/bash || { echo "emergencyuser:${key}" | sudo chpasswd; }
@@ -703,7 +704,7 @@ for option in "${powerup_options[@]}"; do
 			wget  wget https://download.xnview.com/XnViewMP-linux-x64.deb
 			echo $key | sudo -S apt install -y ./XnViewMP-linux-x64.deb
 		fi
-  		cis_lvl_1
+  		# cis_lvl_1 $key
     		reset_DNS
   		sudo -k
 		;;
