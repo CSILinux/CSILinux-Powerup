@@ -290,12 +290,14 @@ add_repository() {
 
 fix_broken() {
     echo $key | sudo -S sleep 1
-    echo "# Fixing and configuring broken apt installs..."
-    sudo apt remove sleuthkit  &>/dev/null
-    sudo apt install --fix-broken -y
-    sudo dpkg --configure -a
-    echo "# Verifying and configuring any remaining packages..."
-    sudo dpkg --configure -a --force-confold
+    echo "# Verifying and configuring any remaining packages (dpkg --configure -a --force-confold)..."
+    echo $key | sudo -S dpkg --configure -a --force-confold
+    echo "# Fixing and configuring broken apt installs (dpkg --configure -a)..."
+    echo $key | sudo -S dpkg --configure -a
+    echo $key | sudo -S apt remove sleuthkit  &>/dev/null
+    echo "# Fixing and configuring broken apt installs (apt install --fix-broken -y)..."
+    echo $key | sudo -S apt install --fix-broken -y
+
 }
 
 update_git_repository() {
