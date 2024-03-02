@@ -581,6 +581,7 @@ for option in "${powerup_options[@]}"; do
 		add_repository "apt" "https://download.docker.com/linux/ubuntu focal stable" "https://download.docker.com/linux/ubuntu/gpg" "docker"
     
 		add_repository "key" "https://download.onlyoffice.com/repo/debian squeeze main" "hkp://keyserver.ubuntu.com:80 --recv-keys CB2DE8E5" "onlyoffice"
+  		add_repository "key" "http://ftp.debian.org/debian stable main contrib non-free" "hkp://keyring.debian.org:80 --recv-keys 0x2404C9546E145360" "debian"
 		
 		add_repository "ppa" "ppa:danielrichter2007/grub-customizer" "" "grub-customizer"
 		add_repository "ppa" "ppa:phoerious/keepassxc" "" "keepassxc"
@@ -588,7 +589,7 @@ for option in "${powerup_options[@]}"; do
 		add_repository "ppa" "ppa:apt-fast/stable" "" "apt-fast"
 		add_repository "ppa" "ppa:obsproject/obs-studio" "" "obs-studio"
 		add_repository "ppa" "ppa:savoury1/backports" "" "savoury1"
-		add_repository "ppa" "  ppa:alexlarsson/flatpak" "" "flatpack"
+		add_repository "ppa" "ppa:alexlarsson/flatpak" "" "flatpack"
   		echo "# Updating APT with updated repos"		
 		echo $key | sudo -S apt update
   		fix_broken
