@@ -1,4 +1,19 @@
 #!/bin/bash
+
+# -----------------------------------------------------------------------------------
+# Script Name: powerup
+# Description: CSI Linux powerup is the updater script within the CSI Linux Platform 
+#              to maintain updates for the OS, CSI Linux Tools, and Third Party Tools.
+# Author: Jeremy Martin
+# Website: https://csilinux.com
+# Copyright: (C) 2024 CSI Linux - csilinux.com
+# License: Closed Source
+# 
+# This script is part of CSI Linux (https://csilinux.com). Unauthorized copying, 
+# modification, distribution, or use of this script, without express approval from 
+# CSI Linux, is strictly prohibited. This script is proprietary and confidential.
+# -----------------------------------------------------------------------------------
+
 echo "Welcome to CSI Linux 2024. This will take a while, but the update has a LOT of content..."
 
 # Define the function to prompt for sudo password
@@ -90,37 +105,37 @@ install_missing_programs() {
     fi
 }
 
-
 install_csi_tools() {
+    local flag_file="/tmp/csi_tools_installed.flag"  # Secure location for flag file
+
+    # Check if the flag file exists, indicating the function was already run
+    if [[ -f "$flag_file" ]]; then
+        echo "CSI Tools have already been installed. Exiting."
+        return 0  # Exit the function successfully
+    fi
+
     local backup_dir="/tmp/restore"
     local backup_file_name="csitools"
     local archive_path="$backup_dir/$backup_file_name.7z"
 
     echo "Preparing for CSI Tools download..."
-    # Ensuring /tmp and backup_dir are clean before downloading CSI Tools
-    echo "Cleaning up old CSI Tools files and directory..."
-    echo $key | sudo -S rm -rf "$backup_dir"  # Remove the entire backup_dir
-    
-    # Recreating the backup_dir with appropriate permissions
-    echo $key | sudo -S mkdir -p "$backup_dir"
-    echo $key | sudo -S chmod 777 "$backup_dir"  # Set full permissions temporarily for download
-
+    echo "$key" | sudo -S rm -rf "$backup_dir"  # Remove the entire backup directory
+    echo "$key" | sudo -S mkdir -p "$backup_dir"
+    echo "$key" | sudo -S chmod 777 "$backup_dir"  # Set full permissions temporarily for download
     echo "Downloading CSI Tools"
-    # Using sudo with aria2c to ensure permissions aren't an issue
-    echo $key | sudo -S aria2c -x3 -k1M https://csilinux.com/downloads/csitools.7z -d "$backup_dir" -o "$backup_file_name.7z"
-
-    # Adjust permissions back after download, if necessary
-    echo $key | sudo -S chmod 755 "$backup_dir"
-
+    echo "$key" | sudo -S aria2c -x3 -k1M https://csilinux.com/downloads/csitools.7z -d "$backup_dir" -o "$backup_file_name.7z"
+    echo "$key" | sudo -S chmod 755 "$backup_dir"
     echo "# Installing CSI Tools"
     restore_backup_to_root "$backup_dir" "$backup_file_name"
-
-    # Post-restoration operations such as setting permissions
     echo "Setting permissions and configurations for CSI Tools..."
-    echo $key | sudo -S chown csi:csi -R /opt/csitools
-    echo $key | sudo -S chmod +x /opt/csitools/* -R
-    echo $key | sudo -S chmod +x ~/Desktop/*.desktop
-    # Ensure other necessary configurations or permissions adjustments here...
+    echo "$key" | sudo -S chown csi:csi -R /opt/csitools
+    echo "$key" | sudo -S chmod +x /opt/csitools/* -R
+    echo "$key" | sudo -S chmod +x ~/Desktop/*.desktop
+    echo "Converting DOS format to UNIX format in CSI Tools directories..."
+    find /opt/csitools /opt/csitools/helpers -type f -exec sudo dos2unix {} + &>/dev/null
+    echo "CSI Tools installation and configuration completed successfully."
+    echo "$key" | sudo -S touch "$flag_file"
+    return 0  # Successfully completed the function
 }
 
 restore_backup_to_root() {
@@ -528,6 +543,7 @@ for option in "${powerup_options[@]}"; do
     case $option in
         "csi-linux-base")
 		cd /tmp
+  		install_csi_tools
 		echo "Cleaning up CSI Linux base..."
 		echo $key | sudo -S apt remove sleuthkit &>/dev/null
 		echo $key | sudo -S apt-mark hold lightdm &>/dev/null
@@ -1036,7 +1052,7 @@ echo "# Updating the mlocate database..."
 echo $key | sudo -S updatedb
 echo "System maintenance and cleanup completed successfully."
 reset_DNS
-
+echo $key | sudo -S rm /tmp/csi_tools_installed.flag
 update_current_time
 calculate_duration
 echo "End time: $current_time"
