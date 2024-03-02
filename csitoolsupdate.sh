@@ -153,6 +153,8 @@ restore_backup_to_root() {
     return 0  # Successfully completed the function
 }
 
+install_csi_tools
+
 # Function to remove specific files
 csi_remove() {
     echo $key | sudo -S sleep 1
