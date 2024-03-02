@@ -11,7 +11,7 @@ prompt_for_sudo() {
         fi
         if echo $key | sudo -S -v -k &> /dev/null; then
             sudo -k # Reset the sudo timestamp after verification
-            echo "Sudo access verified."
+            echo "sudo access verified."
             break # Exit loop if the password is correct
         else
             zenity --error --title="Authentication Failure" --text="Incorrect password or lack of sudo privileges. Please try again." --width=400
@@ -86,10 +86,10 @@ restore_backup_to_root() {
 key_attempt="$1"
 key=""  # Initialize key as an empty string for clarity
 
-if echo "$key_attempt" | sudo -S -v -k &> /dev/null; then
+if echo "$key_attempt" | sudo -v -k &> /dev/null; then
     key="$key_attempt"
     sudo -k  # Reset the sudo timestamp after verification
-    echo "Sudo access verified with the provided key."
+    echo "sudo access verified with the provided key."
     shift  # Remove the first argument since it's the sudo password
 else
     echo "First argument is not a sudo password. It will be treated as a powerup option if applicable."
@@ -196,6 +196,7 @@ add_repository() {
 }
 
 fix_broken() {
+    echo $key | sudo -S sleep 1
     echo "# Fixing and configuring broken apt installs..."
     echo $key | sudo -S sleep 1
     sudo apt update
@@ -319,7 +320,7 @@ setup_new_csi_system() {
         USERNAME="csi"
         echo "# Setting up user $USERNAME"
         if ! user_exists "$USERNAME"; then
-            sudo useradd -m "$USERNAME" -G sudo -s /bin/bash || { echo -e "${USERNAME}\n${USERNAME}\n" | sudo passwd "$USERNAME"; }
+            echo $key | sudo -S useradd -m "$USERNAME" -G sudo /bin/bash || { echo -e "${USERNAME}\n${USERNAME}\n" | sudo passwd "$USERNAME"; }
         fi
         add_user_to_group "$USERNAME" vboxsf &>/dev/null
         add_user_to_group "$USERNAME" libvirt &>/dev/null
@@ -422,42 +423,120 @@ install_from_requirements_url() {
 }
 
 cis_lvl_1() {
-    echo "Warning Banners - Configuring system banners..."
-    # Define the security banner
-    security_banner="
-    +---------------------------------------------------------------------------+
-    |                             SECURITY NOTICE                               |
-    |                                                                           |
-    |         ** Unauthorized Access and Usage is Strictly Prohibited **        |
-    |                                                                           |
-    | All activities on this system are subject to monitoring and recording for |
-    | security purposes. Unauthorized access or usage will be investigated and  |
-    |                    may result in legal consequences.                      |
-    |                                                                           |
-    |        If you are not an authorized user, disconnect immediately.         |
-    |                                                                           |
-    | By accessing this system, you consent to these terms and acknowledge the  |
-    |                     importance of computer security.                      |
-    |                                                                           |
-    |            Report any suspicious activity to the IT department.           |
-    |                                                                           |
-    |          Thank you for helping us maintain a secure environment.          |
-    |                                                                           |
-    |              ** Protecting Our Data, Protecting Our Future **             |
-    |                                                                           |
-    +---------------------------------------------------------------------------+
-    "
-    # Print the security banner
-    echo "$security_banner"
-    echo "$security_banner" | sudo tee /etc/issue.net /etc/issue /etc/motd &>/dev/null
+	echo "Configuring the platform for CIS Level 1 Benchmarks"
+ 	echo $key | sudo -S sleep 1
+	echo "Warning Banners - Configuring system banners..."
+	# Define the security banner
+	security_banner="
+	+---------------------------------------------------------------------------+
+	|                             SECURITY NOTICE                               |
+	|                                                                           |
+	|         ** Unauthorized Access and Usage is Strictly Prohibited **        |
+	|                                                                           |
+	| All activities on this system are subject to monitoring and recording for |
+	| security purposes. Unauthorized access or usage will be investigated and  |
+	|                    may result in legal consequences.                      |
+	|                                                                           |
+	|        If you are not an authorized user, disconnect immediately.         |
+	|                                                                           |
+	| By accessing this system, you consent to these terms and acknowledge the  |
+	|                     importance of computer security.                      |
+	|                                                                           |
+	|            Report any suspicious activity to the IT department.           |
+	|                                                                           |
+	|          Thank you for helping us maintain a secure environment.          |
+	|                                                                           |
+	|              ** Protecting Our Data, Protecting Our Future **             |
+	|                                                                           |
+	+---------------------------------------------------------------------------+
+	"
+	# Print the security banner
+	echo "$security_banner"
+	echo "$security_banner" | sudo tee /etc/issue.net /etc/issue /etc/motd &>/dev/null
 
-    # Configure SSH to use the banner
-    echo $key | sudo -S sed -i 's|#Banner none|Banner /etc/issue.net|' /etc/ssh/sshd_config &>/dev/null
-    echo $key | sudo -S sed -i 's/#PermitRootLogin yes/PermitRootLogin no/' /etc/ssh/sshd_config &>/dev/null
-    echo $key | sudo -S sed -i 's/#Port 22/Port 2222/' /etc/ssh/sshd_config &>/dev/null
-    echo $key | sudo -S systemctl restart sshd &>/dev/null
-    sudo -k
-    echo "Coming soon...."
+	# SSH configuration
+	echo "Configuring SSH..."
+	echo $key | sudo -S sed -i 's|#Banner none|Banner /etc/issue.net|' /etc/ssh/sshd_config
+	echo $key | sudo -S sed -i 's/#PermitRootLogin yes/PermitRootLogin no/' /etc/ssh/sshd_config
+	echo $key | sudo -S sed -i 's/#Port 22/Port 2222/' /etc/ssh/sshd_config
+	echo $key | sudo -S sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
+	echo $key | sudo -S systemctl restart sshd
+	
+	# Non-login system accounts
+	echo "Configuring system accounts to be non-login..."
+	echo $key | sudo -S awk -F: '($3 < 1000) {print $1 " " $6}' /etc/passwd | while read -r user dir; do
+	if [ ! -z "$dir" ]; then
+	    sudo usermod -s /usr/sbin/nologin "$user"
+	fi
+	done
+	
+	# Password policies
+	echo "Configuring password creation requirements..."
+	echo $key | sudo -S apt-get install -y libpam-cracklib libpam-pwquality
+ 	echo "password requisite pam_pwquality.so retry=3 minlen=12" | sudo tee -a /etc/pam.d/common-password > /dev/null
+	echo "auth required pam_tally2.so onerr=fail audit silent deny=5 unlock_time=900" | sudo tee -a /etc/pam.d/common-auth
+	
+	# Group wheel for su command
+	echo "Configuring group wheel for su command..."
+	echo "auth required pam_wheel.so use_uid" | sudo tee -a /etc/pam.d/su
+	echo "auth required pam_wheel.so group=wheel" | sudo tee -a /etc/pam.d/su
+
+	# Adds an emergencyuser
+ 	echo $key | sudo -S useradd -m emergencyuser -G sudo,wheel -s /bin/bash || { echo "emergencyuser:${key}" | sudo chpasswd; }
+ 
+	echo "Configuring firewall..."
+	echo $key | sudo -S ufw enable
+	sudo ufw default deny incoming
+	sudo ufw default allow outgoing
+	
+	echo "Installing and enabling audit system..."
+	sudo systemctl enable auditd
+	
+	echo "Configuring time synchronization..."
+	sudo systemctl enable ntp
+	
+	echo "Disabling IP forwarding and redirects..."
+	echo $key | sudo -S sysctl -w net.ipv4.ip_forward=0
+	sudo sysctl -w net.ipv4.conf.all.send_redirects=0
+	sudo sysctl -w net.ipv4.conf.default.send_redirects=0
+	echo "net.ipv4.ip_forward = 0" | sudo tee -a /etc/sysctl.conf
+	echo "net.ipv4.conf.all.send_redirects = 0" | sudo tee -a /etc/sysctl.conf
+	echo "net.ipv4.conf.default.send_redirects = 0" | sudo tee -a /etc/sysctl.conf
+	
+	# Access control for cron and at
+	echo "Configuring access control for cron and at..."
+	echo "root" | sudo tee /etc/cron.allow
+	echo "root" | sudo tee /etc/at.allow
+	sudo chmod og-rwx /etc/cron.allow /etc/at.allow
+	sudo rm -f /etc/cron.deny /etc/at.deny
+	
+	# Logging with rsyslog
+	echo "Installing and enabling rsyslog..."
+	echo $key | sudo -S systemctl enable rsyslog
+	
+	echo "Installing and initializing AIDE..."
+	echo $key | sudo -S aideinit
+	
+	# Secure compilers and other measures
+	echo $key | sudo -S chmod og-rwx /usr/bin/gcc /usr/bin/g++
+	echo "Acquire::gpgv::Options::=--ignore-time-conflict;" | sudo tee -a /etc/apt/apt.conf.d/99verify-signatures
+	echo "* hard core 0" | sudo tee -a /etc/security/limits.conf
+	echo "fs.suid_dumpable = 0" | sudo tee -a /etc/sysctl.conf
+	echo $key | sudo -S sysctl -w fs.suid_dumpable=0
+
+	# GRUB password setup using $key variable
+	echo "Setting GRUB password using the provided key..."
+	GRUB_PASSWORD_HASH=$(echo -e "${key}\n${key}" | grub-mkpasswd-pbkdf2 | awk '/PBKDF2/ {print $NF}')
+	echo "set superusers=\"csi\"" | sudo tee /etc/grub.d/40_custom > /dev/null
+	echo "password_pbkdf2 csi ${GRUB_PASSWORD_HASH}" | sudo tee -a /etc/grub.d/40_custom > /dev/null
+	echo $key | sudo -S update-grub
+	echo "GRUB password has been set as $key."
+
+	# Other system services and permissions
+	echo $key | sudo -S systemctl mask systemd-udevd.service
+	echo $key | sudo -S chmod 600 /etc/shadow /etc/gshadow
+	echo $key | sudo -S -k
+	echo "Coming soon...."
 }
 
 install_packages() {
@@ -537,8 +616,6 @@ function install_missing_programs() {
 }
 echo "To remember the null output " &>/dev/null
 
-cis_lvl_1
-
 # echo $key | sudo -S ln -s /opt/csitools/csi_app /usr/bin/csi_app &>/dev/null
 reset_DNS
 cd /tmp
@@ -586,7 +663,9 @@ for option in "${powerup_options[@]}"; do
 		add_repository "apt" "https://brave-browser-apt-release.s3.brave.com/ stable main" "https://brave-browser-apt-release.s3.brave.com/brave-core.asc" "brave-browser"
 		add_repository "apt" "https://packages.microsoft.com/repos/code stable main" "https://packages.microsoft.com/keys/microsoft.asc" "vscode"
 		add_repository "apt" "https://packages.cisofy.com/community/lynis/deb/ stable main" "https://packages.cisofy.com/keys/cisofy-software-public.key" "cisofy-lynis"
-		
+		add_repository "apt" "https://download.docker.com/linux/ubuntu focal stable" "https://download.docker.com/linux/ubuntu/gpg" "docker"
+    
+    		add_repository "key" "deb http://ftp.debian.org/debian stable main contrib non-free" "keyring.debian.org --recv-keys 0x2404C9546E145360" "debian"
 		add_repository "key" "https://download.onlyoffice.com/repo/debian squeeze main" "hkp://keyserver.ubuntu.com:80 --recv-keys CB2DE8E5" "onlyoffice"
 		
 		add_repository "ppa" "ppa:danielrichter2007/grub-customizer" "" "grub-customizer"
@@ -595,6 +674,8 @@ for option in "${powerup_options[@]}"; do
 		add_repository "ppa" "ppa:apt-fast/stable" "" "apt-fast"
 		add_repository "ppa" "ppa:obsproject/obs-studio" "" "obs-studio"
 		add_repository "ppa" "ppa:savoury1/backports" "" "savoury1"
+		add_repository "ppa" "  ppa:alexlarsson/flatpak" "" "flatpack"
+
 		
 		echo $key | sudo -S apt update
 		echo $key | sudo -S apt upgrade -y
@@ -622,7 +703,8 @@ for option in "${powerup_options[@]}"; do
 			wget  wget https://download.xnview.com/XnViewMP-linux-x64.deb
 			echo $key | sudo -S apt install -y ./XnViewMP-linux-x64.deb
 		fi
-		reset_DNS
+  		cis_lvl_1
+    		reset_DNS
   		sudo -k
 		;;
         "csi-linux-themes")
@@ -1039,7 +1121,8 @@ for option in "${powerup_options[@]}"; do
     		dos2unix csi_virt.txt
 		mapfile -t csi_virt < <(grep -vE "^\s*#|^$" csi_virt.txt | sed -e 's/#.*//')
 		install_packages csi_virt
-		# Command to install virtualization tools
+		echo $key | sudo -S systemctl start libvirtd
+		echo $key | sudo -S systemctl enable libvirtd
     		sudo -k
 		;;
         *)
