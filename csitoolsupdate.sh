@@ -25,7 +25,6 @@ install_csi_tools() {
     local archive_path="$backup_dir/$backup_file_name.7z"
 
     echo "Preparing for CSI Tools download..."
-    
     # Ensuring /tmp and backup_dir are clean before downloading CSI Tools
     echo "Cleaning up old CSI Tools files and directory..."
     echo $key | sudo -S rm -rf "$backup_dir"  # Remove the entire backup_dir
@@ -255,46 +254,62 @@ disable_services() {
         "openvpn@.service"
         "privoxy.service"
         "rsync.service"
-	"systemd-networkd-wait-online.service"
+        "systemd-networkd-wait-online.service"
         "NetworkManager-wait-online.service"
 	"xl2tpd.service"
+ 	"mono-xsp4.service"
     )
 
     # Iterate through the list and disable each service
     for service in "${disableservices[@]}"; do
         echo "Disabling $service..."
-        echo $key | sudo -S systemctl disable "$service" &>/dev/null
         echo $key | sudo -S systemctl stop "$service" &>/dev/null
+	echo $key | sudo -S systemctl disable "$service" &>/dev/null
         echo "$service disabled successfully."
     done
 }
 
+
 reset_DNS() {
+    check_connection() {
+        ping -c 1 8.8.8.8 >/dev/null
+    }
+    check_dns() {
+        ping -c 1 google.com >/dev/null
+    }
     echo "# Checking and updating /etc/resolv.conf"
     echo $key | sudo -S mv /etc/resolv.conf /etc/resolv.conf.bak
     echo "nameserver 127.0.0.53" | sudo tee /etc/resolv.conf > /dev/null
     echo "nameserver 127.3.2.1" | sudo tee -a /etc/resolv.conf > /dev/null
-    echo "DNS nameservers updated."
-
-    # Restart systemd-resolved service
+    printf "\nDNS nameservers updated.\n"
     echo $key | sudo -S systemctl restart systemd-resolved
-
-    # Wait for systemd-resolved to be active
     while ! systemctl is-active --quiet systemd-resolved; do
         echo "Waiting for systemd-resolved to restart..."
         sleep 1
     done
     echo "systemd-resolved restarted successfully."
 
-    # Perform connectivity test
-    if ping -c 1 8.8.8.8 >/dev/null; then
-        echo "Internet connection is working."
-        if ! ping -c 1 google.com >/dev/null; then
-            yad --title "Connectivity Issue" --text "The internet is working, but DNS is not working. Please check your resolv.conf file" --button=gtk-ok:0
+    max_retries=5
+    retry_count=0
+
+    while [[ $retry_count -lt $max_retries ]]; do
+        if check_connection; then
+            echo "Internet connection is working."
+            if ! check_dns; then
+                echo "The internet is working, but DNS is not working. Please check your resolv.conf file"
+                ((retry_count++))
+            else
+                break
+            fi
+        else
+            echo "Internet connection is not working. Please check your network."
+            ((retry_count++))
         fi
-    else
-        echo "Internet connection is not working. Please check your network."
+    done
+    if [[ $retry_count -eq $max_retries ]]; then
+        echo "Maximum retries reached. Exiting."
     fi
+    echo $key | sudo -S sleep 1
     sudo -k
 }
 
@@ -422,242 +437,9 @@ install_from_requirements_url() {
     echo "Installation complete."
 }
 
-cis_exceptions() {
-cat <<EOF
-Purpose:
-This document outlines the specific exceptions to the Center for Internet Security (CIS) Benchmarks for Cybersecurity as applied to CSI Linux systems. Due to the specialized requirements of cyberforensic analysis, certain benchmark recommendations, particularly concerning filesystem support, are not fully implemented to ensure the effectiveness of forensic investigations. Users must acknowledge and accept these exceptions before integrating CSI Linux systems into secured networks.
-
-Exception Details:
-The primary exception to CIS compliance for CSI Linux systems pertains to the recommendation for "Disabling Unneeded Filesystem Support" (CIS Control). CSI Linux maintains enhanced filesystem support crucial forensic analysis, including, but not limited to, reading, writing, and analyzing a wide range of filesystem formats encountered in digital forensic investigations.
-
-Rationale for Exception:
-1. Forensic Analysis Capability: Comprehensive filesystem support is essential for accessing and analyzing evidence from diverse digital sources, including those using less common or legacy filesystems.
-2. Tool Compatibility: Advanced forensic tools and applications require the ability to interact with various filesystems to perform detailed evidence examination, data recovery, and analysis.
-3. Investigative Integrity: The ability to access and analyze all relevant data is critical to the success and integrity of forensic investigations. Limiting filesystem support could compromise the ability to uncover crucial evidence.
-
-Risk Mitigation Measures:
-To counterbalance the potential security risks associated with this exception, the following mitigations are implemented:
-• Enhanced Security Monitoring and Auditing: Continuous monitoring and auditing of system access and activities to quickly identify and respond to potential security threats.
-• Strict Access Control Measures: Implementation of robust access controls to ensure that only authorized users can access forensic tools and data.
-• Regular Security Updates and Patch Management: Ensuring that all systems are regularly updated with the latest security patches and updates to protect against vulnerabilities.
-
-Compensating Controls for CSI Linux CIS Compliance Exceptions
-To address the exceptions to CIS compliance related to maintaining enhanced filesystem support on CSI Linux systems, the following compensating controls are recommended to mitigate potential security risks. These controls should be integrated into the cybersecurity framework of the organization to ensure the secure operation of CSI Linux systems within secured networks.
-• Segmentation of Forensic Analysis Environment: Isolate CSI Linux systems within a dedicated forensic analysis network segment to restrict access and minimize potential exposure to the broader network.
-• Enhanced Monitoring and Anomaly Detection: Implement advanced monitoring tools and techniques to detect unusual activities and potential security breaches. This includes monitoring file access patterns and network traffic associated with CSI Linux systems.
-• Regular Security Assessments and Audits: Conduct periodic security assessments and audits of CSI Linux systems to identify and remediate vulnerabilities. This includes vulnerability scanning and penetration testing tailored to the forensic analysis environment.
-• Encryption of Sensitive Data: Encrypt sensitive data stored on CSI Linux systems, including forensic images and analysis results, to protect against unauthorized access and data breaches.
-• Access Control and Authentication: Enforce strict access control policies and multi-factor authentication for users accessing CSI Linux systems to ensure that only authorized personnel can perform forensic analysis tasks.
-• Forensic Readiness and Incident Response Plan: Develop and maintain a forensic readiness plan that includes incident response procedures for handling security incidents affecting CSI Linux systems. This plan should outline roles, responsibilities, and actions to quickly mitigate and recover from incidents.
-• Security Awareness and Training: Provide specialized security awareness training for users of CSI Linux systems, focusing on the risks associated with forensic analysis and the importance of adhering to security best practices.
-• Software Restriction Policies: Implement software restriction policies to control the execution of unauthorized software on CSI Linux systems, reducing the risk of malware infections and other software-based threats.
-• Backup and Recovery: Establish robust backup and recovery procedures for CSI Linux systems to ensure the availability of forensic data and system configurations in the event of data loss or system failure.
-• Physical Security Measures: Apply physical security controls to protect CSI Linux systems from unauthorized physical access. This includes securing workspaces, using locking mechanisms for devices, and controlling access to forensic labs.
-By implementing these compensating controls, organizations can significantly reduce the security risks associated with the CIS compliance exceptions for CSI Linux systems, ensuring a secure and effective forensic analysis environment.
-
-Acknowledgement and Acceptance:
-I, the undersigned, acknowledge that I have read and understood the CIS compliance exceptions outlined in this document for CSI Linux systems. I accept the risks associated with these exceptions and agree to implement the recommended risk mitigation measures to safeguard the system and data. I further agree to periodically review and update security measures in alignment with best practices and emerging threats.
-By adding a CSI Linux system to a secured network, I accept responsibility for maintaining the system's security in accordance with these exceptions and acknowledge that failure to adhere to these guidelines may result in revocation of network access privileges.
-EOF
-}
-
-cis_lvl_1() {
-	local key="$1"
- 	echo "Configuring the platform for CIS Level 1 Benchmarks"
- 	echo $key | sudo -S sleep 1
-	echo "Warning Banners - Configuring system banners..."
-	# Define the security banner
-	security_banner="
-	+---------------------------------------------------------------------------+
-	|                             SECURITY NOTICE                               |
-	|                                                                           |
-	|         ** Unauthorized Access and Usage is Strictly Prohibited **        |
-	|                                                                           |
-	| All activities on this system are subject to monitoring and recording for |
-	| security purposes. Unauthorized access or usage will be investigated and  |
-	|                    may result in legal consequences.                      |
-	|                                                                           |
-	|        If you are not an authorized user, disconnect immediately.         |
-	|                                                                           |
-	| By accessing this system, you consent to these terms and acknowledge the  |
-	|                     importance of computer security.                      |
-	|                                                                           |
-	|            Report any suspicious activity to the IT department.           |
-	|                                                                           |
-	|          Thank you for helping us maintain a secure environment.          |
-	|                                                                           |
-	|              ** Protecting Our Data, Protecting Our Future **             |
-	|                                                                           |
-	+---------------------------------------------------------------------------+
-	"
-	# Print the security banner
-	echo "$security_banner"
-	echo "$security_banner" | echo $key | sudo -S tee /etc/issue.net /etc/issue /etc/motd &>/dev/null
-
-	# SSH configuration
-	echo "Configuring SSH..."
-	echo $key | sudo -S sed -i 's|#Banner none|Banner /etc/issue.net|' /etc/ssh/sshd_config
-	echo $key | sudo -S sed -i 's/#PermitRootLogin yes/PermitRootLogin no/' /etc/ssh/sshd_config
-	echo $key | sudo -S sed -i 's/#Port 22/Port 2222/' /etc/ssh/sshd_config
-	echo $key | sudo -S sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
-	echo $key | sudo -S systemctl restart sshd
-	
-	# Non-login system accounts
-	echo "Configuring system accounts to be non-login..."
-	echo $key | sudo -S awk -F: '($3 < 1000) {print $1 " " $6}' /etc/passwd | while read -r user dir; do
-	if [ ! -z "$dir" ]; then
-	    sudo usermod -s /usr/sbin/nologin "$user"
-	fi
-	done
-	
-	# Password policies
-	echo "Configuring password creation requirements..."
-	echo $key | sudo -S apt-get install -y libpam-cracklib libpam-pwquality
- 	echo "password requisite pam_pwquality.so retry=3 minlen=12" | echo $key | sudo -S tee -a /etc/pam.d/common-password > /dev/null
-	echo "auth required pam_tally2.so onerr=fail audit silent deny=5 unlock_time=900" | echo $key | sudo -S tee -a /etc/pam.d/common-auth
-	
-	# Group wheel for su command
-	echo "Configuring group wheel for su command..."
-	echo "auth required pam_wheel.so use_uid" | echo $key | sudo -S tee -a /etc/pam.d/su
-	echo "auth required pam_wheel.so group=wheel" | echo $key | sudo -S tee -a /etc/pam.d/su
-
-	# Adds an emergencyuser
- 	echo $key | sudo -S useradd -m emergencyuser -G sudo,wheel -s /bin/bash || { echo "emergencyuser:${key}" | sudo chpasswd; }
- 
-	echo "Configuring firewall..."
-	echo $key | sudo -S ufw enable
-	sudo ufw default deny incoming
-	sudo ufw default allow outgoing
-	
-	echo "Installing and enabling audit system..."
-	sudo systemctl enable auditd
-	
-	echo "Configuring time synchronization..."
-	sudo systemctl enable ntp
-	
-	echo "Disabling IP forwarding and redirects..."
-	echo $key | sudo -S sysctl -w net.ipv4.ip_forward=0
-	sudo sysctl -w net.ipv4.conf.all.send_redirects=0
-	sudo sysctl -w net.ipv4.conf.default.send_redirects=0
-	echo "net.ipv4.ip_forward = 0" | sudo tee -a /etc/sysctl.conf
-	echo "net.ipv4.conf.all.send_redirects = 0" | sudo tee -a /etc/sysctl.conf
-	echo "net.ipv4.conf.default.send_redirects = 0" | sudo tee -a /etc/sysctl.conf
-	
-	# Access control for cron and at
-	echo "Configuring access control for cron and at..."
-	echo "root" | sudo tee /etc/cron.allow
-	echo "root" | sudo tee /etc/at.allow
-	sudo chmod og-rwx /etc/cron.allow /etc/at.allow
-	sudo rm -f /etc/cron.deny /etc/at.deny
-	
-	# Logging with rsyslog
-	echo "Installing and enabling rsyslog..."
-	echo $key | sudo -S systemctl enable rsyslog
-	
-	echo "Installing and initializing AIDE..."
-	echo $key | sudo -S aideinit
-	
-	# Secure compilers and other measures
-	echo $key | sudo -S chmod og-rwx /usr/bin/gcc /usr/bin/g++
-	echo "Acquire::gpgv::Options::=--ignore-time-conflict;" | sudo tee -a /etc/apt/apt.conf.d/99verify-signatures
-	echo "* hard core 0" | sudo tee -a /etc/security/limits.conf
-	echo "fs.suid_dumpable = 0" | sudo tee -a /etc/sysctl.conf
-	echo $key | sudo -S sysctl -w fs.suid_dumpable=0
-
-	# GRUB password setup using $key variable
-	echo "Setting GRUB password using the provided key..."
-	GRUB_PASSWORD_HASH=$(echo -e "${key}\n${key}" | grub-mkpasswd-pbkdf2 | awk '/PBKDF2/ {print $NF}')
-	echo "set superusers=\"csi\"" | sudo tee /etc/grub.d/40_custom > /dev/null
-	echo "password_pbkdf2 csi ${GRUB_PASSWORD_HASH}" | sudo tee -a /etc/grub.d/40_custom > /dev/null
-	echo $key | sudo -S update-grub
-	echo "GRUB password has been set as $key."
-
-	# Other system services and permissions
-	echo $key | sudo -S systemctl mask systemd-udevd.service
-	echo $key | sudo -S chmod 600 /etc/shadow /etc/gshadow
-	echo $key | sudo -S -k
-	echo "Coming soon...."
-}
-
-install_packages() {
-    local -n packages=$1
-    local total_packages=${#packages[@]}
-    local installed=0
-    local current_package=0
-
-    # Ensure the directory exists
-    echo $key | sudo -S mkdir -p /opt/csitools
-    echo $key | sudo -S apt remove sleuthkit  &>/dev/null
-    # Attempt to fix any broken dependencies before starting installations
- 
-    for package in "${packages[@]}"; do
-        echo $key | sudo -S apt remove sleuthkit  &>/dev/null
-        let current_package++
-        # Ignore empty values
-        if [[ -n $package ]]; then
-            # Check if the package is already installed
-            if ! dpkg -l | grep -qw "$package"; then
-                printf "Installing package %s (%d of %d)...\n" "$package" "$current_package" "$total_packages"
-                # Attempt to install the package
-                if echo $key | sudo -S apt-get install -y --assume-yes "$package"; then
-                    printf "."
-                    ((installed++))
-                else
-		    echo $key | sudo -S apt remove sleuthkit  &>/dev/null
-                    # If installation failed, try to fix broken dependencies and try again
-                    if echo $key | sudo -S apt-get install -y --assume-yes "$package"; then
-                        printf "."
-                        ((installed++))
-                    else
-                        printf "Installation failed for %s, logging to /opt/csitools/apt-failed.txt\n" "$package"
-                        echo "$package" | sudo tee -a /opt/csitools/apt-failed.txt > /dev/null
-                    fi
-                fi
-            else
-                printf "Package %s is already installed, skipping (%d of %d).\n" "$package" "$current_package" "$total_packages"
-            fi
-        fi
-    done
-    echo "Installation complete. $installed out of $total_packages packages installed."
-    sudo -k
-}
-
-function install_missing_programs() {
-    echo $key | sudo -S sleep 1
-    local programs=(curl bpytop xterm aria2 yad zenity)
-    local missing_programs=()
-    local output_file="~/logfile.log" # Specify your output file path
-
-    for program in "${programs[@]}"; do
-        if ! dpkg -s "$program" &> /dev/null; then
-            echo "$program is not installed. Will attempt to install." | tee -a "$output_file"
-            missing_programs+=("$program")
-        else
-            echo "$program is already installed." | tee -a "$output_file"
-        fi
-    done
-
-    if [ ${#missing_programs[@]} -ne 0 ]; then
-        echo "Updating package lists..." | tee -a "$output_file"
-        echo $key | sudo -S apt-get update | tee -a "$output_file"
-        
-        for program in "${missing_programs[@]}"; do
-            echo "Attempting to install $program..." | tee -a "$output_file"
-            if echo $key | sudo -S apt-get install -y "$program" 2>&1 | tee -a "$output_file"; then
-                echo "$program installed successfully." | tee -a "$output_file"
-            else
-                echo "Failed to install $program. It may not be available in the repository or another error occurred." | tee -a "$output_file"
-            fi
-        done
-    else
-        echo "All programs are already installed." | tee -a "$output_file"
-    fi
-    sudo -k
-}
-echo "To remember the null output " &>/dev/null
-
+# echo "To remember the null output " &>/dev/null
 # echo $key | sudo -S ln -s /opt/csitools/csi_app /usr/bin/csi_app &>/dev/null
-reset_DNS
+
 cd /tmp
 
 # unredactedmagazine
@@ -764,7 +546,6 @@ for option in "${powerup_options[@]}"; do
 		    echo "Grub is already configured for os-probe"
 		fi
 		echo $key | sudo -S sed -i '/recordfail_broken=/{s/1/0/}' /etc/grub.d/00_header
-		echo $key | sudo -S systemctl disable mono-xsp4.service
 		echo $key | sudo -S update-grub
 		PLYMOUTH_THEME_PATH="/usr/share/plymouth/themes/vortex-ubuntu/vortex-ubuntu.plymouth"
 		if [ -f "$PLYMOUTH_THEME_PATH" ]; then
@@ -794,21 +575,7 @@ for option in "${powerup_options[@]}"; do
 		echo "Currently running kernel: $current_kernel"
 		echo "Latest installed kernel: $latest_kernel"
 		
-		# Compare the current running kernel with the latest installed kernel
-		if [[ "$current_kernel" != "$latest_kernel" ]]; then
-		    zenity_response=$(zenity --question --title="Reboot Required" --text="A newer kernel is installed ($latest_kernel).\nDo you want to reboot into the new kernel now?" --width=300 --height=200; echo $?)
-		    if [ "$zenity_response" -eq 0 ]; then
-		        zenity --info --title="Run Powerup Again" --text="Remember to save your work before you hit OK and run the powerup script again after the system has rebooted." --width=300 --height=200
-		        echo "Rebooting the system..."
-		        echo $key | sudo -S reboot
-		    else
-		        # User chose not to reboot
-		        echo "Continuing without rebooting."
-		    fi
-		else
-		    echo "The running kernel is the latest installed version."
-		fi
-		reset_DNS
+
   		sudo -k
             ;;
         "encryption")
@@ -1185,6 +952,7 @@ echo $key | sudo -S chown csi:csi /opt
 echo "# Updating the mlocate database..."
 echo $key | sudo -S updatedb
 echo "System maintenance and cleanup completed successfully."
+reset_DNS
 
 update_current_time
 calculate_duration
