@@ -422,6 +422,45 @@ install_from_requirements_url() {
     echo "Installation complete."
 }
 
+cis_exceptions() {
+cat <<EOF
+Purpose:
+This document outlines the specific exceptions to the Center for Internet Security (CIS) Benchmarks for Cybersecurity as applied to CSI Linux systems. Due to the specialized requirements of cyberforensic analysis, certain benchmark recommendations, particularly concerning filesystem support, are not fully implemented to ensure the effectiveness of forensic investigations. Users must acknowledge and accept these exceptions before integrating CSI Linux systems into secured networks.
+
+Exception Details:
+The primary exception to CIS compliance for CSI Linux systems pertains to the recommendation for "Disabling Unneeded Filesystem Support" (CIS Control). CSI Linux maintains enhanced filesystem support crucial forensic analysis, including, but not limited to, reading, writing, and analyzing a wide range of filesystem formats encountered in digital forensic investigations.
+
+Rationale for Exception:
+1. Forensic Analysis Capability: Comprehensive filesystem support is essential for accessing and analyzing evidence from diverse digital sources, including those using less common or legacy filesystems.
+2. Tool Compatibility: Advanced forensic tools and applications require the ability to interact with various filesystems to perform detailed evidence examination, data recovery, and analysis.
+3. Investigative Integrity: The ability to access and analyze all relevant data is critical to the success and integrity of forensic investigations. Limiting filesystem support could compromise the ability to uncover crucial evidence.
+
+Risk Mitigation Measures:
+To counterbalance the potential security risks associated with this exception, the following mitigations are implemented:
+• Enhanced Security Monitoring and Auditing: Continuous monitoring and auditing of system access and activities to quickly identify and respond to potential security threats.
+• Strict Access Control Measures: Implementation of robust access controls to ensure that only authorized users can access forensic tools and data.
+• Regular Security Updates and Patch Management: Ensuring that all systems are regularly updated with the latest security patches and updates to protect against vulnerabilities.
+
+Compensating Controls for CSI Linux CIS Compliance Exceptions
+To address the exceptions to CIS compliance related to maintaining enhanced filesystem support on CSI Linux systems, the following compensating controls are recommended to mitigate potential security risks. These controls should be integrated into the cybersecurity framework of the organization to ensure the secure operation of CSI Linux systems within secured networks.
+• Segmentation of Forensic Analysis Environment: Isolate CSI Linux systems within a dedicated forensic analysis network segment to restrict access and minimize potential exposure to the broader network.
+• Enhanced Monitoring and Anomaly Detection: Implement advanced monitoring tools and techniques to detect unusual activities and potential security breaches. This includes monitoring file access patterns and network traffic associated with CSI Linux systems.
+• Regular Security Assessments and Audits: Conduct periodic security assessments and audits of CSI Linux systems to identify and remediate vulnerabilities. This includes vulnerability scanning and penetration testing tailored to the forensic analysis environment.
+• Encryption of Sensitive Data: Encrypt sensitive data stored on CSI Linux systems, including forensic images and analysis results, to protect against unauthorized access and data breaches.
+• Access Control and Authentication: Enforce strict access control policies and multi-factor authentication for users accessing CSI Linux systems to ensure that only authorized personnel can perform forensic analysis tasks.
+• Forensic Readiness and Incident Response Plan: Develop and maintain a forensic readiness plan that includes incident response procedures for handling security incidents affecting CSI Linux systems. This plan should outline roles, responsibilities, and actions to quickly mitigate and recover from incidents.
+• Security Awareness and Training: Provide specialized security awareness training for users of CSI Linux systems, focusing on the risks associated with forensic analysis and the importance of adhering to security best practices.
+• Software Restriction Policies: Implement software restriction policies to control the execution of unauthorized software on CSI Linux systems, reducing the risk of malware infections and other software-based threats.
+• Backup and Recovery: Establish robust backup and recovery procedures for CSI Linux systems to ensure the availability of forensic data and system configurations in the event of data loss or system failure.
+• Physical Security Measures: Apply physical security controls to protect CSI Linux systems from unauthorized physical access. This includes securing workspaces, using locking mechanisms for devices, and controlling access to forensic labs.
+By implementing these compensating controls, organizations can significantly reduce the security risks associated with the CIS compliance exceptions for CSI Linux systems, ensuring a secure and effective forensic analysis environment.
+
+Acknowledgement and Acceptance:
+I, the undersigned, acknowledge that I have read and understood the CIS compliance exceptions outlined in this document for CSI Linux systems. I accept the risks associated with these exceptions and agree to implement the recommended risk mitigation measures to safeguard the system and data. I further agree to periodically review and update security measures in alignment with best practices and emerging threats.
+By adding a CSI Linux system to a secured network, I accept responsibility for maintaining the system's security in accordance with these exceptions and acknowledge that failure to adhere to these guidelines may result in revocation of network access privileges.
+EOF
+}
+
 cis_lvl_1() {
 	local key="$1"
  	echo "Configuring the platform for CIS Level 1 Benchmarks"
