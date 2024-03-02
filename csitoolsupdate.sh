@@ -276,7 +276,6 @@ add_repository() {
 fix_broken() {
     echo $key | sudo -S sleep 1
     echo "# Fixing and configuring broken apt installs..."
-    sudo apt update
     sudo apt remove sleuthkit  &>/dev/null
     sudo apt install --fix-broken -y
     sudo dpkg --configure -a
@@ -548,7 +547,6 @@ for option in "${powerup_options[@]}"; do
 		echo "# Setting up CSI Linux environment..."
 		setup_new_csi_system
 		echo $key | sudo -S apt remove sleuthkit  &>/dev/null
-		fix_broken
 		echo "# Setting up repo environment"
 		cd /tmp
 		
@@ -576,6 +574,7 @@ for option in "${powerup_options[@]}"; do
 		add_repository "ppa" "  ppa:alexlarsson/flatpak" "" "flatpack"
   		echo "# Updating APT with updated repos"		
 		echo $key | sudo -S apt update
+  		fix_broken
 		echo $key | sudo -S apt upgrade -y
   		echo "# Checking Starter Apps"
 		install_missing_programs
