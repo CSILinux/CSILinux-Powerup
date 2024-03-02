@@ -44,6 +44,11 @@ fi
 # All remaining arguments are considered as powerup options
 powerup_options=("$@")
 
+# Check if powerup_options is empty
+if [[ ${#powerup_options[@]} -eq 0 ]]; then
+    powerup_options+=("csi_fresh")
+fi
+
 echo "Power-up options selected:"
 for option in "${powerup_options[@]}"; do
     echo "- $option"
