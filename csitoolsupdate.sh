@@ -15,7 +15,7 @@
 # -----------------------------------------------------------------------------------
 
 echo "Welcome to CSI Linux 2024. This will take a while, but the update has a LOT of content..."
-
+start_time=$(date +%s)
 # Attempt to verify the first argument as a sudo password
 key_attempt="$1"
 key=""  # Initialize key as an empty string for clarity
@@ -235,16 +235,6 @@ csi_remove() {
             echo $key | sudo -S csi_remove "$path"
         fi
     fi
-}
-
-update_current_time() {
-  current_time=$(date +"%Y-%m-%d %H:%M:%S")
-}
-
-calculate_duration() {
-  start_seconds=$(date -d "$start_time" +%s)
-  end_seconds=$(date -d "$current_time" +%s)
-  duration=$((end_seconds - start_seconds))
 }
 
 add_repository() {
@@ -603,7 +593,7 @@ installed_packages_desc() {
 echo $key | sudo -S sleep 1
 echo $key | sudo -S df -h
 cd /tmp
-
+update_current_time
 # unredactedmagazine
 
 # Main script logic
@@ -1141,16 +1131,18 @@ echo "System maintenance and cleanup completed successfully."
 reset_DNS
 echo $key | sudo -S rm /tmp/csi_tools_installed.flag
 
+echo "Listing installed applications with thier descriptions"
 # Generate a mapfile of all installed packages on the system
-# mapfile -t csi_linux_all_desc < <(dpkg-query -W -f='${binary:Package}\n')
+mapfile -t csi_linux_all_desc < <(dpkg-query -W -f='${binary:Package}\n')
 
 # Now you can use the installed_packages_desc function with this mapfile
-# installed_packages_desc csi_linux_all_desc
+installed_packages_desc csi_linux_all_desc
 
-update_current_time
-calculate_duration
-echo "End time: $current_time"
-echo "Total duration: $duration seconds"
+end_time=$(date +%s)
+duration=$((end_time - start_time))
+duration_minutes=$(echo "$duration / 60" | bc -l)
+printf "Time taken to run the script: %.2f minutes\n" "$duration_minutes"
+echo ""
 echo "Please reboot when finished updating"
 
 # First confirmation to reboot
