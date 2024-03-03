@@ -199,7 +199,7 @@ install_packages() {
     for package in "${newpackages[@]}"; do
         let current_package++
         echo -n "[$current_package/$new_total] Installing $package... "
-        if echo $key | sudo -S -E DEBIAN_FRONTEND=noninteractive apt-get install -yg --assume-yes "$package"; then
+        if echo $key | sudo -S -E DEBIAN_FRONTEND=noninteractive apt-get install -yq --assume-yes "$package"; then
             echo "SUCCESS"
             ((installed++))
         else
