@@ -170,44 +170,55 @@ restore_backup_to_root() {
 
 install_packages() {
     local -n packages=$1
-    local total_packages=${#packages[@]}
+    local newpackages=()
+    local already_installed=0
     local installed=0
+    local failed=0
+    local total_packages=${#packages[@]}
     local current_package=0
-    echo $1
-    # Ensure the directory exists
-    echo $key | sudo -S mkdir -p /opt/csitools
-    sudo apt remove sleuthkit  &>/dev/null
-    # Attempt to fix any broken dependencies before starting installations
- 
+    
+    echo "Checking which packages need installation..."
+
+    # Pre-check installed status to avoid unnecessary operations
     for package in "${packages[@]}"; do
-        sudo apt remove sleuthkit  &>/dev/null
         let current_package++
-        # Ignore empty values
-        if [[ -n $package ]]; then
-            # Check if the package is already installed
-            if ! dpkg -l | grep -qw "$package"; then
-                printf "Installing package %s (%d of %d)...\n" "$package" "$current_package" "$total_packages"
-                # Attempt to install the package
-                if sudo apt-get install -y --assume-yes "$package"; then
-                    printf "."
-                    ((installed++))
-                else
-		    sudo apt remove sleuthkit  &>/dev/null
-                    # If installation failed, try to fix broken dependencies and try again
-                    if sudo apt-get install -y --assume-yes "$package"; then
-                        printf "."
-                        ((installed++))
-                    else
-                        printf "Installation failed for %s, logging to /opt/csitools/apt-failed.txt\n" "$package"
-                        echo "$package" | sudo tee -a /opt/csitools/apt-failed.txt > /dev/null
-                    fi
-                fi
-            else
-                printf "Package %s is already installed, skipping (%d of %d).\n" "$package" "$current_package" "$total_packages"
-            fi
+        if dpkg-query -W -f='${Status}' "$package" 2>/dev/null | grep -q "install ok installed"; then
+            echo "[$current_package/$total_packages] Package $package is already installed, skipping."
+            ((already_installed++))
+        else
+            newpackages+=("$package")
         fi
     done
-    echo "Installation complete. $installed out of $total_packages packages installed."
+
+    echo "Out of $total_packages packages, $already_installed are already installed."
+    
+    local new_total=${#newpackages[@]}
+    if [ "$new_total" -eq 0 ]; then
+        echo "No new packages to install."
+        return
+    fi
+
+    echo "Starting installation of $new_total new packages..."
+    current_package=0
+
+    for package in "${newpackages[@]}"; do
+        let current_package++
+        echo -n "[$current_package/$new_total] Installing $package... "
+        if sudo apt-get install -y --assume-yes "$package"; then
+            echo "SUCCESS"
+            ((installed++))
+        else
+            echo "FAILED"
+            ((failed++))
+            echo "$package" >> /opt/csitools/apt-failed.txt
+        fi
+    done
+
+    echo -e "\nInstallation complete."
+    echo "Summary: $already_installed skipped, $installed installed, $failed failed."
+    if [ $failed -gt 0 ]; then
+        echo "Details of failed installations have been logged to /opt/csitools/apt-failed.txt."
+    fi
 }
 
 # Function to remove specific files
@@ -479,8 +490,9 @@ setup_new_csi_system() {
     echo "# Cleaning old tools"
     csi_remove /var/lib/tor/hidden_service/ &>/dev/null
     csi_remove /var/lib/tor/other_hidden_service/ &>/dev/null
-
-    wget -O - https://raw.githubusercontent.com/CSILinux/CSILinux-Powerup/main/csi-linux-terminal.sh | bash &>/dev/null
+    cd /tmp
+    wget -O - https://raw.githubusercontent.com/CSILinux/CSILinux-Powerup/main/csi-linux-terminal.sh | bash #&>/dev/null
+    source ~/.bashrc
     git config --global safe.directory '*'
 
     echo $key | sudo -S sysctl vm.swappiness=10
@@ -531,6 +543,49 @@ install_from_requirements_url() {
     echo "Installation complete."
 }
 
+installed_packages_desc() {
+    local -n packages=$1  # Indirect reference to the array variable
+    local descriptions_file="$HOME/Documents/${1}_descriptions.csv"
+    local no_descriptions_file="$HOME/Documents/${1}_no_descriptions.csv"
+
+    echo "# Listing Installed Packages and Descriptions"
+
+    # Ensure the Documents directory exists
+    mkdir -p "$HOME/Documents"
+
+    # Initialize files with headers
+    echo "package_name,description" > "$descriptions_file"
+    echo "package_name" > "$no_descriptions_file"
+
+    local description_found=false
+
+    for pkg in "${packages[@]}"; do
+        local description=$(apt-cache show "$pkg" 2>/dev/null | grep -m 1 -Po '^Description: \K.*')
+        if [ -n "$description" ]; then
+            # Append package name and description to CSV, escaping internal quotes in descriptions
+            echo "${pkg},\"${description//\"/\"\"}\"" >> "$descriptions_file"
+            description_found=true
+        else
+            # Log packages without descriptions separately
+            echo "$pkg" >> "$no_descriptions_file"
+        fi
+    done
+
+    # Remove the no_descriptions_file if no packages were found without descriptions
+    if [ "$description_found" = false ]; then
+        rm -f "$no_descriptions_file"
+        echo "All packages had descriptions. No packages without descriptions file created."
+    else
+        echo "Some packages had no descriptions. Check the no_descriptions.csv file."
+    fi
+
+    echo "CSV files created in the Documents folder:"
+    echo "- With descriptions: $descriptions_file"
+    if [ -f "$no_descriptions_file" ]; then
+        echo "- Without descriptions: $no_descriptions_file"
+    fi
+}
+
 # echo "To remember the null output " &>/dev/null
 # echo $key | sudo -S ln -s /opt/csitools/csi_app /usr/bin/csi_app &>/dev/null
 
@@ -550,9 +605,9 @@ for option in "${powerup_options[@]}"; do
 		echo $key | sudo -S apt remove sleuthkit &>/dev/null
 		echo $key | sudo -S apt-mark hold lightdm &>/dev/null
 		echo $key | sudo -S apt purge postfix &>/dev/null
-		echo lightdm hold | dpkg --set-selections &>/dev/null
+		echo $key | sudo -S echo lightdm hold | dpkg --set-selections &>/dev/null
 		echo $key | sudo -S apt-mark hold sleuthkit &>/dev/null
-		echo sleuthkit hold | dpkg --set-selections &>/dev/null
+		echo $key | sudo -S echo sleuthkit hold | dpkg --set-selections &>/dev/null
 		echo $key | sudo -S rm -rf /etc/apt/sources.list.d/archive_u* &>/dev/null
 		echo $key | sudo -S rm -rf /etc/apt/sources.list.d/brave* &>/dev/null
 		echo $key | sudo -S rm -rf /etc/apt/sources.list.d/signal* &>/dev/null
@@ -798,7 +853,7 @@ for option in "${powerup_options[@]}"; do
 			echo $key | sudo -S snap install onionshare
 		fi
 		if ! which orjail > /dev/null; then
-				wget https://github.com/orjail/orjail/releases/download/v1.1/orjail_1.1-1_all.deb
+			wget https://github.com/orjail/orjail/releases/download/v1.1/orjail_1.1-1_all.deb
 			echo $key | sudo -S apt install ./orjail_1.1-1_all.deb
 		fi
 		
@@ -959,7 +1014,7 @@ for option in "${powerup_options[@]}"; do
 		cd /opt
 		mkdir apk-editor-studio
 		cd apk-editor-studio
-		rm apk-editor-studio.AppImage
+		echo $key | sudo -S rm -f apk-editor-studio.AppImage
 		wget https://csilinux.com/downloads/apk-editor-studio.AppImage -O apk-editor-studio.AppImage
 		echo $key | sudo -S chmod +x apk-editor-studio.AppImage
 		if [ ! -f /opt/jd-gui/jd-gui-1.6.6-min.jar ]; then
@@ -1019,6 +1074,12 @@ for option in "${powerup_options[@]}"; do
 			echo $key | sudo -S snap install chirp-snap --edge
 			echo $key | sudo -S snap connect chirp-snap:raw-usb
 		fi
+  		if ! which wxtoimg > /dev/null; then
+			wget https://csilinux.com/downloads/wxtoimg_2.10.11-1_i386.deb
+			echo $key | sudo -S apt install -y ./wxtoimg_2.10.11-1_i386.deb
+		fi
+
+  
 		reset_DNS
     		sudo -k
             	;;
@@ -1056,6 +1117,13 @@ echo $key | sudo -S updatedb
 echo "System maintenance and cleanup completed successfully."
 reset_DNS
 echo $key | sudo -S rm /tmp/csi_tools_installed.flag
+
+# Generate a mapfile of all installed packages on the system
+# mapfile -t csi_linux_all_desc < <(dpkg-query -W -f='${binary:Package}\n')
+
+# Now you can use the installed_packages_desc function with this mapfile
+# installed_packages_desc csi_linux_all_desc
+
 update_current_time
 calculate_duration
 echo "End time: $current_time"
