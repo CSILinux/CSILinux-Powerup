@@ -310,30 +310,38 @@ update_git_repository() {
     local repo_name="$1"
     local repo_url="$2"
     local repo_dir="/opt/$repo_name"
+
+    # Ensure the directory exists and is a Git repository
     if [ ! -d "$repo_dir" ]; then
-        # Clone the Git repository with sudo
+        echo "Cloning repository $repo_name..."
         echo $key | sudo -S git clone "$repo_url" "$repo_dir"
         echo $key | sudo -S chown -R $USER:$USER "$repo_dir"
-    fi
-    if [ -d "$repo_dir/.git" ]; then
+    elif [ -d "$repo_dir/.git" ]; then
         cd "$repo_dir" || return
         echo $key | sudo -S git fetch --all
-        # Reset local changes and ensure it's on the main branch (or any other default branch)
-        echo $key | sudo -S git reset --hard origin/main
-        # Pull the latest changes from remote repository
+        # Attempt to pull the latest changes
         if ! echo $key | sudo -S git pull; then
-            echo "git pull encountered conflicts. Forcing update to match the remote repository."
-            echo $key | sudo -S git reset --hard origin/main
-        fi
-        if [ -f "$repo_dir/requirements.txt" ]; then
-            python3 -m venv "${repo_dir}/${repo_name}-venv"
-            source "${repo_dir}/${repo_name}-venv/bin/activate"
-            pip3 install -r requirements.txt
+            echo "git pull encountered conflicts or errors. Removing and re-cloning the repository."
+            cd ..
+            echo $key | sudo -S rm -rf "$repo_dir"
+            echo $key | sudo -S git clone "$repo_url" "$repo_dir"
+            echo $key | sudo -S chown -R $USER:$USER "$repo_dir"
         fi
     else
         echo "Repository directory does not exist or is not a Git repository."
+        return
+    fi
+
+    # Check if requirements.txt exists for Python projects
+    if [ -f "$repo_dir/requirements.txt" ]; then
+        echo "Setting up Python virtual environment and installing dependencies..."
+        python3 -m venv "${repo_dir}/${repo_name}-venv"
+        source "${repo_dir}/${repo_name}-venv/bin/activate"
+        pip3 install -r "${repo_dir}/requirements.txt"
+        deactivate
     fi
 }
+
 
 disable_services() {
     # Define a list of services to disable
