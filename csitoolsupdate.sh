@@ -118,7 +118,7 @@ install_csi_tools() {
     echo "$key" | sudo -S mkdir -p "$backup_dir"
     echo "$key" | sudo -S chmod 777 "$backup_dir"  # Set full permissions temporarily for download
     echo "Downloading CSI Tools"
-    echo "$key" | sudo -S aria2 -x3 -k1M https://csilinux.com/downloads/csitools.7z -d "$backup_dir" -o "$backup_file_name.7z"
+    echo "$key" | sudo -S aria2c -x3 -k1M https://csilinux.com/downloads/csitools.7z -d "$backup_dir" -o "$backup_file_name.7z"
     echo "$key" | sudo -S chmod 755 "$backup_dir"
     echo "# Installing CSI Tools"
     restore_backup_to_root "$backup_dir" "$backup_file_name"
@@ -998,7 +998,7 @@ for option in "${powerup_options[@]}"; do
 		fi
 		if [ ! -f /opt/ghidra/VERSION ]; then
 			cd /tmp
-			aria2 -x3 -k1M https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_11.0_build/ghidra_11.0_PUBLIC_20231222.zip
+			aria2c -x3 -k1M https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_11.0_build/ghidra_11.0_PUBLIC_20231222.zip
 			unzip ghidra_11.0_PUBLIC_20231222.zip
 			csi_remove /opt/ghidra
 			mv ghidra_11.0_PUBLIC /opt/ghidra
