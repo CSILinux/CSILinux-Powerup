@@ -112,7 +112,7 @@ restore_backup_to_root() {
 
     local tar_file="$backup_dir/$backup_file_name.tar"
     if [ -f "$tar_file" ]; then
-        echo "Restoring backup from tar file..."
+        echo "Updating CSI Tools..."
         if ! echo "$key" | sudo -S tar -xpf "$tar_file" -C /; then
             echo "Failed to restore from $tar_file. Please check the archive and try again."
             return 1  # Exit the function with an error status
@@ -159,7 +159,7 @@ selected_options=$(yad --list --title='CSI Linux Powerup' --text="$welcome_msg" 
       --column='Select':CHK --column='Name' $list_data --image="preferences-system" --button=gtk-ok:0 --button=gtk-close:1 --separator="|")
 
 if [ $? -ne 0 ]; then
-    echo "Dialog was cancelled or closed. Exiting script."
+    echo "Dialog was canceled or closed. Exiting script."
     exit 1
 fi
 
