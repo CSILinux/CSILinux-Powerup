@@ -311,28 +311,30 @@ update_git_repository() {
     local repo_url="$2"
     local repo_dir="/opt/$repo_name"
 
-    # Ensure the directory exists and is a Git repository
-    if [ ! -d "$repo_dir" ]; then
-        echo "Cloning repository $repo_name..."
-        echo $key | sudo -S git clone "$repo_url" "$repo_dir"
-        echo $key | sudo -S chown -R $USER:$USER "$repo_dir"
-    elif [ -d "$repo_dir/.git" ]; then
+    if [ -d "$repo_dir/.git" ]; then
+        echo "Updating existing repository $repo_name..."
         cd "$repo_dir" || return
-        echo $key | sudo -S git fetch --all
+
+        # Clean up any unstaged changes or state that could block our actions
+        echo $key | sudo -S git reset --hard
+        echo $key | sudo -S git clean -fdx
+
         # Attempt to pull the latest changes
         if ! echo $key | sudo -S git pull; then
             echo "git pull encountered conflicts or errors. Removing and re-cloning the repository."
-            cd ..
+            # Ensure we are not in the directory we're about to delete
+            cd /opt || return
             echo $key | sudo -S rm -rf "$repo_dir"
             echo $key | sudo -S git clone "$repo_url" "$repo_dir"
             echo $key | sudo -S chown -R $USER:$USER "$repo_dir"
         fi
     else
-        echo "Repository directory does not exist or is not a Git repository."
-        return
+        echo "Cloning new repository $repo_name..."
+        echo $key | sudo -S git clone "$repo_url" "$repo_dir"
+        echo $key | sudo -S chown -R $USER:$USER "$repo_dir"
     fi
 
-    # Check if requirements.txt exists for Python projects
+    # Check and install Python requirements, if any
     if [ -f "$repo_dir/requirements.txt" ]; then
         echo "Setting up Python virtual environment and installing dependencies..."
         python3 -m venv "${repo_dir}/${repo_name}-venv"
@@ -341,6 +343,7 @@ update_git_repository() {
         deactivate
     fi
 }
+
 
 
 disable_services() {
@@ -676,6 +679,7 @@ for option in "${powerup_options[@]}"; do
   		dos2unix csi_linux_base.txt
 		mapfile -t csi_linux_base < <(grep -vE "^\s*#|^$" csi_linux_base.txt | sed -e 's/#.*//')
 		install_packages csi_linux_base
+  		installed_packages_desc csi_linux_base
   		echo "Installing additional system tools..."
 		cd /tmp
 		if ! which calibre > /dev/null; then
@@ -766,7 +770,7 @@ for option in "${powerup_options[@]}"; do
     		dos2unix csi_osint.txt
 		mapfile -t csi_osint < <(grep -vE "^\s*#|^$" csi_osint.txt | sed -e 's/#.*//')
 		install_packages csi_osint
-  		installed_packages_des ccsi_osint
+  		installed_packages_des csi_osint
 		echo "# Configuring Online Forensic Tools"
 		cd /tmp
 		echo "# Installing Online Forensic Tools Packages"
@@ -926,8 +930,7 @@ for option in "${powerup_options[@]}"; do
 		mapfile -t csi_cf < <(grep -vE "^\s*#|^$" csi_cf.txt | sed -e 's/#.*//')
 		install_packages csi_cf
   		installed_packages_des csi_cf
-		echo "# Installing Computer Forensic Tools Packages"
-		install_packages apt_computer_forensic_tools
+		echo "# Installing Computer Forensic Tools Packages"		
 		install_from_requirements_url "https://csilinux.com/downloads/csitools-disk-requirements.txt"
 		if [ ! -f /opt/autopsy/bin/autopsy ]; then
 			cd /tmp
