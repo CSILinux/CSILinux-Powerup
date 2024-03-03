@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # -----------------------------------------------------------------------------------
-# Script Name: powerup
+# Script Name: csitoolsupdate
 # Description: CSI Linux powerup is the updater script within the CSI Linux Platform 
 #              to maintain updates for the OS, CSI Linux Tools, and Third Party Tools.
 # Author: Jeremy Martin
@@ -15,24 +15,6 @@
 # -----------------------------------------------------------------------------------
 
 echo "Welcome to CSI Linux 2024. This will take a while, but the update has a LOT of content..."
-
-# Define the function to prompt for sudo password
-prompt_for_sudo() {
-    while true; do
-        key=$(zenity --password --title "Power up your system with an upgrade." --text "Enter your CSI password." --width=400)
-        if [ $? -ne 0 ]; then
-            zenity --info --text="Operation cancelled. Exiting script." --width=400
-            exit 1
-        fi
-        if echo $key | sudo -S -v -k &> /dev/null; then
-            sudo -k # Reset the sudo timestamp after verification
-            echo "sudo access verified."
-            break # Exit loop if the password is correct
-        else
-            zenity --error --title="Authentication Failure" --text="Incorrect password or lack of sudo privileges. Please try again." --width=400
-        fi
-    done
-}
 
 # Attempt to verify the first argument as a sudo password
 key_attempt="$1"
@@ -69,17 +51,30 @@ for option in "${powerup_options[@]}"; do
     echo "- $option"
 done
 
-# Use sudo with the provided key
-echo $key | sudo -S sleep 1
-echo $key | sudo -S df -h
-cd /tmp
+# Define the function to prompt for sudo password
+prompt_for_sudo() {
+    while true; do
+        key=$(zenity --password --title "Power up your system with an upgrade." --text "Enter your CSI password." --width=400)
+        if [ $? -ne 0 ]; then
+            zenity --info --text="Operation cancelled. Exiting script." --width=400
+            exit 1
+        fi
+        if echo $key | sudo -S -v -k &> /dev/null; then
+            sudo -k # Reset the sudo timestamp after verification
+            echo "sudo access verified."
+            break # Exit loop if the password is correct
+        else
+            zenity --error --title="Authentication Failure" --text="Incorrect password or lack of sudo privileges. Please try again." --width=400
+        fi
+    done
+}
 
 install_missing_programs() {
     local programs=(curl bpytop xterm aria2 yad zenity)
     local missing_programs=()
     local output_file="/tmp/outputfile.txt" # Define the output file path correctly
-
-    touch $output_file
+    echo "Creating file at: $output_file"
+    touch "$output_file"
     for program in "${programs[@]}"; do
         if ! dpkg -s "$program" &> /dev/null; then
             echo "$program is not installed. Will attempt to install." | tee -a "$output_file"
@@ -204,7 +199,7 @@ install_packages() {
     for package in "${newpackages[@]}"; do
         let current_package++
         echo -n "[$current_package/$new_total] Installing $package... "
-        if sudo apt-get install -y --assume-yes "$package"; then
+        if echo $key | sudo -S apt-get install -y --assume-yes "$package"; then
             echo "SUCCESS"
             ((installed++))
         else
@@ -379,7 +374,6 @@ disable_services() {
         echo "$service disabled successfully."
     done
 }
-
 
 reset_DNS() {
     check_connection() {
@@ -594,7 +588,9 @@ installed_packages_desc() {
 
 # echo "To remember the null output " &>/dev/null
 # echo $key | sudo -S ln -s /opt/csitools/csi_app /usr/bin/csi_app &>/dev/null
-
+# Use sudo with the provided key
+echo $key | sudo -S sleep 1
+echo $key | sudo -S df -h
 cd /tmp
 
 # unredactedmagazine
@@ -608,10 +604,11 @@ for option in "${powerup_options[@]}"; do
 		cd /tmp
   		install_csi_tools
 		echo "Cleaning up CSI Linux base..."
-		echo $key | sudo -S apt remove sleuthkit &>/dev/null
+		echo $key | sudo -S apt purge sleuthkit &>/dev/null
 		echo $key | sudo -S apt-mark hold lightdm &>/dev/null
-		echo $key | sudo -S apt purge postfix &>/dev/null
-		echo $key | sudo -S echo lightdm hold | dpkg --set-selections &>/dev/null
+  		echo $key | sudo -S echo lightdm hold | dpkg --set-selections &>/dev/null
+		echo $key | sudo -S apt-mark hold postfix &>/dev/null
+		echo $key | sudo -S echo postfix hold | dpkg --set-selections &>/dev/null
 		echo $key | sudo -S apt-mark hold sleuthkit &>/dev/null
 		echo $key | sudo -S echo sleuthkit hold | dpkg --set-selections &>/dev/null
 		echo $key | sudo -S rm -rf /etc/apt/sources.list.d/archive_u* &>/dev/null
