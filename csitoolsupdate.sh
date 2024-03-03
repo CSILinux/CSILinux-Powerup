@@ -827,7 +827,7 @@ for option in "${powerup_options[@]}"; do
 		fi
 
 		if ! which sn0int; then
-			echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt-get install -y sn0int -y &>/dev/null
+			echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt-get install -y sn0int &>/dev/null
 		fi
 		if [ ! -f /opt/PhoneInfoga/phoneinfoga ]; then
 			cd /opt
@@ -843,7 +843,7 @@ for option in "${powerup_options[@]}"; do
 			cd Storm-Breaker
 			pip install -r requirments.txt --quiet &>/dev/null
 			echo $key | sudo -S bash install.sh &>/dev/null
-			echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt-get install -y apache2 apache2-bin apache2-data apache2-utils libapache2-mod-php8.1 libapr1 libaprutil1 libaprutil1-dbd-sqlite3 libaprutil1-ldap php php-common php8.1 php8.1-cli php8.1-common php8.1-opcache php8.1-readline	
+   			install_packages apache2 apache2-bin apache2-data apache2-utils libapache2-mod-php8.1 libapr1 libaprutil1 libaprutil1-dbd-sqlite3 libaprutil1-ldap php php-common php8.1 php8.1-cli php8.1-common php8.1-opcache php8.1-readline	
 		else
 			cd /opt/Storm-Breaker
 			git reset --hard HEAD; git pull &>/dev/null
