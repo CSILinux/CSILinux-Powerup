@@ -89,7 +89,7 @@ install_missing_programs() {
         echo $key | sudo -S apt update | tee -a "$output_file"
         for program in "${missing_programs[@]}"; do
             echo "Attempting to install $program..." | tee -a "$output_file"
-            if echo $key | sudo -S -E DEBIAN_FRONTEND=noninteractive apt install -yq "$program" 2>&1 | tee -a "$output_file"; then
+            if echo $key | sudo -S -E DEBIAN_FRONTEND=noninteractive apt-get install -yq "$program" 2>&1 | tee -a "$output_file"; then
                 echo "$program installed successfully." | tee -a "$output_file"
             else
                 echo "Failed to install $program. It may not be available in the repository or another error occurred." | tee -a "$output_file"
@@ -685,7 +685,7 @@ for option in "${powerup_options[@]}"; do
                 echo "Setting up media tools..."
 		if ! which xnview > /dev/null; then
 			wget https://download.xnview.com/XnViewMP-linux-x64.deb
-			echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt install -y ./XnViewMP-linux-x64.deb
+			echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt-get install -y ./XnViewMP-linux-x64.deb
 		fi
   		# cis_lvl_1 $key
     		reset_DNS
@@ -755,7 +755,7 @@ for option in "${powerup_options[@]}"; do
 		if ! which veracrypt > /dev/null; then
 			echo "Installing veracrypt"
 			wget https://github.com/veracrypt/VeraCrypt/releases/download/VeraCrypt_1.26.7/veracrypt-1.26.7-Ubuntu-22.04-amd64.deb
-			echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt install -y ./veracrypt-1.26.7-Ubuntu-22.04-amd64.deb -y
+			echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt-get install -y ./veracrypt-1.26.7-Ubuntu-22.04-amd64.deb -y
 		fi
      		sudo -k
             ;;
@@ -805,12 +805,12 @@ for option in "${powerup_options[@]}"; do
 		if ! which maltego &>/dev/null; then
 			cd /tmp
 			wget https://csilinux.com/downloads/Maltego.deb &>/dev/null
-			echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt install ./Maltego.deb -y &>/dev/null
+			echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt-get install ./Maltego.deb -y &>/dev/null
 		fi
 		if ! which discord > /dev/null; then
 			echo "disord"
 			wget https://dl.discordapp.net/apps/linux/0.0.27/discord-0.0.27.deb -O /tmp/discord.deb
-			echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt install -y /tmp/discord.deb
+			echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt-get install -y /tmp/discord.deb
 		fi
 		if [ -f /opt/Osintgram/main.py ]; then
 			cd /opt/Osintgram
@@ -823,11 +823,11 @@ for option in "${powerup_options[@]}"; do
 		fi
 		if ! which google-chrome > /dev/null; then
 			wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
-			echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt install -y ./google-chrome-stable_current_amd64.deb
+			echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt-get install -y ./google-chrome-stable_current_amd64.deb
 		fi
 
 		if ! which sn0int; then
-			echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt install -y sn0int -y &>/dev/null
+			echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt-get install -y sn0int -y &>/dev/null
 		fi
 		if [ ! -f /opt/PhoneInfoga/phoneinfoga ]; then
 			cd /opt
@@ -843,7 +843,7 @@ for option in "${powerup_options[@]}"; do
 			cd Storm-Breaker
 			pip install -r requirments.txt --quiet &>/dev/null
 			echo $key | sudo -S bash install.sh &>/dev/null
-			echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt install -y apache2 apache2-bin apache2-data apache2-utils libapache2-mod-php8.1 libapr1 libaprutil1 libaprutil1-dbd-sqlite3 libaprutil1-ldap php php-common php8.1 php8.1-cli php8.1-common php8.1-opcache php8.1-readline	
+			echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt-get install -y apache2 apache2-bin apache2-data apache2-utils libapache2-mod-php8.1 libapr1 libaprutil1 libaprutil1-dbd-sqlite3 libaprutil1-ldap php php-common php8.1 php8.1-cli php8.1-common php8.1-opcache php8.1-readline	
 		else
 			cd /opt/Storm-Breaker
 			git reset --hard HEAD; git pull &>/dev/null
@@ -869,7 +869,7 @@ for option in "${powerup_options[@]}"; do
 		fi
 		if ! which orjail > /dev/null; then
 			wget https://github.com/orjail/orjail/releases/download/v1.1/orjail_1.1-1_all.deb
-			echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt install ./orjail_1.1-1_all.deb
+			echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt-get install ./orjail_1.1-1_all.deb
 		fi
 		
 		if [ ! -f /opt/OxenWallet/oxen-electron-wallet-1.8.1-linux.AppImage ]; then
@@ -933,7 +933,7 @@ for option in "${powerup_options[@]}"; do
 			cd /tmp
 			wget https://github.com/sleuthkit/autopsy/releases/download/autopsy-4.21.0/autopsy-4.21.0.zip -O autopsy.zip
 			wget https://github.com/sleuthkit/sleuthkit/releases/download/sleuthkit-4.12.1/sleuthkit-java_4.12.1-1_amd64.deb -O sleuthkit-java.deb
-			echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt install ./sleuthkit-java.deb -y
+			echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt-get install ./sleuthkit-java.deb -y
 			echo "$ Installing Autopsy prereqs..."
 			wget https://raw.githubusercontent.com/sleuthkit/autopsy/develop/linux_macos_install_scripts/install_prereqs_ubuntu.sh &>/dev/null
 			echo $key | sudo -S bash install_prereqs_ubuntu.sh
@@ -956,9 +956,9 @@ for option in "${powerup_options[@]}"; do
 		fi
   		if ! which fred > /dev/null; then
 			wget https://csilinux.com/downloads/fred_0.2.0_amd64.deb
-			echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt install -y ./fred_0.2.0_amd64.deb
+			echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt-get install -y ./fred_0.2.0_amd64.deb
    			wget https://csilinux.com/downloads/fred-reports_0.2.0_amd64.deb
-			echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt install -y ./fred-reports_0.2.0_amd64.deb
+			echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt-get install -y ./fred-reports_0.2.0_amd64.deb
 		fi
 		repositories=(
 			"WLEAPP|https://github.com/abrignoni/WLEAPP.git"
@@ -985,7 +985,7 @@ for option in "${powerup_options[@]}"; do
 		install_packages apt_video
 		if ! which xnview > /dev/null; then
 			wget  wget https://download.xnview.com/XnViewMP-linux-x64.deb
-			echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt install -y ./XnViewMP-linux-x64.deb
+			echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt-get install -y ./XnViewMP-linux-x64.deb
 		fi
             	;;
         "malware-analysis")
@@ -1037,7 +1037,7 @@ for option in "${powerup_options[@]}"; do
 		echo $key | sudo -S chmod +x apk-editor-studio.AppImage
 		if [ ! -f /opt/jd-gui/jd-gui-1.6.6-min.jar ]; then
 			wget https://github.com/java-decompiler/jd-gui/releases/download/v1.6.6/jd-gui-1.6.6.deb
-			echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt install -y ./jd-gui-1.6.6.deb
+			echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt-get install -y ./jd-gui-1.6.6.deb
 		fi
     		sudo -k
 		;;
@@ -1052,7 +1052,7 @@ for option in "${powerup_options[@]}"; do
   		installed_packages_des csi_sigint
 		if ! which wifipumpkin3 > /dev/null; then
 			wget https://github.com/P0cL4bs/wifipumpkin3/releases/download/v1.1.4/wifipumpkin3_1.1.4_all.deb
-			echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt install ./wifipumpkin3_1.1.4_all.deb -y
+			echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt-get install ./wifipumpkin3_1.1.4_all.deb -y
 		fi
 		if [ ! -f /opt/fmradio/fmradio.AppImage ]; then
 			echo "Installing fmradio"
@@ -1095,7 +1095,7 @@ for option in "${powerup_options[@]}"; do
 		fi
   		if ! which wxtoimg > /dev/null; then
 			wget https://csilinux.com/downloads/wxtoimg_2.10.11-1_i386.deb
-			echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt install -y ./wxtoimg_2.10.11-1_i386.deb
+			echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt-get install -y ./wxtoimg_2.10.11-1_i386.deb
 		fi
 
   
