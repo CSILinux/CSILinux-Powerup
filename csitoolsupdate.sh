@@ -694,6 +694,7 @@ for option in "${powerup_options[@]}"; do
   		dos2unix csi_linux_themes.txt
 		mapfile -t csi_linux_themes < <(grep -vE "^\s*#|^$" csi_linux_themes.txt | sed -e 's/#.*//')
 		install_packages csi_linux_themes
+  		installed_packages_desc csi_linux_themes
 		reset_DNS
 		echo "# Configuring Background"
 		update_xfce_wallpapers "/opt/csitools/wallpaper/CSI-Linux-Dark.jpg"
@@ -722,6 +723,7 @@ for option in "${powerup_options[@]}"; do
   		dos2unix csi_os_update.txt
 		mapfile -t csi_os_update < <(grep -vE "^\s*#|^$" csi_os_update.txt | sed -e 's/#.*//')
 		install_packages csi_os_update
+  		installed_packages_desc csi_os_update
 	        
 		current_kernel=$(uname -r)
 		echo $key | sudo -S mainline --install-latest
@@ -743,6 +745,7 @@ for option in "${powerup_options[@]}"; do
     		dos2unix csi_encryption.txt
 		mapfile -t csi_encryption < <(grep -vE "^\s*#|^$" csi_encryption.txt | sed -e 's/#.*//')
 		install_packages csi_encryption
+  		installed_packages_desc csi_encryption
 	        
 		if ! which veracrypt > /dev/null; then
 			echo "Installing veracrypt"
@@ -758,6 +761,7 @@ for option in "${powerup_options[@]}"; do
     		dos2unix csi_osint.txt
 		mapfile -t csi_osint < <(grep -vE "^\s*#|^$" csi_osint.txt | sed -e 's/#.*//')
 		install_packages csi_osint
+  		installed_packages_des ccsi_osint
 		echo "# Configuring Online Forensic Tools"
 		cd /tmp
 		echo "# Installing Online Forensic Tools Packages"
@@ -903,6 +907,7 @@ for option in "${powerup_options[@]}"; do
     		dos2unix csi_ir.txt
 		mapfile -t csi_ir < <(grep -vE "^\s*#|^$" csi_ir.txt | sed -e 's/#.*//')
 		install_packages csi_ir
+  		installed_packages_des csi_ir
 		# Command to install incident response tools
 		reset_DNS
     		sudo -k
@@ -915,6 +920,7 @@ for option in "${powerup_options[@]}"; do
     		dos2unix csi_cf.txt
 		mapfile -t csi_cf < <(grep -vE "^\s*#|^$" csi_cf.txt | sed -e 's/#.*//')
 		install_packages csi_cf
+  		installed_packages_des csi_cf
 		echo "# Installing Computer Forensic Tools Packages"
 		install_packages apt_computer_forensic_tools
 		install_from_requirements_url "https://csilinux.com/downloads/csitools-disk-requirements.txt"
@@ -985,6 +991,7 @@ for option in "${powerup_options[@]}"; do
     		dos2unix csi_ma.txt
 		mapfile -t csi_ma < <(grep -vE "^\s*#|^$" csi_ma.txt | sed -e 's/#.*//')
 		install_packages csi_ma
+  		installed_packages_des csi_ma
 		if [ ! -f /opt/ImHex/imhex.AppImage ]; then
 			cd /opt
 			mkdir ImHex
@@ -1037,6 +1044,7 @@ for option in "${powerup_options[@]}"; do
     		dos2unix csi_sigint.txt
 		mapfile -t csi_sigint < <(grep -vE "^\s*#|^$" csi_sigint.txt | sed -e 's/#.*//')
 		install_packages csi_sigint
+  		installed_packages_des csi_sigint
 		if ! which wifipumpkin3 > /dev/null; then
 			wget https://github.com/P0cL4bs/wifipumpkin3/releases/download/v1.1.4/wifipumpkin3_1.1.4_all.deb
 			echo $key | sudo -S apt install ./wifipumpkin3_1.1.4_all.deb -y
@@ -1097,6 +1105,7 @@ for option in "${powerup_options[@]}"; do
     		dos2unix csi_virt.txt
 		mapfile -t csi_virt < <(grep -vE "^\s*#|^$" csi_virt.txt | sed -e 's/#.*//')
 		install_packages csi_virt
+  		installed_packages_des csi_virt
 		echo $key | sudo -S systemctl start libvirtd
 		echo $key | sudo -S systemctl enable libvirtd
     		sudo -k
