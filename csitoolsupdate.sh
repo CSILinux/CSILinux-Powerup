@@ -318,19 +318,25 @@ update_git_repository() {
     if [ ! -d "$repo_dir" ]; then
         # Clone the Git repository with sudo
         echo $key | sudo -S git clone "$repo_url" "$repo_dir"
-        echo $key | sudo -S chown csi:csi "$repo_dir"
+        echo $key | sudo -S chown -R $USER:$USER "$repo_dir"
     fi
     if [ -d "$repo_dir/.git" ]; then
         cd "$repo_dir" || return
-        echo $key | sudo -S git reset --hard HEAD
-        echo $key | sudo -S git pull
+        echo $key | sudo -S git fetch --all
+        # Reset local changes and ensure it's on the main branch (or any other default branch)
+        echo $key | sudo -S git reset --hard origin/main
+        # Pull the latest changes from remote repository
+        if ! echo $key | sudo -S git pull; then
+            echo "git pull encountered conflicts. Forcing update to match the remote repository."
+            echo $key | sudo -S git reset --hard origin/main
+        fi
         if [ -f "$repo_dir/requirements.txt" ]; then
             python3 -m venv "${repo_dir}/${repo_name}-venv"
             source "${repo_dir}/${repo_name}-venv/bin/activate"
             pip3 install -r requirements.txt
         fi
     else
-        echo "   -  ."
+        echo "Repository directory does not exist or is not a Git repository."
     fi
 }
 
