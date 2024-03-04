@@ -46,8 +46,8 @@ We are excited to announce significant updates to the CSI Linux Platform update 
 
 ## Performance Optimizations:
 - With these updates, CSI Linux is poised to boot up in approximately 30 seconds, thanks to the disabling of unnecessary services, contributing to a leaner, more efficient system.
-- 
-### Case Management and VPN Improvements:
+  
+### Case Management and TorVPN Improvements:
 - Bugs within the original case management application have been rectified, ensuring comprehensive data saving in `caseinfo.txt`. Moreover, our shared functions and CSI_TorVPN have been upgraded for better error handling and verification, including checks for Tor network accessibility and a robust verification process to enhance user security.
 
 We are eager for you to experience these updates and look forward to your feedback. Your insights are invaluable as we continue to enhance the CSI Linux Platform.
