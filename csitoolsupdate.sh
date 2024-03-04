@@ -117,21 +117,32 @@ install_csi_tools() {
     echo "$key" | sudo -S rm -rf "$backup_dir"  # Remove the entire backup directory
     echo "$key" | sudo -S mkdir -p "$backup_dir"
     echo "$key" | sudo -S chmod 777 "$backup_dir"  # Set full permissions temporarily for download
-    echo "Downloading CSI Tools"
-    aria2c -x3 -k1M https://csilinux.com/downloads/csitools.7z -d "$backup_dir" -o "$backup_file_name.7z"
-    echo "$key" | sudo -S chmod 755 "$backup_dir"
-    echo "# Installing CSI Tools"
-    restore_backup_to_root "$backup_dir" "$backup_file_name"
-    echo "Setting permissions and configurations for CSI Tools..."
-    echo "$key" | sudo -S chown csi:csi -R /opt/csitools
-    echo "$key" | sudo -S chmod +x /opt/csitools/* -R
-    echo "$key" | sudo -S chmod +x ~/Desktop/*.desktop
-    echo "Converting DOS format to UNIX format in CSI Tools directories..."
-    find /opt/csitools /opt/csitools/helpers -type f -exec sudo dos2unix {} + &>/dev/null
-    echo "CSI Tools installation and configuration completed successfully."
-    echo "$key" | sudo -S touch "$flag_file"
+    echo "Downloading CSI Tools..."
+    if aria2c -x3 -k1M https://csilinux.com/downloads/csitools.7z -d "$backup_dir" -o "$backup_file_name.7z"; then
+        echo "Download successful."
+        echo "# Installing CSI Tools..."
+        if restore_backup_to_root "$backup_dir" "$backup_file_name"; then
+            echo "CSI Tools restored successfully."
+            echo "Setting permissions and configurations for CSI Tools..."
+            echo "$key" | sudo -S chown csi:csi -R /opt/csitools
+            echo "$key" | sudo -S chmod +x /opt/csitools/* -R
+            echo "$key" | sudo -S chmod +x ~/Desktop/*.desktop
+            echo "Converting DOS format to UNIX format in CSI Tools directories..."
+            find /opt/csitools /opt/csitools/helpers -type f -exec sudo dos2unix {} + &>/dev/null
+            echo "CSI Tools installation and configuration completed successfully."
+            echo "$key" | sudo -S touch "$flag_file"
+        else
+            echo "Failed to restore CSI Tools from the backup."
+            return 1  # Restoration failed
+        fi
+    else
+        echo "Failed to download CSI Tools."
+        return 1  # Download failed
+    fi
+
     return 0  # Successfully completed the function
 }
+
 
 restore_backup_to_root() {
     echo $key | sudo -S sleep 1
@@ -141,8 +152,8 @@ restore_backup_to_root() {
     local archive_path="$backup_dir/$backup_file_name.7z"
 
     echo "Restoring CSI Tools backup..."
-    # Extract the .7z file safely
-    if ! echo $key | sudo -S 7z x -o"$backup_dir" "$archive_path"; then
+    # Extract the .7z file safely and ensure files are overwritten without prompting
+    if ! echo $key | sudo -S 7z x -aoa -o"$backup_dir" "$archive_path"; then
         echo "Failed to extract $archive_path. Please check the file and try again."
         return 1  # Exit the function with an error status
     fi
@@ -150,7 +161,8 @@ restore_backup_to_root() {
     local tar_file="$backup_dir/$backup_file_name.tar"
     if [ -f "$tar_file" ]; then
         echo "Restoring backup from tar file..."
-        if ! echo $key | sudo -S tar -xpf "$tar_file" -C /; then
+        # Extract the tar file and ensure files are overwritten without prompting
+        if ! echo $key | sudo -S tar --overwrite -xpf "$tar_file" -C /; then
             echo "Failed to restore from $tar_file. Please check the archive and try again."
             return 1  # Exit the function with an error status
         fi
