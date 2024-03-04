@@ -1131,12 +1131,12 @@ echo "System maintenance and cleanup completed successfully."
 reset_DNS
 echo $key | sudo -S rm /tmp/csi_tools_installed.flag
 
-echo "Listing installed applications with thier descriptions"
+# echo "Listing installed applications with thier descriptions"
 # Generate a mapfile of all installed packages on the system
-mapfile -t csi_linux_all_desc < <(dpkg-query -W -f='${binary:Package}\n')
+# mapfile -t csi_linux_all_desc < <(dpkg-query -W -f='${binary:Package}\n')
 
 # Now you can use the installed_packages_desc function with this mapfile
-installed_packages_desc csi_linux_all_desc
+# installed_packages_desc csi_linux_all_desc
 
 end_time=$(date +%s)
 duration=$((end_time - start_time))
