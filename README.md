@@ -25,8 +25,6 @@ We are excited to announce significant updates to the CSI Linux Platform update 
 ### Enhanced Installation Checks:
 - The power-up process now intelligently checks for already installed tools, focusing on updating those not yet installed. This optimization significantly accelerates the update process and lists any failed installations, addressing potential compatibility issues or typographical errors in package names.
 
-## CSI Linux Platform Features
-
 ### System and User Environment Setup:
 - **Automated Configuration:** Streamlines the setup of new CSI Linux systems for enhanced performance and user experience.
 - **Security and Accessibility:** Ensures secure user environments and proper group memberships for essential services.
