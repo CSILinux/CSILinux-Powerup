@@ -681,7 +681,7 @@ for option in "${powerup_options[@]}"; do
   		dos2unix csi_linux_base.txt
 		mapfile -t csi_linux_base < <(grep -vE "^\s*#|^$" csi_linux_base.txt | sed -e 's/#.*//')
 		install_packages csi_linux_base
-  		installed_packages_desc csi_linux_base
+  		# installed_packages_desc csi_linux_base
   		echo "Installing additional system tools..."
 		cd /tmp
 		if ! which calibre > /dev/null; then
@@ -705,7 +705,7 @@ for option in "${powerup_options[@]}"; do
   		dos2unix csi_linux_themes.txt
 		mapfile -t csi_linux_themes < <(grep -vE "^\s*#|^$" csi_linux_themes.txt | sed -e 's/#.*//')
 		install_packages csi_linux_themes
-  		installed_packages_desc csi_linux_themes
+  		# installed_packages_desc csi_linux_themes
 		reset_DNS
 		echo "# Configuring Background"
 		update_xfce_wallpapers "/opt/csitools/wallpaper/CSI-Linux-Dark.jpg"
@@ -734,7 +734,7 @@ for option in "${powerup_options[@]}"; do
   		dos2unix csi_os_update.txt
 		mapfile -t csi_os_update < <(grep -vE "^\s*#|^$" csi_os_update.txt | sed -e 's/#.*//')
 		install_packages csi_os_update
-  		installed_packages_desc csi_os_update
+  		# installed_packages_desc csi_os_update
 	        
 		current_kernel=$(uname -r)
 		echo $key | sudo -S mainline --install-latest
@@ -756,7 +756,7 @@ for option in "${powerup_options[@]}"; do
     		dos2unix csi_encryption.txt
 		mapfile -t csi_encryption < <(grep -vE "^\s*#|^$" csi_encryption.txt | sed -e 's/#.*//')
 		install_packages csi_encryption
-  		installed_packages_desc csi_encryption
+  		# installed_packages_desc csi_encryption
 	        
 		if ! which veracrypt > /dev/null; then
 			echo "Installing veracrypt"
@@ -1147,8 +1147,8 @@ echo $key | sudo -S rm /tmp/csi_tools_installed.flag
 # Generate a mapfile of all installed packages on the system
 # mapfile -t csi_linux_all_desc < <(dpkg-query -W -f='${binary:Package}\n')
 
-# Now you can use the installed_packages_desc function with this mapfile
-# installed_packages_desc csi_linux_all_desc
+# Now you can use the # installed_packages_desc function with this mapfile
+# # installed_packages_desc csi_linux_all_desc
 
 end_time=$(date +%s)
 duration=$((end_time - start_time))
