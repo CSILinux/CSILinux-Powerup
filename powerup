@@ -53,6 +53,7 @@ install_missing_programs() {
     if [ ${#missing_programs[@]} -ne 0 ]; then
         echo "Updating package lists..." | tee -a "$output_file"
         echo $key | sudo -S apt update | tee -a "$output_file"
+        install_vm_tools
         for program in "${missing_programs[@]}"; do
             echo "Attempting to install $program..." | tee -a "$output_file"
             if echo $key | sudo -S apt install -y "$program" 2>&1 | tee -a "$output_file"; then
@@ -66,6 +67,69 @@ install_missing_programs() {
     fi
 }
 
+install_vm_tools() {
+    # Define all possible packages for virtualization tools
+    vmware_packages="open-vm-tools-desktop"
+    virtualbox_packages="virtualbox-guest-additions-iso"
+    qemu_kvm_packages="qemu-guest-agent"
+    hyperv_packages="linux-tools-virtual linux-cloud-tools-virtual"
+    xen_packages="xe-guest-utilities"
+    all_packages="$vmware_packages $virtualbox_packages $qemu_kvm_packages $hyperv_packages $xen_packages"
+
+    # Detect the virtualization environment
+    if grep -q VMware /sys/class/dmi/id/product_name; then
+        environment="vmware"
+        echo "VMware detected. Installing ${vmware_packages}..."
+    elif lspci | grep -iq 'virtualbox'; then
+        environment="virtualbox"
+        echo "VirtualBox detected. Installing ${virtualbox_packages}..."
+    elif grep -q 'QEMU' /sys/class/dmi/id/sys_vendor || grep -q 'KVM' /sys/class/dmi/id/sys_vendor; then
+        environment="qemu_kvm"
+        echo "QEMU/KVM detected. Installing ${qemu_kvm_packages}..."
+    elif grep -q 'Microsoft Corporation Hyper-V' /sys/class/dmi/id/sys_vendor; then
+        environment="hyperv"
+        echo "Hyper-V detected. Installing ${hyperv_packages}..."
+    elif grep -q 'Xen' /sys/class/dmi/id/sys_vendor; then
+        environment="xen"
+        echo "Xen detected. Installing ${xen_packages}..."
+    else
+        environment="none"
+        echo "No known virtualization detected or the system is a physical machine."
+    fi
+
+    # Install the necessary packages for the detected environment and purge the rest
+    case $environment in
+        vmware)
+            sudo apt install -y $vmware_packages
+            sudo apt purge -y ${all_packages//$vmware_packages/}
+            ;;
+        virtualbox)
+            sudo apt install -y $virtualbox_packages
+            sudo apt purge -y ${all_packages//$virtualbox_packages/}
+            ;;
+        qemu_kvm)
+            sudo apt install -y $qemu_kvm_packages
+            sudo apt purge -y ${all_packages//$qemu_kvm_packages/}
+            ;;
+        hyperv)
+            sudo apt install -y $hyperv_packages
+            sudo apt purge -y ${all_packages//$hyperv_packages/}
+            ;;
+        xen)
+            sudo apt install -y $xen_packages
+            sudo apt purge -y ${all_packages//$xen_packages/}
+            ;;
+        none)
+            # If no virtualization is detected, purge all tools
+            sudo apt purge -y $all_packages
+            ;;
+    esac
+
+    # Optional: Remove any packages that were automatically installed to satisfy dependencies
+    sudo apt autoremove -y
+}
+
+
 install_csi_tools() {
     local flag_file="/tmp/csi_tools_installed.flag"  # Secure location for flag file
 
@@ -78,49 +142,62 @@ install_csi_tools() {
     local backup_dir="/tmp/restore"
     local backup_file_name="csitools"
     local archive_path="$backup_dir/$backup_file_name.7z"
-
+    echo "$key" | sudo -S DEBIAN_FRONTEND=noninteractive apt install aria2 -y
     echo "Preparing for CSI Tools download..."
     echo "$key" | sudo -S rm -rf "$backup_dir"  # Remove the entire backup directory
     echo "$key" | sudo -S mkdir -p "$backup_dir"
     echo "$key" | sudo -S chmod 777 "$backup_dir"  # Set full permissions temporarily for download
-    echo "Downloading CSI Tools"
-    echo "$key" | sudo -S aria2c -x3 -k1M https://csilinux.com/downloads/csitools.7z -d "$backup_dir" -o "$backup_file_name.7z"
-    echo "$key" | sudo -S chmod 755 "$backup_dir"
-    echo "# Installing CSI Tools"
-    restore_backup_to_root "$backup_dir" "$backup_file_name"
-    echo "Setting permissions and configurations for CSI Tools..."
-    echo "$key" | sudo -S chown csi:csi -R /opt/csitools
-    echo "$key" | sudo -S chmod +x /opt/csitools/* -R
-    echo "$key" | sudo -S chmod +x ~/Desktop/*.desktop
-    echo "Converting DOS format to UNIX format in CSI Tools directories..."
-    find /opt/csitools /opt/csitools/helpers -type f -exec sudo dos2unix {} + &>/dev/null
-    echo "CSI Tools installation and configuration completed successfully."
-    echo "$key" | sudo -S touch "$flag_file"
+    echo "Downloading CSI Tools..."
+    if aria2c -x3 -k1M https://csilinux.com/downloads/csitools.7z -d "$backup_dir" -o "$backup_file_name.7z"; then
+        echo "Download successful."
+        echo "# Installing CSI Tools..."
+        if restore_backup_to_root "$backup_dir" "$backup_file_name"; then
+            echo "CSI Tools restored successfully."
+            echo "Setting permissions and configurations for CSI Tools..."
+            echo "$key" | sudo -S chown csi:csi -R /opt/csitools
+            echo "$key" | sudo -S chmod +x /opt/csitools/* -R
+            echo "$key" | sudo -S chmod +x ~/Desktop/*.desktop
+            echo "Converting DOS format to UNIX format in CSI Tools directories..."
+            find /opt/csitools /opt/csitools/helpers -type f -exec sudo dos2unix {} + &>/dev/null
+            echo "CSI Tools installation and configuration completed successfully."
+            echo "$key" | sudo -S touch "$flag_file"
+        else
+            echo "Failed to restore CSI Tools from the backup."
+            return 1  # Restoration failed
+        fi
+    else
+        echo "Failed to download CSI Tools."
+        return 1  # Download failed
+    fi
+
     return 0  # Successfully completed the function
 }
 
 
 restore_backup_to_root() {
+    echo $key | sudo -S sleep 1
     sudo -k
     local backup_dir=$1
     local backup_file_name=$2
     local archive_path="$backup_dir/$backup_file_name.7z"
 
     echo "Restoring CSI Tools backup..."
-    if ! echo "$key" | sudo -S 7z x -o"$backup_dir" "$archive_path"; then
+    # Extract the .7z file safely and ensure files are overwritten without prompting
+    if ! echo $key | sudo -S 7z x -aoa -o"$backup_dir" "$archive_path"; then
         echo "Failed to extract $archive_path. Please check the file and try again."
         return 1  # Exit the function with an error status
     fi
 
     local tar_file="$backup_dir/$backup_file_name.tar"
     if [ -f "$tar_file" ]; then
-        echo "Updating CSI Tools..."
-        if ! echo "$key" | sudo -S tar -xpf "$tar_file" -C /; then
+        echo "Restoring backup from tar file..."
+        # Extract the tar file and ensure files are overwritten without prompting
+        if ! echo $key | sudo -S tar --overwrite -xpf "$tar_file" -C /; then
             echo "Failed to restore from $tar_file. Please check the archive and try again."
             return 1  # Exit the function with an error status
         fi
         echo "Backup restored successfully."
-        echo "$key" | sudo -S rm "$tar_file"
+        echo $key | sudo -S rm "$tar_file"
     else
         echo "Backup .tar file not found. Please check the archive path and try again."
         return 1  # Exit the function with an error status
