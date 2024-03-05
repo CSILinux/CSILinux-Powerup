@@ -69,6 +69,32 @@ prompt_for_sudo() {
     done
 }
 
+install_vm_tools() {
+    # Check for VMware
+    if grep -q VMware /sys/class/dmi/id/product_name; then
+        echo "VMware detected. Installing open-vm-tools-desktop..."
+        echo $key | sudo -S apt install -y open-vm-tools-desktop
+    # Check for VirtualBox
+    elif lspci | grep -iq 'virtualbox'; then
+        echo "VirtualBox detected. Installing VirtualBox guest additions..."
+        echo $key | sudo -S apt install -y virtualbox-guest-additions-iso
+    # Check for QEMU/KVM
+    elif grep -q 'QEMU' /sys/class/dmi/id/sys_vendor || grep -q 'KVM' /sys/class/dmi/id/sys_vendor; then
+        echo "QEMU/KVM detected. Installing QEMU guest agent..."
+        echo $key | sudo -S apt install -y qemu-guest-agent
+    # Check for Hyper-V
+    elif grep -q 'Microsoft Corporation Hyper-V' /sys/class/dmi/id/sys_vendor; then
+        echo "Hyper-V detected. Installing Hyper-V integration services..."
+        echo $key | sudo -S install -y linux-tools-virtual linux-cloud-tools-virtual
+    # Check for Xen
+    elif grep -q 'Xen' /sys/class/dmi/id/sys_vendor; then
+        echo "Xen detected. Installing Xen guest utilities..."
+        echo $key | sudo -S apt install -y xe-guest-utilities
+    else
+        echo "No known virtualization detected or the system is a physical machine."
+    fi
+}
+
 install_missing_programs() {
     local programs=(curl bpytop xterm aria2 yad zenity)
     local missing_programs=()
@@ -665,6 +691,7 @@ for option in "${powerup_options[@]}"; do
   		echo "# Updating APT with updated repos"		
 		echo $key | sudo -S apt update
   		fix_broken
+    		install_vm_tools
 		echo $key | sudo -S apt upgrade -y
   		echo "# Checking Starter Apps"
 		install_missing_programs
