@@ -70,30 +70,67 @@ prompt_for_sudo() {
 }
 
 install_vm_tools() {
-    # Check for VMware
+    # Define all possible packages for virtualization tools
+    vmware_packages="open-vm-tools-desktop"
+    virtualbox_packages="virtualbox-guest*"
+    qemu_kvm_packages="qemu-guest-agent"
+    hyperv_packages="linux-tools-virtual linux-cloud-tools-virtual"
+    xen_packages="xe-guest-utilities"
+    all_packages="$vmware_packages $virtualbox_packages $qemu_kvm_packages $hyperv_packages $xen_packages"
+
+    # Detect the virtualization environment
     if grep -q VMware /sys/class/dmi/id/product_name; then
-        echo "VMware detected. Installing open-vm-tools-desktop..."
-        echo $key | sudo -S apt install -y open-vm-tools-desktop
-    # Check for VirtualBox
+        environment="vmware"
+        echo "VMware detected. Installing ${vmware_packages}..."
     elif lspci | grep -iq 'virtualbox'; then
-        echo "VirtualBox detected. Installing VirtualBox guest additions..."
-        echo $key | sudo -S apt install -y virtualbox-guest-additions-iso
-    # Check for QEMU/KVM
+        environment="virtualbox"
+        echo "VirtualBox detected. Installing ${virtualbox_packages}..."
     elif grep -q 'QEMU' /sys/class/dmi/id/sys_vendor || grep -q 'KVM' /sys/class/dmi/id/sys_vendor; then
-        echo "QEMU/KVM detected. Installing QEMU guest agent..."
-        echo $key | sudo -S apt install -y qemu-guest-agent
-    # Check for Hyper-V
+        environment="qemu_kvm"
+        echo "QEMU/KVM detected. Installing ${qemu_kvm_packages}..."
     elif grep -q 'Microsoft Corporation Hyper-V' /sys/class/dmi/id/sys_vendor; then
-        echo "Hyper-V detected. Installing Hyper-V integration services..."
-        echo $key | sudo -S install -y linux-tools-virtual linux-cloud-tools-virtual
-    # Check for Xen
+        environment="hyperv"
+        echo "Hyper-V detected. Installing ${hyperv_packages}..."
     elif grep -q 'Xen' /sys/class/dmi/id/sys_vendor; then
-        echo "Xen detected. Installing Xen guest utilities..."
-        echo $key | sudo -S apt install -y xe-guest-utilities
+        environment="xen"
+        echo "Xen detected. Installing ${xen_packages}..."
     else
+        environment="hardware"
         echo "No known virtualization detected or the system is a physical machine."
     fi
+
+    # Install the necessary packages for the detected environment and purge the rest
+    case $environment in
+        vmware)
+            sudo apt install -y $vmware_packages
+            sudo apt purge -y ${all_packages//$vmware_packages/}
+            ;;
+        virtualbox)
+            sudo apt install -y $virtualbox_packages
+            sudo apt purge -y ${all_packages//$virtualbox_packages/}
+            ;;
+        qemu_kvm)
+            sudo apt install -y $qemu_kvm_packages
+            sudo apt purge -y ${all_packages//$qemu_kvm_packages/}
+            ;;
+        hyperv)
+            sudo apt install -y $hyperv_packages
+            sudo apt purge -y ${all_packages//$hyperv_packages/}
+            ;;
+        xen)
+            sudo apt install -y $xen_packages
+            sudo apt purge -y ${all_packages//$xen_packages/}
+            ;;
+        hardware)
+            # If no virtualization is detected, purge all tools
+            sudo apt purge -y $all_packages
+            ;;
+    esac
+    echo "System set for running with $environment..."
+    # Optional: Remove any packages that were automatically installed to satisfy dependencies
+    sudo apt autoremove -y
 }
+
 
 install_missing_programs() {
     local programs=(curl bpytop xterm aria2 yad zenity)
