@@ -754,7 +754,7 @@ for option in "${powerup_options[@]}"; do
 			echo $key | sudo -S -v && wget -nv -O- https://download.calibre-ebook.com/linux-installer.sh | echo $key | sudo -S sh /dev/stdin
 		fi
 		if ! which onlyoffice-desktopeditors > /dev/null; then
-			https://download.onlyoffice.com/install/desktop/editors/linux/onlyoffice-desktopeditors_amd64.deb
+			wget https://download.onlyoffice.com/install/desktop/editors/linux/onlyoffice-desktopeditors_amd64.deb
 			echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt-get install -y ./onlyoffice-desktopeditors_amd64.deb
 		fi 
                 echo "Setting up media tools..."
