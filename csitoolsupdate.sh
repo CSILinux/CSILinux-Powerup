@@ -328,14 +328,15 @@ add_repository() {
     # Since the .list file does not exist, proceed with adding the GPG key (for 'apt' and 'key')
     if [[ "$repo_type" == "apt" || "$repo_type" == "key" ]] && [ ! -f "/etc/apt/trusted.gpg.d/${repo_name}.gpg" ]; then
         echo "Adding GPG key for '${repo_name}'..."
+	cd /tmp
         if [ "$repo_type" == "apt" ]; then
-            curl -fsSL "$gpg_key_info" | sudo gpg --dearmor | sudo tee "/etc/apt/trusted.gpg.d/${repo_name}.gpg" > /dev/null
+            echo "$key" | sudo -S curl -fsSL "$gpg_key_info" | sudo gpg --dearmor | sudo tee "/etc/apt/trusted.gpg.d/${repo_name}.gpg" > /dev/null
         elif [ "$repo_type" == "key" ]; then
             # Correctly handle the 'key' type using the original working code snippet
             local keyserver=$(echo "$gpg_key_info" | cut -d ' ' -f1)
             local recv_keys=$(echo "$gpg_key_info" | cut -d ' ' -f2-)
-            sudo gpg --no-default-keyring --keyring gnupg-ring:/tmp/"$repo_name".gpg --keyserver "$keyserver" --recv-keys $recv_keys
-            sudo gpg --no-default-keyring --keyring gnupg-ring:/tmp/"$repo_name".gpg --export | sudo tee "/etc/apt/trusted.gpg.d/$repo_name.gpg" > /dev/null
+            echo "$key" | sudo -S gpg --no-default-keyring --keyring gnupg-ring:/tmp/"$repo_name".gpg --keyserver "$keyserver" --recv-keys $recv_keys
+            echo "$key" | sudo -S gpg --no-default-keyring --keyring gnupg-ring:/tmp/"$repo_name".gpg --export | sudo tee "/etc/apt/trusted.gpg.d/$repo_name.gpg" > /dev/null
         fi
         if [ $? -ne 0 ]; then
             echo "Error adding GPG key for '${repo_name}'."
@@ -348,7 +349,7 @@ add_repository() {
     if [ "$repo_type" == "apt" ] || [ "$repo_type" == "key" ]; then
         echo "deb [signed-by=/etc/apt/trusted.gpg.d/${repo_name}.gpg] $repo_url" | sudo tee "/etc/apt/sources.list.d/${repo_name}.list" > /dev/null
     elif [ "$repo_type" == "ppa" ]; then
-        sudo add-apt-repository --no-update -y "$repo_url"
+        echo "$key" | sudo -S add-apt-repository --no-update -y "$repo_url"
     fi
 
     if [ $? -eq 0 ]; then
