@@ -668,7 +668,7 @@ installed_packages_desc() {
 echo $key | sudo -S sleep 1
 echo $key | sudo -S df -h
 cd /tmp
-update_current_time
+
 # unredactedmagazine
 
 # Main script logic
