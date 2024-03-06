@@ -753,14 +753,12 @@ for option in "${powerup_options[@]}"; do
 			echo "# Installing calibre"
 			echo $key | sudo -S -v && wget -nv -O- https://download.calibre-ebook.com/linux-installer.sh | echo $key | sudo -S sh /dev/stdin
 		fi
-		if ! which xnview > /dev/null; then
+		if ! which onlyoffice-desktopeditors > /dev/null; then
 			https://download.onlyoffice.com/install/desktop/editors/linux/onlyoffice-desktopeditors_amd64.deb
 			echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt-get install -y ./onlyoffice-desktopeditors_amd64.deb
-		fi
-https://download.onlyoffice.com/install/desktop/editors/linux/onlyoffice-desktopeditors_amd64.deb
-  
+		fi 
                 echo "Setting up media tools..."
-		if ! which onlyoffice-desktopeditors > /dev/null; then
+		if ! which xnview > /dev/null; then
 			wget https://download.xnview.com/XnViewMP-linux-x64.deb
 			echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt-get install -y ./XnViewMP-linux-x64.deb
 		fi
