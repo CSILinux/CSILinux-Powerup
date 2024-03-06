@@ -717,7 +717,7 @@ for option in "${powerup_options[@]}"; do
 		add_repository "apt" "https://packages.cisofy.com/community/lynis/deb/ stable main" "https://packages.cisofy.com/keys/cisofy-software-public.key" "cisofy-lynis"
 		add_repository "apt" "https://download.docker.com/linux/ubuntu focal stable" "https://download.docker.com/linux/ubuntu/gpg" "docker"
     
-		add_repository "key" "https://download.onlyoffice.com/repo/debian squeeze main" "hkp://keyserver.ubuntu.com:80 --recv-keys CB2DE8E5" "onlyoffice"
+		# add_repository "key" "https://download.onlyoffice.com/repo/debian squeeze main" "hkp://keyserver.ubuntu.com:80 --recv-keys CB2DE8E5" "onlyoffice"
   				
 		add_repository "ppa" "ppa:danielrichter2007/grub-customizer" "" "grub-customizer"
 		add_repository "ppa" "ppa:phoerious/keepassxc" "" "keepassxc"
@@ -753,8 +753,14 @@ for option in "${powerup_options[@]}"; do
 			echo "# Installing calibre"
 			echo $key | sudo -S -v && wget -nv -O- https://download.calibre-ebook.com/linux-installer.sh | echo $key | sudo -S sh /dev/stdin
 		fi
-                echo "Setting up media tools..."
 		if ! which xnview > /dev/null; then
+			https://download.onlyoffice.com/install/desktop/editors/linux/onlyoffice-desktopeditors_amd64.deb
+			echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt-get install -y ./onlyoffice-desktopeditors_amd64.deb
+		fi
+https://download.onlyoffice.com/install/desktop/editors/linux/onlyoffice-desktopeditors_amd64.deb
+  
+                echo "Setting up media tools..."
+		if ! which onlyoffice-desktopeditors > /dev/null; then
 			wget https://download.xnview.com/XnViewMP-linux-x64.deb
 			echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt-get install -y ./XnViewMP-linux-x64.deb
 		fi
