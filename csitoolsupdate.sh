@@ -400,14 +400,16 @@ update_git_repository() {
         echo $key | sudo -S chown -R $USER:$USER "$repo_dir"
     fi
 
-    # Check and install Python requirements, if any
-    if [ -f "$repo_dir/requirements.txt" ]; then
-        echo "Setting up Python virtual environment and installing dependencies..."
-        python3 -m venv "${repo_dir}/${repo_name}-venv"
-        source "${repo_dir}/${repo_name}-venv/bin/activate"
-        pip3 install -r "${repo_dir}/requirements.txt"
-        deactivate
-    fi
+	# After cloning or pulling changes
+	echo $key | sudo -S chown -R $USER:$USER "$repo_dir"
+	if [ -f "$repo_dir/requirements.txt" ]; then
+	    echo "Setting up Python virtual environment and installing dependencies..."
+	    python3 -m venv "${repo_dir}/${repo_name}-venv" && \
+	    source "${repo_dir}/${repo_name}-venv/bin/activate" && \
+	    pip3 install -r "${repo_dir}/requirements.txt" && \
+	    echo "Dependencies installed successfully." || echo "Failed to install dependencies."
+	    deactivate
+	fi
 }
 
 
