@@ -736,6 +736,10 @@ for option in "${powerup_options[@]}"; do
 		echo $key | sudo -S apt remove sleuthkit -y  &>/dev/null
     		echo "# Disabling unneeded Services"
   		disable_services &>/dev/null
+    		if ! which python3-venv > /dev/null; then
+			echo "# python3-venv"
+			echo $key | sudo -S apt install python3-venv
+		fi
 		install_from_requirements_url "https://csilinux.com/downloads/csitools-requirements.txt"
 		echo $key | sudo -S ln -s /usr/bin/python3 /usr/bin/python &>/dev/null
 		echo $key | sudo -S timedatectl set-timezone UTC     
