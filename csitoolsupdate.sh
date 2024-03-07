@@ -757,7 +757,7 @@ for option in "${powerup_options[@]}"; do
 		cd /tmp
 		if ! which calibre > /dev/null; then
 			echo "# Installing calibre"
-			echo $key | sudo -S -v && wget -nv -O- https://download.calibre-ebook.com/linux-installer.sh | echo $key | sudo -S sh /dev/stdin
+			echo $key | sudo -S -v && wget -nv -O- https://download.calibre-ebook.com/linux-installer.sh | bash
 		fi
 		if ! which onlyoffice-desktopeditors > /dev/null; then
 			wget https://download.onlyoffice.com/install/desktop/editors/linux/onlyoffice-desktopeditors_amd64.deb
@@ -914,7 +914,7 @@ for option in "${powerup_options[@]}"; do
 			cd /opt
 			mkdir PhoneInfoga
 			cd PhoneInfoga
-			wget https://raw.githubusercontent.com/sundowndev/phoneinfoga/master/support/scripts/install -O - | sh 
+			wget https://raw.githubusercontent.com/sundowndev/phoneinfoga/master/support/scripts/install -O - | bash 
 			echo $key | sudo -S chmod +x ./phoneinfoga
 			echo $key | sudo -S ln -sf ./phoneinfoga /usr/local/bin/phoneinfoga
 		fi
