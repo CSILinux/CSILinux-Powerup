@@ -274,6 +274,7 @@ install_packages() {
     for package in "${newpackages[@]}"; do
         let current_package++
         echo -n "[$current_package/$new_total] Installing $package... "
+	echo $key | sudo -S apt install --fix-broken
         if echo $key | sudo -S -E DEBIAN_FRONTEND=noninteractive apt-get install -yq --assume-yes "$package"; then
             echo "SUCCESS"
             ((installed++))
