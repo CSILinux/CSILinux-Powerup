@@ -705,6 +705,30 @@ for option in "${powerup_options[@]}"; do
 		setup_new_csi_system
 		echo $key | sudo -S apt remove sleuthkit  &>/dev/null
 		echo "# Setting up repo environment"
+
+		REPOS=(
+		"deb http://archive.ubuntu.com/ubuntu/ jammy main restricted universe multiverse"
+		"deb http://archive.ubuntu.com/ubuntu/ jammy-updates main restricted universe multiverse"
+		"deb http://archive.ubuntu.com/ubuntu/ jammy-security main restricted universe multiverse"
+		"deb http://archive.ubuntu.com/ubuntu/ jammy-backports main restricted universe multiverse"
+		"deb http://archive.canonical.com/ubuntu/ jammy partner"
+		)
+		
+		# The file to be checked and modified
+		FILE="/etc/apt/sources.list"
+		
+		# Iterate over each repository line
+		for repo in "${REPOS[@]}"; do
+		    # Use grep to check if the line is already in the file
+		    if ! grep -q "^$(echo $repo | sed 's/ /\\ /g')" "$FILE"; then
+		        # If the line is not found, append it to the file
+		        echo "Adding repository: $repo"
+		        echo "$repo" | sudo tee -a "$FILE" > /dev/null
+		    else
+		        echo "Repository already exists: $repo"
+		    fi
+		done
+  
 		cd /tmp
 		
 		echo "# Setting up apt Repos"
