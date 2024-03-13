@@ -834,8 +834,49 @@ for option in "${powerup_options[@]}"; do
   		dos2unix csi_os_update.txt
 		mapfile -t csi_os_update < <(grep -vE "^\s*#|^$" csi_os_update.txt | sed -e 's/#.*//')
 		install_packages csi_os_update
+
+		  #!/bin/bash
+		
+		# Get the list of installed kernels, excluding the currently running one
+		installed_kernels=$(dpkg --list | grep linux-image | awk '{print $2}' | sort -V | grep -v "$(uname -r)")
+		
+		# Separate kernels into version 5 and version 6 groups
+		v5_kernels=($(echo "$installed_kernels" | grep -- '-5\.'))
+		v6_kernels=($(echo "$installed_kernels" | grep -- '-6\.'))
+		
+		# Determine the latest version 5 and version 6 kernels
+		latest_v5_kernel="${v5_kernels[-1]}"
+		latest_v6_kernel="${v6_kernels[-1]}"
+		
+		echo "Latest version 5 kernel to keep: $latest_v5_kernel"
+		echo "Latest version 6 kernel to keep: $latest_v6_kernel"
+		
+		# Create a list of kernels to remove, excluding the latest v5 and v6 kernels
+		kernels_to_remove=()
+		for kernel in $installed_kernels; do
+		    if [[ "$kernel" != "$latest_v5_kernel" && "$kernel" != "$latest_v6_kernel" ]]; then
+		        kernels_to_remove+=("$kernel")
+		    fi
+		done
+		
+		if [ ${#kernels_to_remove[@]} -eq 0 ]; then
+		    echo "No kernels need to be removed."
+		    exit 0
+		fi
+		
+		echo "Kernels to remove:"
+		printf '%s\n' "${kernels_to_remove[@]}"
+		
+		for kernel in "${kernels_to_remove[@]}"; do
+			echo "Removing $kernel..."
+			sudo apt-get purge -y "$kernel"
+		done
+		# Update grub and clean up
+		sudo update-grub
+		sudo apt-get autoremove -y
+		echo "Kernel cleanup complete."
+
   		# installed_packages_desc csi_os_update
-	        
 		current_kernel=$(uname -r)
 		echo $key | sudo -S mainline --install-latest
 		# Get the latest installed kernel version, ensuring consistent formatting with current_kernel
