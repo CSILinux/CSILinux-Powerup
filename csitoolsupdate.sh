@@ -869,11 +869,11 @@ for option in "${powerup_options[@]}"; do
 		
 		for kernel in "${kernels_to_remove[@]}"; do
 			echo "Removing $kernel..."
-			sudo apt-get purge -y "$kernel"
+			echo $key | sudo -S apt-get purge -y "$kernel"
 		done
 		# Update grub and clean up
-		sudo update-grub
-		sudo apt-get autoremove -y
+		echo $key | sudo -S update-grub
+		echo $key | sudo -S apt-get autoremove -y
 		echo "Kernel cleanup complete."
 
   		# installed_packages_desc csi_os_update
