@@ -60,9 +60,9 @@ prompt_for_sudo() {
             exit 1
         fi
         if echo $key | sudo -S -v -k &> /dev/null; then
-            sudo -k # Reset the sudo timestamp after verification
+            sudo -k 
             echo "sudo access verified."
-            break # Exit loop if the password is correct
+            break 
         else
             zenity --error --title="Authentication Failure" --text="Incorrect password or lack of sudo privileges. Please try again." --width=400
         fi
@@ -172,7 +172,7 @@ install_csi_tools() {
         return 0  # Exit the function successfully
     fi
 
-    local backup_dir="/tmp/restore"
+    local backup_dir="/tmp/restorecsitools"
     local backup_file_name="csitools"
     local archive_path="$backup_dir/$backup_file_name.7z"
     echo "$key" | sudo -S DEBIAN_FRONTEND=noninteractive apt install aria2 -y
@@ -800,6 +800,32 @@ for option in "${powerup_options[@]}"; do
         "csi-linux-themes")
                 install_csi_tools
 		cd /tmp
+
+		local backup_dir="/tmp/restorecsitheme"
+		local backup_file_name="csitools_theme"
+		local archive_path="$backup_dir/$backup_file_name.7z"
+		echo "$key" | sudo -S DEBIAN_FRONTEND=noninteractive apt install aria2 -y
+		echo "Preparing for the CSI Theme download..."
+		echo "$key" | sudo -S rm -rf "$backup_dir"  # Remove the entire backup directory
+		echo "$key" | sudo -S mkdir -p "$backup_dir"
+		echo "$key" | sudo -S chmod 777 "$backup_dir"  # Set full permissions temporarily for download
+		echo "Downloading the CSI Theme..."
+		if aria2c -x3 -k1M https://csilinux.com/downloads/csitools_theme.7z -d "$backup_dir" -o "$backup_file_name.7z"; then
+		echo "Download successful."
+		echo "# Installing the CSI Theme..."
+		if restore_backup_to_root "$backup_dir" "$backup_file_name"; then
+		    echo "The CSI Theme restored successfully."
+		    echo "Setting permissions and configurations for the CSI Theme..."
+		    echo "$key" | sudo -S chown csi:csi -R /home/csi/     
+		    echo "The CSI Theme installation and configuration completed successfully."
+		else
+		    echo "Failed to restore the CSI Theme from the backup."
+		fi
+		else
+		echo "Failed to download CSI Tools."
+		return 1  # Download failed
+		fi
+  
 		rm csi_linux_themes.txt &>/dev/null
 		wget https://csilinux.com/downloads/csi_linux_themes.txt -O csi_linux_themes.txt
   		dos2unix csi_linux_themes.txt
@@ -861,20 +887,19 @@ for option in "${powerup_options[@]}"; do
 		
 		if [ ${#kernels_to_remove[@]} -eq 0 ]; then
 		    echo "No kernels need to be removed."
-		    exit 0
-		fi
-		
-		echo "Kernels to remove:"
-		printf '%s\n' "${kernels_to_remove[@]}"
-		
-		for kernel in "${kernels_to_remove[@]}"; do
-			echo "Removing $kernel..."
-			echo $key | sudo -S apt-get purge -y "$kernel"
-		done
-		# Update grub and clean up
-		echo $key | sudo -S update-grub
-		echo $key | sudo -S apt-get autoremove -y
-		echo "Kernel cleanup complete."
+		elif
+	  		echo "Kernels to remove:"
+			printf '%s\n' "${kernels_to_remove[@]}"
+			
+			for kernel in "${kernels_to_remove[@]}"; do
+				echo "Removing $kernel..."
+				echo $key | sudo -S apt-get purge -y "$kernel"
+			done
+			# Update grub and clean up
+			echo $key | sudo -S update-grub
+			echo $key | sudo -S apt-get autoremove -y
+			echo "Kernel cleanup complete."
+  		fi
 
   		# installed_packages_desc csi_os_update
 		current_kernel=$(uname -r)
@@ -1311,4 +1336,3 @@ if zenity --question --title="Reboot Confirmation" --text="Do you want to reboot
 else
     echo "Reboot process canceled."
 fi
-
