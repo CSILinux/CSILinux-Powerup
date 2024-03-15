@@ -887,7 +887,7 @@ for option in "${powerup_options[@]}"; do
 		
 		if [ ${#kernels_to_remove[@]} -eq 0 ]; then
 		    echo "No kernels need to be removed."
-		elif
+		else
 	  		echo "Kernels to remove:"
 			printf '%s\n' "${kernels_to_remove[@]}"
 			
