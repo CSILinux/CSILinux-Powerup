@@ -544,7 +544,8 @@ setup_new_csi_system() {
     export apt_LISTCHANGES_FRONTEND=none
     export DISPLAY=:0.0
     export TERM=xterm
-    sudo apt-mark hold lightdm &>/dev/null
+    echo $key | sudo -S apt-mark hold lightdm &>/dev/null
+    echo $key | sudo -S apt-mark hold lightdm-gtk-greeter &>/dev/null
     echo 'Dpkg::Options {
         "--force-confdef";
         "--force-confold";
@@ -687,6 +688,8 @@ for option in "${powerup_options[@]}"; do
 		echo $key | sudo -S apt purge sleuthkit &>/dev/null
 		echo $key | sudo -S apt-mark hold lightdm &>/dev/null
   		echo $key | sudo -S echo lightdm hold | dpkg --set-selections &>/dev/null
+    		echo $key | sudo -S apt-mark hold lightdm-gtk-greeter &>/dev/null
+  		echo $key | sudo -S echo lightdm-gtk-greeter hold | dpkg --set-selections &>/dev/null
 		echo $key | sudo -S apt-mark hold postfix &>/dev/null
 		echo $key | sudo -S echo postfix hold | dpkg --set-selections &>/dev/null
 		echo $key | sudo -S apt-mark hold sleuthkit &>/dev/null
