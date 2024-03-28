@@ -694,6 +694,7 @@ for option in "${powerup_options[@]}"; do
 		echo $key | sudo -S echo postfix hold | dpkg --set-selections &>/dev/null
 		echo $key | sudo -S apt-mark hold sleuthkit &>/dev/null
 		echo $key | sudo -S echo sleuthkit hold | dpkg --set-selections &>/dev/null
+  		echo $key | sudo -S ssh-keygen -A 
 		echo $key | sudo -S rm -rf /etc/apt/sources.list.d/archive_u* &>/dev/null
 		echo $key | sudo -S rm -rf /etc/apt/sources.list.d/brave* &>/dev/null
 		echo $key | sudo -S rm -rf /etc/apt/sources.list.d/signal* &>/dev/null
