@@ -1076,7 +1076,8 @@ Terminal=false
 Categories=Finance;Network;" > ~/.local/share/applications/ElectrumTestnet.desktop
 		fi
 		if [ ! -f "/opt/AppImages/oxen-electron-wallet-1.8.1-linux.AppImage" ]; then
-			cd /opt/AppImages
+			echo "Oxen Wallet"
+   			cd /opt/AppImages
 			wget https://github.com/oxen-io/oxen-electron-gui-wallet/releases/download/v1.8.1/oxen-electron-wallet-1.8.1-linux.AppImage 
 			chmod +x oxen-electron-wallet-1.8.1-linux.AppImage
    			echo $key | sudo -S ln -sf /opt/AppImages/oxen-electron-wallet-1.8.1-linux.AppImage /usr/local/bin/oxen-electron-wallet
@@ -1209,10 +1210,8 @@ Categories=Finance;Network;" > ~/.local/share/applications/OxenWallet.desktop
 		mapfile -t csi_ma < <(grep -vE "^\s*#|^$" csi_ma.txt | sed -e 's/#.*//')
 		install_packages csi_ma
   		# installed_packages_des csi_ma
-		if [ ! -f /opt/ImHex/imhex.AppImage ]; then
-			cd /opt
-			mkdir ImHex
-			cd ImHex
+		if [ ! -f /opt/AppImages/imhex.AppImage ]; then
+			cd /opt/AppImages
 			wget https://csilinux.com/downloads/imhex.AppImage
 			echo $key | sudo -S chmod +x imhex.AppImage
 		fi
@@ -1227,10 +1226,8 @@ Categories=Finance;Network;" > ~/.local/share/applications/OxenWallet.desktop
 			echo $key | sudo -S chmod +x ghidraRun
 			/bin/sed -i 's/JAVA\_HOME\_OVERRIDE\=/JAVA\_HOME\_OVERRIDE\=\/opt\/ghidra\/amazon-corretto-11.0.19.7.1-linux-x64/g' ./support/launch.properties
 		fi
-		if [ ! -f /opt/cutter/cutter.AppImage ]; then
-			cd /opt
-			mkdir cutter
-			cd cutter
+		if [ ! -f /opt/AppImages/cutter.AppImage ]; then
+			cd /opt/AppImages
 			wget https://csilinux.com/downloads/cutter.AppImage
 			echo $key | sudo -S chmod +x cutter.AppImage
 		fi
@@ -1241,9 +1238,7 @@ Categories=Finance;Network;" > ~/.local/share/applications/OxenWallet.desktop
 			wget -O /opt/idafree/ida64 https://out7.hex-rays.com/files/idafree83_linux.run
 			echo $key | sudo -S chmod +x /opt/idafree/ida64
 		fi
-		cd /opt
-		mkdir apk-editor-studio
-		cd apk-editor-studio
+		cd /opt/AppImages
 		echo $key | sudo -S rm -f apk-editor-studio.AppImage
 		wget https://csilinux.com/downloads/apk-editor-studio.AppImage -O apk-editor-studio.AppImage
 		echo $key | sudo -S chmod +x apk-editor-studio.AppImage
@@ -1268,16 +1263,14 @@ Categories=Finance;Network;" > ~/.local/share/applications/OxenWallet.desktop
 		fi
 		if [ ! -f /opt/AppImages/fmradio.AppImage ]; then
 			echo "Installing fmradio"
-			cd /opt
-			cd AppImages
+			cd /opt/AppImages
 			wget https://csilinux.com/downloads/fmradio.AppImage
 			echo $key | sudo -S chmod +x fmradio.AppImage
 			echo $key | sudo -S ln -sf fmradio.AppImage /usr/local/bin/fmradio
 		fi
 		if [ ! -f /opt/AppImages/Chirp-x86_64.AppImage ]; then
 			echo "Installing Chirp"
-			cd /opt
-			cd AppImages
+			cd /opt/AppImages
 			wget https://csilinux.com/downloads/Chirp-x86_64.AppImage
 			echo $key | sudo -S chmod +x Chirp-x86_64.AppImage
 			echo $key | sudo -S ln -sf Chirp-x86_64.AppImage /usr/local/bin/Chirp
