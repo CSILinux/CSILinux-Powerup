@@ -213,6 +213,7 @@ restore_backup_to_root() {
     local backup_dir=$1
     local backup_file_name=$2
     local archive_path="$backup_dir/$backup_file_name.7z"
+    mkdir -p "/opt/AppImages" 2>/dev/null
 
     echo "Restoring CSI Tools backup..."
     # Extract the .7z file safely and ensure files are overwritten without prompting
@@ -1047,13 +1048,49 @@ for option in "${powerup_options[@]}"; do
 			wget https://github.com/orjail/orjail/releases/download/v1.1/orjail_1.1-1_all.deb
 			echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt-get install ./orjail_1.1-1_all.deb
 		fi
+		if [ ! -f "/opt/AppImages/electrum.AppImage" ]; then
+		    echo "Installing Electrum Wallet"
+		    cd /opt/AppImages
+		    wget https://csilinux.com/downloads/electrum.AppImage
+		    echo $key | sudo -S chmod +x electrum.AppImage
+		    echo $key | sudo -S ln -sf /opt/AppImages/electrum.AppImage /usr/local/bin/electrum
 		
-		if [ ! -f /opt/OxenWallet/oxen-electron-wallet-1.8.1-linux.AppImage ]; then
-			cd /opt
-			mkdir OxenWallet
-			cd OxenWallet
+		    # Creating the .desktop file for Electrum
+		    echo "[Desktop Entry]
+Type=Application
+Name=Electrum
+Comment=Electrum Bitcoin Wallet
+Exec=electrum
+Icon=electrum
+Terminal=false
+Categories=Finance;Network;" > ~/.local/share/applications/Electrum.desktop
+		
+		    # Creating the .desktop file for Electrum Testnet
+		    echo "[Desktop Entry]
+Type=Application
+Name=Electrum Testnet
+Comment=Electrum Bitcoin Wallet (Testnet)
+Exec=electrum --testnet
+Icon=electrum
+Terminal=false
+Categories=Finance;Network;" > ~/.local/share/applications/ElectrumTestnet.desktop
+		fi
+		if [ ! -f "/opt/AppImages/oxen-electron-wallet-1.8.1-linux.AppImage" ]; then
+			cd /opt/AppImages
 			wget https://github.com/oxen-io/oxen-electron-gui-wallet/releases/download/v1.8.1/oxen-electron-wallet-1.8.1-linux.AppImage 
 			chmod +x oxen-electron-wallet-1.8.1-linux.AppImage
+   			echo $key | sudo -S ln -sf /opt/AppImages/oxen-electron-wallet-1.8.1-linux.AppImage /usr/local/bin/oxen-electron-wallet
+
+		    # Creating the .desktop file for Oxen Wallet
+		    echo "[Desktop Entry]
+Type=Application
+Name=Oxen Wallet
+Comment=Oxen Electron Wallet
+Exec=oxen-electron-wallet
+Icon=oxen
+Terminal=false
+Categories=Finance;Network;" > ~/.local/share/applications/OxenWallet.desktop
+		
 		fi
 		
 		## Create TorVPN environment
@@ -1229,24 +1266,29 @@ for option in "${powerup_options[@]}"; do
 			wget https://github.com/P0cL4bs/wifipumpkin3/releases/download/v1.1.4/wifipumpkin3_1.1.4_all.deb
 			echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt-get install ./wifipumpkin3_1.1.4_all.deb -y
 		fi
-		if [ ! -f /opt/fmradio/fmradio.AppImage ]; then
+		if [ ! -f /opt/AppImages/fmradio.AppImage ]; then
 			echo "Installing fmradio"
 			cd /opt
-			mkdir fmradio
-			cd fmradio
+			cd AppImages
 			wget https://csilinux.com/downloads/fmradio.AppImage
 			echo $key | sudo -S chmod +x fmradio.AppImage
 			echo $key | sudo -S ln -sf fmradio.AppImage /usr/local/bin/fmradio
 		fi
-		
-		if [ ! -f /opt/FlipperZero/qFlipperZero.AppImage ]; then
+		if [ ! -f /opt/AppImages/Chirp-x86_64.AppImage ]; then
+			echo "Installing Chirp"
+			cd /opt
+			cd AppImages
+			wget https://csilinux.com/downloads/Chirp-x86_64.AppImage
+			echo $key | sudo -S chmod +x Chirp-x86_64.AppImage
+			echo $key | sudo -S ln -sf Chirp-x86_64.AppImage /usr/local/bin/Chirp
+		fi		
+		if [ ! -f /opt/AppImages/qFlipperZero.AppImage ]; then
 			cd /tmp
 			wget https://update.flipperzero.one/builds/qFlipper/1.3.3/qFlipper-x86_64-1.3.3.AppImage
-			mkdir /opt/FlipperZero
-			mv ./qFlipper-x86_64-1.3.3.AppImage /opt/FlipperZero/qFlipperZero.AppImage
-			cd /opt/FlipperZero/
-			echo $key | sudo -S chmod +x /opt/FlipperZero/qFlipperZero.AppImage
-			echo $key | sudo -S ln -sf /opt/FlipperZero/qFlipperZero.AppImage /usr/local/bin/qFlipperZero
+			mv ./qFlipper-x86_64-1.3.3.AppImage /opt/AppImages/qFlipperZero.AppImage
+			cd /opt/AppImages/
+			echo $key | sudo -S chmod +x /opt/AppImages/qFlipperZero.AppImage
+			echo $key | sudo -S ln -sf /opt/AppImages/qFlipperZero.AppImage /usr/local/bin/qFlipperZero
 		fi
 		
 		if [ ! -f /opt/proxmark3/client/proxmark3 ]; then
