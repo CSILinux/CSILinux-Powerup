@@ -72,7 +72,7 @@ prompt_for_sudo() {
 install_vm_tools() {
     # Define all possible packages for virtualization tools
     vmware_packages="open-vm-tools-desktop"
-    virtualbox_packages="virtualbox-guest*"
+    virtualbox_packages="virtualbox-guest virtualbox-guest-utils virtualbox-guest-x11"
     qemu_kvm_packages="qemu-guest-agent"
     hyperv_packages="linux-tools-virtual linux-cloud-tools-virtual"
     xen_packages="xe-guest-utilities"
