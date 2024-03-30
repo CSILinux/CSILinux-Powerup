@@ -72,7 +72,7 @@ prompt_for_sudo() {
 install_vm_tools() {
     # Define all possible packages for virtualization tools
     vmware_packages="open-vm-tools-desktop"
-    virtualbox_packages="virtualbox-guest virtualbox-guest-utils virtualbox-guest-x11"
+    virtualbox_packages="virtualbox-guest*"
     qemu_kvm_packages="qemu-guest-agent"
     hyperv_packages="linux-tools-virtual linux-cloud-tools-virtual"
     xen_packages="xe-guest-utilities"
@@ -106,7 +106,7 @@ install_vm_tools() {
             sudo apt purge -y ${all_packages//$vmware_packages/}
             ;;
         virtualbox)
-            sudo apt install -y $virtualbox_packages
+            sudo apt install -y "virtualbox-guest-utils virtualbox-guest-x11"
             sudo apt purge -y ${all_packages//$virtualbox_packages/}
             ;;
         qemu_kvm)
@@ -320,6 +320,19 @@ add_repository() {
     local repo_url="$2"
     local gpg_key_info="$3"  # Contains the keyserver and the keys to receiving for 'key' type
     local repo_name="$4"
+
+    if [ "$repo_type" == "ppa" ]; then
+        # Convert PPA URL to a format that is likely used in the .list files
+        local ppa_formatted_url="ppa.launchpadcontent.net/${repo_url#ppa:}/ubuntu"
+        local ppa_present=$(grep -RlF "$ppa_formatted_url" /etc/apt/sources.list.d/ 2>/dev/null)
+        if [[ -n "$ppa_present" ]]; then
+            echo "PPA '${repo_url}' already added as found in $ppa_present. Skipping addition."
+            return 0
+        fi
+    elif [ -f "/etc/apt/sources.list.d/${repo_name}.list" ]; then
+        echo "Repository '${repo_name}' list file already exists. Skipping addition."
+        return 0
+    fi
 
     # First, check if the repository list file already exists
     if [ -f "/etc/apt/sources.list.d/${repo_name}.list" ]; then
