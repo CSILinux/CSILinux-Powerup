@@ -842,6 +842,7 @@ for option in "${powerup_options[@]}"; do
 		echo "# Configuring Background"
 		update_xfce_wallpapers "/opt/csitools/wallpaper/CSI-Linux-Dark.jpg"
   		echo "Doing Grub stuff..."
+    		echo $key | sudo -S "/sbin/modprobe zfs"
 		if echo $key | sudo -S grep -q "GRUB_DISABLE_OS_PROBER=false" /etc/default/grub; then
 		    echo $key | sudo -S sed -i 's/#GRUB_DISABLE_OS_PROBER=false/GRUB_DISABLE_OS_PROBER=false/g' /etc/default/grub
 		    echo "Grub is already configured for os-probe"
