@@ -604,16 +604,26 @@ install_from_requirements_url() {
     local requirements_url="$1"
     rm /tmp/requirements.txt &>/dev/null
     curl -s "$requirements_url" -o /tmp/requirements.txt
+    
+    # Prepare a list of installed packages for reference
+    local installed_packages=$(python3 -m pip list --format=freeze)
+    
     local total_packages=$(wc -l < /tmp/requirements.txt)
     local current_package=0
-    echo "Checking Python packages..."
+    echo "Checking and installing Python packages..."
+
     while IFS= read -r package; do
-        if ! python3 -m pip list | grep -Fq "$package_name"; then
+        local package_name=$(echo "$package" | cut -d'=' -f1) # Extract package name
+        if ! echo "$installed_packages" | grep -Fq "$package_name"; then
             let current_package++
-            python3 -m pip install "$package" --quiet &>/dev/null
+            echo "Installing package $current_package of $total_packages: $package_name"
+            if ! python3 -m pip install "$package" --quiet; then
+                echo "Failed to install $package_name"
+            fi
+        else
+            echo "Package $package_name already installed, skipping."
         fi
     done < /tmp/requirements.txt
-    echo -ne '\n'
     echo "Installation complete."
 }
 
@@ -758,11 +768,11 @@ for option in "${powerup_options[@]}"; do
   		echo "# Checking Starter Apps"
 		install_missing_programs
 		echo $key | sudo -S apt remove sleuthkit -y  &>/dev/null
-    		echo "# Disabling unneeded Services"
+    		echo "# Disabling un-needed Services"
   		disable_services &>/dev/null
     		if ! which python3-venv > /dev/null; then
 			echo "# python3-venv"
-			echo $key | sudo -S apt install python3-venv
+			echo $key | sudo -S apt install python3-venv  &>/dev/null
 		fi
 		install_from_requirements_url "https://csilinux.com/downloads/csitools-requirements.txt"
 		echo $key | sudo -S ln -s /usr/bin/python3 /usr/bin/python &>/dev/null
