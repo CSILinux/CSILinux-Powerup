@@ -808,30 +808,29 @@ for option in "${powerup_options[@]}"; do
         "csi-linux-themes")
                 install_csi_tools
 		cd /tmp
-
-		local backup_dir="/tmp/restorecsitheme"
-		local backup_file_name="csitoolstheme"
-		local archive_path="$backup_dir/$backup_file_name.7z"
-		echo "$key" | sudo -S DEBIAN_FRONTEND=noninteractive apt install aria2 -y
+		backup_dirct="/tmp/restorecsitheme"
+		backup_file_namect="csilinuxtheme"
+		archive_pathct="$backup_dirct/$backup_file_namect.7z"
+		echo "$key" | sudo -S DEBIAN_FRONTEND=noninteractive apt install aria2 -y &>/dev/null
 		echo "Preparing for the CSI Theme download..."
-		echo "$key" | sudo -S rm -rf "$backup_dir"  # Remove the entire backup directory
-		echo "$key" | sudo -S mkdir -p "$backup_dir"
-		echo "$key" | sudo -S chmod 777 "$backup_dir"  # Set full permissions temporarily for download
+		echo "$key" | sudo -S rm -rf "$backup_dirctct"  # Remove the entire backup directory
+		echo "$key" | sudo -S mkdir -p "$backup_dirct"
+		echo "$key" | sudo -S chmod 777 "$backup_dirct"  # Set full permissions temporarily for download
 		echo "Downloading the CSI Theme..."
-		if aria2c -x3 -k1M https://csilinux.com/downloads/$backup_file_name.7z -d "$backup_dir" -o "$backup_file_name.7z"; then
-		echo "Download successful."
-		echo "# Installing the CSI Theme..."
-		if restore_backup_to_root "$backup_dir" "$backup_file_name"; then
-		    echo "The CSI Theme restored successfully."
-		    echo "Setting permissions and configurations for the CSI Theme..."
-		    echo "$key" | sudo -S chown csi:csi -R /home/csi/     
-		    echo "The CSI Theme installation and configuration completed successfully."
-		else
-		    echo "Failed to restore the CSI Theme from the backup."
-		fi
-		else
-		echo "Failed to download CSI Tools."
-		return 1  # Download failed
+		if aria2c -x3 -k1M "https://csilinux.com/downloads/$backup_file_namect.7z" -d "$backup_dirct" -o "$backup_file_namect.7z"; then
+			echo "Download successful."
+			echo "# Installing the CSI Theme..."
+			if restore_backup_to_root "$backup_dirct" "$backup_file_namect"; then
+			    echo "The CSI Theme restored successfully."
+			    echo "Setting permissions and configurations for the CSI Theme..."
+			    echo "$key" | sudo -S chown csi:csi -R /home/csi/     
+			    echo "The CSI Theme installation and configuration completed successfully."
+			else
+			    echo "Failed to restore the CSI Theme from the backup."
+			fi
+			else
+			echo "Failed to download CSI Tools."
+			return 1  # Download failed
 		fi
   
 		rm csi_linux_themes.txt &>/dev/null
