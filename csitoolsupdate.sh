@@ -43,7 +43,7 @@ powerup_options=("$@")
 
 # Check if powerup_options is empty
 if [[ ${#powerup_options[@]} -eq 0 ]]; then
-    powerup_options+=("csi-linux-base" "os-update" "csi-linux-themes")
+    powerup_options+=("csi-linux-base" "os-update" "csi-linux-themes" "encryption" "malware-analysis" "sigint" "virtualization" "security")
 fi
 
 echo "Power-up options selected:"
