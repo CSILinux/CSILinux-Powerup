@@ -617,7 +617,7 @@ install_from_requirements_url() {
         if ! echo "$installed_packages" | grep -Fq "$package_name"; then
             let current_package++
             echo "Installing package $current_package of $total_packages: $package_name"
-            if ! python3 -m pip install "$package" --quiet; then
+            if ! python3 -m pip install "$package" --quiet &>/dev/null; then
                 echo "Failed to install $package_name"
             fi
         else
