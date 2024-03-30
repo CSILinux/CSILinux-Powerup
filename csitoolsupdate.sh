@@ -395,14 +395,14 @@ update_git_repository() {
     if [ -f "$repo_dir/requirements.txt" ]; then
         if [[ -n $_venv ]]; then
             echo "Setting up Python virtual environment and installing dependencies..."
-            python3 -m venv "${repo_dir}/${repo_name}-venv" && \
+            python -m venv "${repo_dir}/${repo_name}-venv" && \
             source "${repo_dir}/${repo_name}-venv/bin/activate" && \
-            pip3 install -r "${repo_dir}/requirements.txt" && \
+            pip install -r "${repo_dir}/requirements.txt" && \
             echo "Dependencies installed successfully in the virtual environment." || echo "Failed to install dependencies in the virtual environment."
             deactivate
         else
             echo "Installing dependencies globally..."
-            sudo pip3 install -r "${repo_dir}/requirements.txt" && \
+            sudo pip install -r "${repo_dir}/requirements.txt" && \
             echo "Dependencies installed successfully globally." || echo "Failed to install dependencies globally."
         fi
     fi
@@ -608,10 +608,8 @@ install_from_requirements_url() {
     local current_package=0
     echo "Checking Python packages..."
     while IFS= read -r package; do
-        package_name=$(echo "$package" | cut -d'=' -f1) # Extract package name from requirement
         if ! python3 -m pip list | grep -Fq "$package_name"; then
             let current_package++
-            echo -ne "Installing package: $current_package/$total_packages ($package_name)\r"
             python3 -m pip install "$package" --quiet &>/dev/null
         fi
     done < /tmp/requirements.txt
