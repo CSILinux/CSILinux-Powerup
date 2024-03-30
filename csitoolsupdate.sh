@@ -1360,10 +1360,7 @@ Categories=Finance;Network;" > ~/.local/share/applications/OxenWallet.desktop
 			echo $key | sudo -S chmod +x burpsuite_community_linux.sh
 			echo "This may take a while to set up the Burpsuite Proxy..."
 			echo $key | sudo -S ./burpsuite_community_linux.sh
-		fi
-
-
-      		
+		fi    		
 
     		sudo -k
 		;;
