@@ -377,44 +377,36 @@ fix_broken() {
 update_git_repository() {
     local repo_name="$1"
     local repo_url="$2"
+    local _venv="$3" # Accepting the new _venv argument
     local repo_dir="/opt/$repo_name"
 
-    if [ -d "$repo_dir/.git" ]; then
-        echo "Updating existing repository $repo_name..."
-        cd "$repo_dir" || return
-
-        # Clean up any unstaged changes or state that could block our actions
-        echo $key | sudo -S git reset --hard
-        echo $key | sudo -S git clean -fdx
-
-        # Attempt to pull the latest changes
-        if ! echo $key | sudo -S git pull; then
-            echo "git pull encountered conflicts or errors. Removing and re-cloning the repository."
-            # Ensure we are not in the directory we're about to delete
-            cd /opt || return
-            echo $key | sudo -S rm -rf "$repo_dir"
-            echo $key | sudo -S git clone "$repo_url" "$repo_dir"
-            echo $key | sudo -S chown -R $USER:$USER "$repo_dir"
-        fi
-    else
-        echo "Cloning new repository $repo_name..."
-        echo $key | sudo -S git clone "$repo_url" "$repo_dir"
-        echo $key | sudo -S chown -R $USER:$USER "$repo_dir"
+    # Check if the repository directory already exists
+    if [ -d "$repo_dir" ]; then
+        echo "Repository $repo_name already exists. Skipping..."
+        return # Exit the function to avoid further actions
     fi
 
-	# After cloning or pulling changes
-	echo $key | sudo -S chown -R $USER:$USER "$repo_dir"
-	if [ -f "$repo_dir/requirements.txt" ]; then
-	    echo "Setting up Python virtual environment and installing dependencies..."
-	    python3 -m venv "${repo_dir}/${repo_name}-venv" && \
-	    source "${repo_dir}/${repo_name}-venv/bin/activate" && \
-	    pip3 install -r "${repo_dir}/requirements.txt" && \
-	    echo "Dependencies installed successfully." || echo "Failed to install dependencies."
-	    deactivate
-	fi
+    # If the directory does not exist, clone the new repository
+    echo "Cloning new repository $repo_name..."
+    echo $key | sudo -S git clone "$repo_url" "$repo_dir"
+    echo $key | sudo -S chown -R $USER:$USER "$repo_dir"
+
+    # After cloning, handle Python dependencies if required
+    if [ -f "$repo_dir/requirements.txt" ]; then
+        if [[ -n $_venv ]]; then
+            echo "Setting up Python virtual environment and installing dependencies..."
+            python3 -m venv "${repo_dir}/${repo_name}-venv" && \
+            source "${repo_dir}/${repo_name}-venv/bin/activate" && \
+            pip3 install -r "${repo_dir}/requirements.txt" && \
+            echo "Dependencies installed successfully in the virtual environment." || echo "Failed to install dependencies in the virtual environment."
+            deactivate
+        else
+            echo "Installing dependencies globally..."
+            sudo pip3 install -r "${repo_dir}/requirements.txt" && \
+            echo "Dependencies installed successfully globally." || echo "Failed to install dependencies globally."
+        fi
+    fi
 }
-
-
 
 disable_services() {
     # Define a list of services to disable
@@ -952,28 +944,32 @@ for option in "${powerup_options[@]}"; do
 		install_packages apt_online_forensic_tools
 		install_from_requirements_url "https://csilinux.com/downloads/csitools-online-requirements.txt"
 		repositories=(
-			"theHarvester|https://github.com/laramies/theHarvester.git"
-			"ghunt|https://github.com/mxrch/GHunt.git"
-			"sherlock|https://github.com/sherlock-project/sherlock.git"
-			"blackbird|https://github.com/p1ngul1n0/blackbird.git"
-			"Moriarty-Project|https://github.com/AzizKpln/Moriarty-Project"
-			"Rock-ON|https://github.com/SilverPoision/Rock-ON.git"
-			"email2phonenumber|https://github.com/martinvigo/email2phonenumber.git"
-			"Masto|https://github.com/C3n7ral051nt4g3ncy/Masto.git"
-			"FinalRecon|https://github.com/thewhiteh4t/FinalRecon.git"
-			"Goohak|https://github.com/1N3/Goohak.git"
-			"Osintgram|https://github.com/Datalux/Osintgram.git"
+			"theHarvester|https://github.com/laramies/theHarvester.git|true"
+			"ghunt|https://github.com/mxrch/GHunt.git|true"
+			"sherlock|https://github.com/sherlock-project/sherlock.git|true"
+			"blackbird|https://github.com/p1ngul1n0/blackbird.git|true"
+			"Moriarty-Project|https://github.com/AzizKpln/Moriarty-Project|true"
+			"Rock-ON|https://github.com/SilverPoision/Rock-ON.git|true"
+			"email2phonenumber|https://github.com/martinvigo/email2phonenumber.git|true"
+			"Masto|https://github.com/C3n7ral051nt4g3ncy/Masto.git|true"
+			"FinalRecon|https://github.com/thewhiteh4t/FinalRecon.git|true"
+			"Goohak|https://github.com/1N3/Goohak.git|true"
+			"Osintgram|https://github.com/Datalux/Osintgram.git|true"
 			"spiderfoot|https://github.com/CSILinux/spiderfoot.git"
-			"InstagramOSINT|https://github.com/sc1341/InstagramOSINT.git"
-			"Photon|https://github.com/s0md3v/Photon.git"
-			"ReconDog|https://github.com/s0md3v/ReconDog.git"
-			"Geogramint|https://github.com/Alb-310/Geogramint.git"
+			"InstagramOSINT|https://github.com/sc1341/InstagramOSINT.git|true"
+			"Photon|https://github.com/s0md3v/Photon.git|true"
+			"ReconDog|https://github.com/s0md3v/ReconDog.gi|truet"
+			"Geogramint|https://github.com/Alb-310/Geogramint.git|true"
 		)
 		# Iterate through the repositories and update them
 		for entry in "${repositories[@]}"; do
-			IFS="|" read -r repo_name repo_url <<< "$entry"
-			echo "# Checking $entry"
-			update_git_repository "$repo_name" "$repo_url"  &>/dev/null
+		    IFS="|" read -r repo_name repo_url _venv <<< "$entry"
+		    echo "# Checking $repo_name"
+		    if [[ -n $_venv ]]; then
+		        update_git_repository "$repo_name" "$repo_url" "$_venv" &>/dev/null
+		    else
+		        update_git_repository "$repo_name" "$repo_url" &>/dev/null
+		    fi
 		done
 		if [ ! -f /opt/routeconverter/RouteConverterLinux.jar ]; then
 			cd /opt
@@ -1034,14 +1030,18 @@ for option in "${powerup_options[@]}"; do
 		echo $key | sudo -S tar -xf tsetup.tar.xz
 		echo $key | sudo -S cp Telegram/Telegram /usr/bin/telegram-desktop
 		repositories=(
-			"OnionSearch|https://github.com/CSILinux/OnionSearch.git"
-			"i2pchat|https://github.com/vituperative/i2pchat.git"
+			"OnionSearch|https://github.com/CSILinux/OnionSearch.git|true"
+			"i2pchat|https://github.com/vituperative/i2pchat.git|true"
 		)
 		# Iterate through the repositories and update them
 		for entry in "${repositories[@]}"; do
-			IFS="|" read -r repo_name repo_url <<< "$entry"
-			echo "# Checking $entry"
-			update_git_repository "$repo_name" "$repo_url"  &>/dev/null
+		    IFS="|" read -r repo_name repo_url _venv <<< "$entry"
+		    echo "# Checking $repo_name"
+		    if [[ -n $_venv ]]; then
+		        update_git_repository "$repo_name" "$repo_url" "$_venv" &>/dev/null
+		    else
+		        update_git_repository "$repo_name" "$repo_url" &>/dev/null
+		    fi
 		done			
 		if ! which onionshare > /dev/null; then
 			echo $key | sudo -S snap install onionshare
@@ -1181,20 +1181,24 @@ Categories=Finance;Network;" > ~/.local/share/applications/OxenWallet.desktop
 			"iLEAPP|https://github.com/abrignoni/iLEAPP.git"
 			"VLEAPP|https://github.com/abrignoni/VLEAPP.git"
 			"iOS-Snapshot-Triage-Parser|https://github.com/abrignoni/iOS-Snapshot-Triage-Parser.git"
-			"DumpsterDiver|https://github.com/securing/DumpsterDiver.git"
-			"dumpzilla|https://github.com/Busindre/dumpzilla.git"
+			"DumpsterDiver|https://github.com/securing/DumpsterDiver.git|true"
+			"dumpzilla|https://github.com/Busindre/dumpzilla.git|true"
 			"volatility3|https://github.com/volatilityfoundation/volatility3.git"
-			"autotimeliner|https://github.com/andreafortuna/autotimeliner.git"
-			"RecuperaBit|https://github.com/Lazza/RecuperaBit.git"
-			"dronetimeline|https://github.com/studiawan/dronetimeline.git"
-			"Carbon14|https://github.com/Lazza/Carbon14.git"
+			"autotimeliner|https://github.com/andreafortuna/autotimeliner.git|true"
+			"RecuperaBit|https://github.com/Lazza/RecuperaBit.git|true"
+			"dronetimeline|https://github.com/studiawan/dronetimeline.git|true"
+			"Carbon14|https://github.com/Lazza/Carbon14.git|true"
 		)
 
 		# Iterate through the repositories and update them
 		for entry in "${repositories[@]}"; do
-			IFS="|" read -r repo_name repo_url <<< "$entry"
-			echo "# Checking $entry"
-			update_git_repository "$repo_name" "$repo_url"  &>/dev/null
+		    IFS="|" read -r repo_name repo_url _venv <<< "$entry"
+		    echo "# Checking $repo_name"
+		    if [[ -n $_venv ]]; then
+		        update_git_repository "$repo_name" "$repo_url" "$_venv" &>/dev/null
+		    else
+		        update_git_repository "$repo_name" "$repo_url" &>/dev/null
+		    fi
 		done			
 		echo "# Installing Video Packages"
 		install_packages apt_video
