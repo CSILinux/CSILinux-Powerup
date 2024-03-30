@@ -799,6 +799,7 @@ for option in "${powerup_options[@]}"; do
 			echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt-get install -y ./XnViewMP-linux-x64.deb
 		fi
   		# cis_lvl_1 $key
+		echo $key | sudo -S ssh-keygen -A
     		reset_DNS
   		sudo -k
 		;;
@@ -1093,7 +1094,7 @@ Terminal=false
 Categories=Finance;Network;" > ~/.local/share/applications/OxenWallet.desktop
 		
 		fi
-		
+		cd /tmp
 		## Create TorVPN environment
 		echo $key | sudo -S cp /etc/tor/torrc /etc/tor/torrc.back
 		echo $key | sudo -S sed -i 's/#ControlPort/ControlPort/g' /etc/tor/torrc
@@ -1323,6 +1324,42 @@ Categories=Finance;Network;" > ~/.local/share/applications/OxenWallet.desktop
   		# installed_packages_des csi_virt
 		echo $key | sudo -S systemctl start libvirtd
 		echo $key | sudo -S systemctl enable libvirtd
+    		sudo -k
+		;;
+        "security")
+		echo "Setting up Security tools..."
+		cd /tmp
+		rm csi_security.txt &>/dev/null
+		wget https://csilinux.com/downloads/csi_security.txt -O csi_security.txt
+    		dos2unix csi_security.txt
+		mapfile -t csi_security < <(grep -vE "^\s*#|^$" csi_security.txt | sed -e 's/#.*//')
+		install_packages csi_security
+  		# installed_packages_des csi_security
+		if ! command -v msfconsole &> /dev/null; then
+			cd /tmp
+			wget http://downloads.metasploit.com/data/releases/metasploit-latest-linux-x64-installer.run
+			echo $key | sudo -S chmod +x metasploit-latest-linux-x64-installer.run
+			echo "This may take a while to set up the service..."
+			echo $key | sudo -S ./metasploit-latest-linux-x64-installer.run	
+		fi
+		if ! command -v zap-proxy &> /dev/null; then
+  			cd /tmp
+			wget https://github.com/zaproxy/zaproxy/releases/download/v2.14.0/ZAP_2_14_0_unix.sh
+			echo $key | sudo -S chmod +x ZAP_2_14_0_unix.sh
+			echo "This may take a while to set up the ZAP Proxy..."
+			echo $key | sudo -S ./ZAP_2_14_0_unix.sh
+		fi
+		if ! command -v burpsuite &> /dev/null; then
+  			cd /tmp
+			wget https://csilinux.com/downloads/burpsuite_community_linux.sh
+			echo $key | sudo -S chmod +x burpsuite_community_linux.sh
+			echo "This may take a while to set up the Burpsuite Proxy..."
+			echo $key | sudo -S ./burpsuite_community_linux.sh
+		fi
+
+
+      		
+
     		sudo -k
 		;;
         *)
