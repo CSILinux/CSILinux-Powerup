@@ -602,16 +602,18 @@ update_xfce_wallpapers() {
 
 install_from_requirements_url() {
     local requirements_url="$1"
-    echo "Downloading requirements list"
     rm /tmp/requirements.txt &>/dev/null
     curl -s "$requirements_url" -o /tmp/requirements.txt
     local total_packages=$(wc -l < /tmp/requirements.txt)
     local current_package=0
-    echo "Installing Python packages..."
+    echo "Checking Python packages..."
     while IFS= read -r package; do
-        let current_package++
-        echo -ne "Installing packages: $current_package/$total_packages\r"
-        python3 -m pip install "$package" --quiet &>/dev/null
+        package_name=$(echo "$package" | cut -d'=' -f1) # Extract package name from requirement
+        if ! python3 -m pip list | grep -Fq "$package_name"; then
+            let current_package++
+            echo -ne "Installing package: $current_package/$total_packages ($package_name)\r"
+            python3 -m pip install "$package" --quiet &>/dev/null
+        fi
     done < /tmp/requirements.txt
     echo -ne '\n'
     echo "Installation complete."
