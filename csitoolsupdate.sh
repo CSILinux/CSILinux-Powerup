@@ -800,7 +800,7 @@ for option in "${powerup_options[@]}"; do
 		cd /tmp
 
 		local backup_dir="/tmp/restorecsitheme"
-		local backup_file_name="csitools_theme"
+		local backup_file_name="csitoolstheme"
 		local archive_path="$backup_dir/$backup_file_name.7z"
 		echo "$key" | sudo -S DEBIAN_FRONTEND=noninteractive apt install aria2 -y
 		echo "Preparing for the CSI Theme download..."
@@ -808,7 +808,7 @@ for option in "${powerup_options[@]}"; do
 		echo "$key" | sudo -S mkdir -p "$backup_dir"
 		echo "$key" | sudo -S chmod 777 "$backup_dir"  # Set full permissions temporarily for download
 		echo "Downloading the CSI Theme..."
-		if aria2c -x3 -k1M https://csilinux.com/downloads/csitools_theme.7z -d "$backup_dir" -o "$backup_file_name.7z"; then
+		if aria2c -x3 -k1M https://csilinux.com/downloads/$backup_file_name.7z -d "$backup_dir" -o "$backup_file_name.7z"; then
 		echo "Download successful."
 		echo "# Installing the CSI Theme..."
 		if restore_backup_to_root "$backup_dir" "$backup_file_name"; then
