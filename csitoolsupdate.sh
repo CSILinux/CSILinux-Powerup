@@ -254,7 +254,7 @@ install_packages() {
     for package in "${packages[@]}"; do
         let current_package++
         if dpkg-query -W -f='${Status}' "$package" 2>/dev/null | grep -q "install ok installed"; then
-            echo "[$current_package/$total_packages] Package $package is already installed, skipping."
+            # echo "[$current_package/$total_packages] Package $package is already installed, skipping."
             ((already_installed++))
         else
             newpackages+=("$package")
