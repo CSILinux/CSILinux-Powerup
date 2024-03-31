@@ -1363,10 +1363,9 @@ Categories=Finance;Network;" > ~/.local/share/applications/OxenWallet.desktop
   		# installed_packages_des csi_security
 		if ! command -v msfconsole &> /dev/null; then
 			cd /tmp
-			wget http://downloads.metasploit.com/data/releases/metasploit-latest-linux-x64-installer.run
-			echo $key | sudo -S chmod +x metasploit-latest-linux-x64-installer.run
-			echo "This may take a while to set up the service..."
-			echo $key | sudo -S ./metasploit-latest-linux-x64-installer.run	
+			curl https://raw.githubusercontent.com/rapid7/metasploit-omnibus/master/config/templates/metasploit-framework-wrappers/msfupdate.erb > msfinstall && \
+ 			 chmod 755 msfinstall && \
+  			./msfinstall
 		fi
 		if ! command -v zap-proxy &> /dev/null; then
   			cd /tmp
