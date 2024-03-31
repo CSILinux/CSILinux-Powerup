@@ -1325,11 +1325,6 @@ Categories=Finance;Network;" > ~/.local/share/applications/OxenWallet.desktop
 			rm Artemis-3.2.1.tar.gz
 		fi
 		
-		if ! which chirp-snap.chirp > /dev/null; then
-			echo "# chirp-snap takes time"
-			echo $key | sudo -S snap install chirp-snap --edge
-			echo $key | sudo -S snap connect chirp-snap:raw-usb
-		fi
   		if ! which wxtoimg > /dev/null; then
 			wget https://csilinux.com/downloads/wxtoimg_2.10.11-1_i386.deb
 			echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt-get install -y ./wxtoimg_2.10.11-1_i386.deb
@@ -1360,12 +1355,39 @@ Categories=Finance;Network;" > ~/.local/share/applications/OxenWallet.desktop
     		dos2unix csi_securitytesting.txt
 		mapfile -t csi_securitytesting < <(grep -vE "^\s*#|^$" csi_securitytesting.txt | sed -e 's/#.*//')
 		install_packages csi_securitytesting
+		/etc/init.d/postgresql start
   		# installed_packages_des csi_security
 		if ! command -v msfconsole &> /dev/null; then
 			cd /tmp
 			curl https://raw.githubusercontent.com/rapid7/metasploit-omnibus/master/config/templates/metasploit-framework-wrappers/msfupdate.erb > msfinstall && \
  			 chmod 755 msfinstall && \
   			./msfinstall
+    			msfdb init
+			# Define the file path
+			MSFFILE="/etc/postgresql/14/main/pg_hba.conf"
+			
+			# Check if the line exists without "trust" and then append "trust" using sed
+			if grep -q "host *all *all *127.0.0.1/32 *scram-sha-256" "$MSFFILE" && ! grep -q "host *all *all *127.0.0.1/32 *scram-sha-256 *trust" "$MSFFILE"; then
+			    echo "Appending 'trust' to the specified line."
+			    echo $key | sudo -S systemctl start postgresql sed -i "/host *all *all *127.0.0.1\/32 *scram-sha-256/ s/$/ trust/" "$MSFFILE"
+			else
+			    echo "The line either does not exist or already contains 'trust'. No changes made."
+			fi
+			echo $key | sudo -S systemctl enable postgresql
+			echo $key | sudo -S systemctl stop postgresql
+			echo $key | sudo -S systemctl start postgresql
+     
+			
+			# echo "Installing Armitage..."
+			cd /opt
+			echo $key | sudo -S git clone https://github.com/CSILinux/armitage.git > /dev/null
+			cd armitage
+			echo $key | sudo -S ./package.sh > /dev/null
+			cd release/unix
+			sudo bash -c 'printf "#!/bin/sh\njava -XX:+AggressiveHeap -XX:+UseParallelGC -jar /opt/armitage/release/unix/armitage.jar \$@\n" > armitage' > /dev/null
+			sudo ln -s /opt/armitage/release/unix/armitage /usr/local/bin/armitage > /dev/null
+			sudo perl -pi -e 's/armitage.jar/\/opt\/armitage\/release\/unix\/armitage.jar/g' /opt/armitage/release/unix/teamserver > /dev/null
+
 		fi
 		if ! command -v zap-proxy &> /dev/null; then
   			cd /tmp
