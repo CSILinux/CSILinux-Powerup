@@ -821,7 +821,7 @@ for option in "${powerup_options[@]}"; do
                 install_csi_tools
 		cd /tmp
 		backup_dirct="/tmp/restorecsitheme"
-		backup_file_namect="csilinuxtheme"
+		backup_file_namect="csitools_theme"
 		archive_pathct="$backup_dirct/$backup_file_namect.7z"
 		echo "$key" | sudo -S DEBIAN_FRONTEND=noninteractive apt install aria2 -y &>/dev/null
 		echo "Preparing for the CSI Theme download..."
