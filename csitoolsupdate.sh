@@ -106,7 +106,7 @@ install_vm_tools() {
             sudo apt purge -y ${all_packages//$vmware_packages/}
             ;;
         virtualbox)
-            sudo apt install -y virtualbox-guest-utils virtualbox-guest-x11
+            sudo apt install -y $virtualbox_packages
             sudo apt purge -y ${all_packages//$virtualbox_packages/}
             ;;
         qemu_kvm)
