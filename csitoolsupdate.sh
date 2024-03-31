@@ -1356,10 +1356,10 @@ Categories=Finance;Network;" > ~/.local/share/applications/OxenWallet.desktop
 		echo "Setting up Security tools..."
 		cd /tmp
 		rm csi_security.txt &>/dev/null
-		wget https://csilinux.com/downloads/csi_security.txt -O csi_security.txt
-    		dos2unix csi_security.txt
-		mapfile -t csi_security < <(grep -vE "^\s*#|^$" csi_security.txt | sed -e 's/#.*//')
-		install_packages csi_security
+		wget https://csilinux.com/downloads/csi_securitytesting.txt -O csi_securitytesting.txt
+    		dos2unix csi_securitytesting.txt
+		mapfile -t csi_securitytesting < <(grep -vE "^\s*#|^$" csi_securitytesting.txt | sed -e 's/#.*//')
+		install_packages csi_securitytesting
   		# installed_packages_des csi_security
 		if ! command -v msfconsole &> /dev/null; then
 			cd /tmp
