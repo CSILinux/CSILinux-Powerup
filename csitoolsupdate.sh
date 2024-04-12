@@ -1,20 +1,33 @@
 #!/bin/bash
 
 # -----------------------------------------------------------------------------------
-# Script Name: csitoolsupdate
-# Description: CSI Linux powerup is the updater script within the CSI Linux Platform 
-#              to maintain updates for the OS, CSI Linux Tools, and Third Party Tools.
+# Script Name: csitoolsupdate - powerup
+# Description: CSI Linux PowerUp - updater and installer script for maintaining updates for the OS, CSI Linux Tools, and Third Party Tools.
 # Author: Jeremy Martin
 # Website: https://csilinux.com
-# Copyright: (C) 2024 CSI Linux - csilinux.com
-# License: Closed Source
 # 
-# This script is part of CSI Linux (https://csilinux.com). Unauthorized copying, 
-# modification, distribution, or use of this script, without express approval from 
-# CSI Linux, is strictly prohibited. This script is proprietary and confidential.
+# Copyright: © 2024 CSI Linux - csilinux.com.  All rights reserved.
+# 
+# This script is proprietary software and is part of the CSI Linux project. It is available for use subject to the following conditions:
+# 
+# 1. This script may only be used on CSI Linux platforms, and you must possess a valid license for such use. This license does not grant you rights to modify, distribute,
+#    or create derivative works unless expressly stated in the terms of the license.
+# 
+# 2. Unauthorized copying of this script, via any medium, is strictly prohibited. Modifications, derivatives, and distribution are also prohibited without prior
+#    written consent from CSI Linux.
+# 
+# 3. This script is provided "as is" and without warranties as to performance or merchantability. The author and CSI Linux disclaim all warranties, express or 
+#    implied, including, but not limited to, implied warranties of merchantability and fitness for a particular purpose, with respect to this script.
+# 
+# 4. In no event shall CSI Linux or the author be liable for any special, indirect or consequential damages or any damages whatsoever resulting from loss of use, data or
+#    profits, whether in an action of contract, negligence, or other tortious action, arising out of or in connection with the use or performance of this script.
+# 
+# For further information on licensing, please visit CSI Linux Academy: # https://csilinux.com/academy
+# Support CSI Linux by purchasing official merchandise: # https://csilinux.com/shop
 # -----------------------------------------------------------------------------------
 
-echo "Welcome to CSI Linux 2024. This will take a while, but the update has a LOT of content..."
+
+echo "Welcome to CSI Linux. This will take a while, but the update has a LOT of content..."
 start_time=$(date +%s)
 # Attempt to verify the first argument as a sudo password
 key_attempt="$1"
