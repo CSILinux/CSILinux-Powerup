@@ -418,20 +418,39 @@ update_git_repository() {
 
     # After cloning, handle Python dependencies if required
     if [ -f "$repo_dir/requirements.txt" ]; then
+        # Setup virtual environment if required
         if [[ -n $_venv ]]; then
             echo "Setting up Python virtual environment and installing dependencies..."
-            python -m venv "${repo_dir}/${repo_name}-venv" && \
-            source "${repo_dir}/${repo_name}-venv/bin/activate" && \
-            pip install -r "${repo_dir}/requirements.txt" && \
-            echo "Dependencies installed successfully in the virtual environment." || echo "Failed to install dependencies in the virtual environment."
-            deactivate
-        else
-            echo "Installing dependencies globally..."
-            sudo pip install -r "${repo_dir}/requirements.txt" && \
-            echo "Dependencies installed successfully globally." || echo "Failed to install dependencies globally."
+            python -m venv "${repo_dir}/${repo_name}-venv"
+            source "${repo_dir}/${repo_name}-venv/bin/activate"
         fi
+
+        # Read each line in requirements.txt and check if the package is installed
+        while IFS= read -r requirement; do
+            local package_name=$(echo "$requirement" | cut -d= -f1)
+            if ! pip show "$package_name" &>/dev/null; then
+                echo "Installing $requirement..."
+                pip install "$requirement"
+                if [ $? -eq 0 ]; then
+                    echo "$requirement installed successfully."
+                else
+                    echo "Failed to install $requirement."
+                fi
+            else
+                echo "$requirement is already installed."
+            fi
+        done < "${repo_dir}/requirements.txt"
+
+        # Deactivate virtual environment if one was set up
+        if [[ -n $_venv ]]; then
+            deactivate
+            echo "Virtual environment deactivated."
+        fi
+
+        echo "Dependencies setup completed."
     fi
 }
+
 
 disable_services() {
     # Define a list of services to disable
@@ -680,7 +699,6 @@ install_from_requirements_url() {
         local package_name=$(echo "$package" | cut -d'=' -f1) # Extract package name
         if ! echo "$installed_packages" | grep -Fq "$package_name"; then
             let current_package++
-            echo "Installing package $current_package of $total_packages: $package_name"
             if ! python3 -m pip install "$package" --quiet &>/dev/null; then
                 echo "Failed to install $package_name"
             fi
