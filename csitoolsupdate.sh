@@ -1249,6 +1249,7 @@ Categories=Finance;Network;" > ~/.local/share/applications/OxenWallet.desktop
 			"dronetimeline|https://github.com/studiawan/dronetimeline.git|true"
 			"Carbon14|https://github.com/Lazza/Carbon14.git|true"
 		)
+		echo $key | sudo -S apt purge zfs* -y  &>/dev/null
 
 		# Iterate through the repositories and update them
 		for entry in "${repositories[@]}"; do
