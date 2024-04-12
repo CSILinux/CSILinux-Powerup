@@ -584,6 +584,45 @@ setup_new_csi_system() {
     echo $key | sudo -S sysctl vm.swappiness=10
     echo "vm.swappiness=10" | sudo tee /etc/sysctl.d/99-sysctl.conf
     echo $key | sudo -S systemctl enable fstrim.timer
+
+    
+	echo "Warning Banners - Configuring system banners..."
+	# Define the security banner
+	security_banner="
+	+---------------------------------------------------------------------------+
+	|                             SECURITY NOTICE                               |
+	|                                                                           |
+	|         ** Unauthorized Access and Usage is Strictly Prohibited **        |
+	|                                                                           |
+	| All activities on this system are subject to monitoring and recording for |
+	| security purposes. Unauthorized access or usage will be investigated and  |
+	|                    may result in legal consequences.                      |
+	|                                                                           |
+	|        If you are not an authorized user, disconnect immediately.         |
+	|                                                                           |
+	| By accessing this system, you consent to these terms and acknowledge the  |
+	|                     importance of computer security.                      |
+	|                                                                           |
+	|            Report any suspicious activity to the IT department.           |
+	|                                                                           |
+	|          Thank you for helping us maintain a secure environment.          |
+	|                                                                           |
+	|              ** Protecting Our Data, Protecting Our Future **             |
+	|                                                                           |
+	+---------------------------------------------------------------------------+
+	"
+	# Print the security banner
+	echo "$security_banner"
+	echo "$security_banner" | sudo tee /etc/issue.net /etc/issue /etc/motd &>/dev/null
+	
+	# SSH configuration
+	echo "Configuring SSH..."
+	sed -i 's|#Banner none|Banner /etc/issue.net|' /etc/ssh/sshd_config
+	sed -i 's/#PermitRootLogin yes/PermitRootLogin no/' /etc/ssh/sshd_config
+	sed -i 's/#Port 22/Port 2222/' /etc/ssh/sshd_config
+	sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
+	systemctl restart sshd    
+    
     sudo -k
 }
 
@@ -1403,7 +1442,13 @@ Categories=Finance;Network;" > ~/.local/share/applications/OxenWallet.desktop
 			echo "This may take a while to set up the Burpsuite Proxy..."
 			echo $key | sudo -S ./burpsuite_community_linux.sh
 		fi    		
-
+		if [ ! -f /opt/AppImages/Packet_Sender_x86_64.AppImage ]; then
+			echo "Installing Packet_Sender_x86_64.AppImage"
+			cd /opt/AppImages
+			wget https://csilinux.com/downloads/Packet_Sender_x86_64.AppImage
+			echo $key | sudo -S chmod +x Packet_Sender_x86_64.AppImage
+			echo $key | sudo -S ln -sf Packet_Sender_x86_64.AppImage /usr/local/bin/Packet_Sender
+		fi
     		sudo -k
 		;;
         *)
