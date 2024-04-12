@@ -737,7 +737,6 @@ for option in "${powerup_options[@]}"; do
     case $option in
         "csi-linux-base")
 		cd /tmp
-  		install_csi_tools
 		echo "Cleaning up CSI Linux base..."
 		echo $key | sudo -S apt purge sleuthkit &>/dev/null
 		echo $key | sudo -S apt-mark hold lightdm &>/dev/null
@@ -857,7 +856,6 @@ for option in "${powerup_options[@]}"; do
   		sudo -k
 		;;
         "csi-linux-themes")
-                install_csi_tools
 		cd /tmp
 		backup_dirct="/tmp/restorecsitheme"
 		backup_file_namect="csitools_theme"
@@ -1452,8 +1450,11 @@ Categories=Finance;Network;" > ~/.local/share/applications/OxenWallet.desktop
 		fi
     		sudo -k
 		;;
-        *)
+        "virtualization")
 		install_csi_tools
+		;;
+ 	*)
+		echo "Options to continue"
 		;;
     esac
 done
