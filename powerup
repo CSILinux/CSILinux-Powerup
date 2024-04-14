@@ -53,7 +53,6 @@ install_missing_programs() {
     if [ ${#missing_programs[@]} -ne 0 ]; then
         echo "Updating package lists..." | tee -a "$output_file"
         echo $key | sudo -S apt update | tee -a "$output_file"
-        install_vm_tools
         for program in "${missing_programs[@]}"; do
             echo "Attempting to install $program..." | tee -a "$output_file"
             if echo $key | sudo -S apt install -y "$program" 2>&1 | tee -a "$output_file"; then
@@ -66,69 +65,6 @@ install_missing_programs() {
         echo "Starter programs are already installed." | tee -a "$output_file"
     fi
 }
-
-install_vm_tools() {
-    # Define all possible packages for virtualization tools
-    vmware_packages="open-vm-tools-desktop"
-    virtualbox_packages="virtualbox-guest-additions-iso"
-    qemu_kvm_packages="qemu-guest-agent"
-    hyperv_packages="linux-tools-virtual linux-cloud-tools-virtual"
-    xen_packages="xe-guest-utilities"
-    all_packages="$vmware_packages $virtualbox_packages $qemu_kvm_packages $hyperv_packages $xen_packages"
-
-    # Detect the virtualization environment
-    if grep -q VMware /sys/class/dmi/id/product_name; then
-        environment="vmware"
-        echo "VMware detected. Installing ${vmware_packages}..."
-    elif lspci | grep -iq 'virtualbox'; then
-        environment="virtualbox"
-        echo "VirtualBox detected. Installing ${virtualbox_packages}..."
-    elif grep -q 'QEMU' /sys/class/dmi/id/sys_vendor || grep -q 'KVM' /sys/class/dmi/id/sys_vendor; then
-        environment="qemu_kvm"
-        echo "QEMU/KVM detected. Installing ${qemu_kvm_packages}..."
-    elif grep -q 'Microsoft Corporation Hyper-V' /sys/class/dmi/id/sys_vendor; then
-        environment="hyperv"
-        echo "Hyper-V detected. Installing ${hyperv_packages}..."
-    elif grep -q 'Xen' /sys/class/dmi/id/sys_vendor; then
-        environment="xen"
-        echo "Xen detected. Installing ${xen_packages}..."
-    else
-        environment="none"
-        echo "No known virtualization detected or the system is a physical machine."
-    fi
-
-    # Install the necessary packages for the detected environment and purge the rest
-    case $environment in
-        vmware)
-            sudo apt install -y $vmware_packages
-            sudo apt purge -y ${all_packages//$vmware_packages/}
-            ;;
-        virtualbox)
-            sudo apt install -y $virtualbox_packages
-            sudo apt purge -y ${all_packages//$virtualbox_packages/}
-            ;;
-        qemu_kvm)
-            sudo apt install -y $qemu_kvm_packages
-            sudo apt purge -y ${all_packages//$qemu_kvm_packages/}
-            ;;
-        hyperv)
-            sudo apt install -y $hyperv_packages
-            sudo apt purge -y ${all_packages//$hyperv_packages/}
-            ;;
-        xen)
-            sudo apt install -y $xen_packages
-            sudo apt purge -y ${all_packages//$xen_packages/}
-            ;;
-        none)
-            # If no virtualization is detected, purge all tools
-            sudo apt purge -y $all_packages
-            ;;
-    esac
-
-    # Optional: Remove any packages that were automatically installed to satisfy dependencies
-    sudo apt autoremove -y
-}
-
 
 install_csi_tools() {
     local flag_file="/tmp/csi_tools_installed.flag"  # Secure location for flag file
@@ -220,6 +156,7 @@ declare -a base_names=(
     "malware-analysis"
     "sigint"
     "virtualization"
+    "security"
 )
 
 # Prepare the list for YAD
@@ -234,7 +171,7 @@ logo_path="/tmp/CSILinux-Menu.png"
 
 curl -o "$logo_path" "$logo_url"
 
-selected_options=$(yad --list --title='CSI Linux Powerup' --text="$welcome_msg" --window-icon="$logo_path" --width=400 --height=400 --checklist \
+selected_options=$(yad --list --title='CSI Linux Powerup' --text="$welcome_msg" --window-icon="$logo_path" --width=400 --height=425 --checklist \
       --column='Select':CHK --column='Name' $list_data --image="preferences-system" --button=gtk-ok:0 --button=gtk-close:1 --separator="|")
 
 if [ $? -ne 0 ]; then
