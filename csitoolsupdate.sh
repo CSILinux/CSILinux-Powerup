@@ -1431,23 +1431,24 @@ Categories=Finance;Network;" > ~/.local/share/applications/OxenWallet.desktop
 		if ! command -v msfconsole &> /dev/null; then
 			cd /tmp
 			curl https://raw.githubusercontent.com/rapid7/metasploit-omnibus/master/config/templates/metasploit-framework-wrappers/msfupdate.erb > msfinstall && \
- 			 chmod 755 msfinstall && \
+ 			chmod 755 msfinstall && \
   			./msfinstall
-    			msfdb init
+
 			# Define the file path
 			MSFFILE="/etc/postgresql/14/main/pg_hba.conf"
 			
 			# Check if the line exists without "trust" and then append "trust" using sed
 			if grep -q "host *all *all *127.0.0.1/32 *scram-sha-256" "$MSFFILE" && ! grep -q "host *all *all *127.0.0.1/32 *scram-sha-256 *trust" "$MSFFILE"; then
 			    echo "Appending 'trust' to the specified line."
-			    echo $key | sudo -S systemctl start postgresql sed -i "/host *all *all *127.0.0.1\/32 *scram-sha-256/ s/$/ trust/" "$MSFFILE"
+       			    echo $key | sudo -S sed -i "/host *all *all *127.0.0.1\/32 *scram-sha-256/ s/$/ trust/" "$MSFFILE"
+			    echo $key | sudo -S systemctl start postgresql 
 			else
 			    echo "The line either does not exist or already contains 'trust'. No changes made."
 			fi
 			echo $key | sudo -S systemctl enable postgresql
 			echo $key | sudo -S systemctl stop postgresql
-			echo $key | sudo -S systemctl start postgresql
-     
+			echo $key | sudo -S systemctl start PostgreSQL
+         		msfdb init
 			
 			# echo "Installing Armitage..."
 			cd /opt
