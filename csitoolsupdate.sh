@@ -1426,7 +1426,7 @@ Categories=Finance;Network;" > ~/.local/share/applications/OxenWallet.desktop
     		dos2unix csi_securitytesting.txt
 		mapfile -t csi_securitytesting < <(grep -vE "^\s*#|^$" csi_securitytesting.txt | sed -e 's/#.*//')
 		install_packages csi_securitytesting
-		/etc/init.d/postgresql start
+		echo $key | sudo -S /etc/init.d/postgresql start
   		# installed_packages_des csi_security
 		if ! command -v msfconsole &> /dev/null; then
 			cd /tmp
@@ -1434,7 +1434,7 @@ Categories=Finance;Network;" > ~/.local/share/applications/OxenWallet.desktop
  			chmod 755 msfinstall && \
   			./msfinstall
 
-			# Define the file path
+   			# Define the file path
 			MSFFILE="/etc/postgresql/14/main/pg_hba.conf"
 			
 			# Check if the line exists without "trust" and then append "trust" using sed
