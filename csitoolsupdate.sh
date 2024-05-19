@@ -1492,6 +1492,7 @@ Categories=Finance;Network;" > ~/.local/share/applications/OxenWallet.desktop
     esac
 done
 
+echo $key | sudo -S echo ""
 cd /tmp
 sudo -k
 fix_broken
