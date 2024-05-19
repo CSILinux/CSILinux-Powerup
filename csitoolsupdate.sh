@@ -579,8 +579,8 @@ setup_new_csi_system() {
     echo "\$nrconf{'restart'} = 'a';" | sudo tee /etc/needrestart/conf.d/autorestart.conf > /dev/null
     export DEBIAN_FRONTEND=noninteractive
     export apt_LISTCHANGES_FRONTEND=none
-    export DISPLAY=:0.0
-    export TERM=xterm
+    # export DISPLAY=:0.0
+    # export TERM=xterm
     echo $key | sudo -S apt-mark hold lightdm &>/dev/null
     echo $key | sudo -S apt-mark hold lightdm-gtk-greeter &>/dev/null
     echo 'Dpkg::Options {
