@@ -1438,7 +1438,7 @@ Categories=Finance;Network;" > ~/.local/share/applications/OxenWallet.desktop
 			MSFFILE="/etc/postgresql/14/main/pg_hba.conf"
 			
 			# Check if the line exists without "trust" and then append "trust" using sed
-			if grep -q "host *all *all *127.0.0.1/32 *scram-sha-256" "$MSFFILE" && ! grep -q "host *all *all *127.0.0.1/32 *scram-sha-256 *trust" "$MSFFILE"; then
+			if echo $key | sudo -S grep -q "host *all *all *127.0.0.1/32 *scram-sha-256" "$MSFFILE" && ! echo $key | sudo -S grep -q "host *all *all *127.0.0.1/32 *scram-sha-256 *trust" "$MSFFILE"; then
 			    echo "Appending 'trust' to the specified line."
        			    echo $key | sudo -S sed -i "/host *all *all *127.0.0.1\/32 *scram-sha-256/ s/$/ trust/" "$MSFFILE"
 			    echo $key | sudo -S systemctl start postgresql 
