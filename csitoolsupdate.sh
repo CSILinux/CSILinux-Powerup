@@ -782,7 +782,9 @@ for option in "${powerup_options[@]}"; do
 		echo $key | sudo -S rm -rf /etc/apt/sources.list.d/archive_u* &>/dev/null
 		echo $key | sudo -S rm -rf /etc/apt/sources.list.d/brave* &>/dev/null
 		echo $key | sudo -S rm -rf /etc/apt/sources.list.d/signal* &>/dev/null
-		echo $key | sudo -S rm -rf /etc/apt/sources.list.d/wine* &>/dev/null
+		echo $key | sudo -S rm -rf /etc/apt/sources.list.d/apt-vulns-sexy* &>/dev/null
+		echo $key | sudo -S rm -rf /etc/apt/trusted.gpg.d/apt-vulns-sexy* &>/dev/null
+  		echo $key | sudo -S rm -rf /etc/apt/sources.list.d/wine* &>/dev/null
 		echo $key | sudo -S rm -rf /etc/apt/trusted.gpg.d/wine* &>/dev/null
 		echo $key | sudo -S rm -rf /etc/apt/trusted.gpg.d/brave* &>/dev/null
 		echo $key | sudo -S rm -rf /etc/apt/trusted.gpg.d/signal* &>/dev/null
@@ -821,13 +823,13 @@ for option in "${powerup_options[@]}"; do
 		
 		echo "# Setting up apt Repos"
 		add_repository "apt" "https://apt.bell-sw.com/ stable main" "https://download.bell-sw.com/pki/GPG-KEY-bellsoft" "bellsoft"
-		add_repository "apt" "http://apt.vulns.sexy stable main" "https://apt.vulns.sexy/kpcyrd.pgp" "apt-vulns-sexy"
+		add_repository "apt" "http://apt.vulns.xyz stable main" "http://apt.vulns.xyz/kpcyrd.pgp" "apt-vulns-sexy"
 		add_repository "apt" "https://dl.winehq.org/wine-builds/ubuntu/ focal main" "https://dl.winehq.org/wine-builds/winehq.key" "winehq"
 		add_repository "apt" "https://www.kismetwireless.net/repos/apt/release/jammy jammy main" "https://www.kismetwireless.net/repos/kismet-release.gpg.key" "kismet"
 		add_repository "apt" "https://packages.element.io/debian/ default main" "https://packages.element.io/debian/element-io-archive-keyring.gpg" "element-io"
 		add_repository "apt" "https://deb.oxen.io $(lsb_release -sc) main" "https://deb.oxen.io/pub.gpg" "oxen"
 		add_repository "apt" "https://updates.signal.org/desktop/apt xenial main" "https://updates.signal.org/desktop/apt/keys.asc" "signal-desktop"
-		add_repository "apt" "https://brave-browser-apt-release.s3.brave.com/ stable main" "https://brave-browser-apt-release.s3.brave.com/brave-core.asc" "brave-browser"
+		add_repository "apt" "https://brave-browser-apt-release.s3.brave.com/ stable main" "https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg" "brave-browser"
 		add_repository "apt" "https://packages.microsoft.com/repos/code stable main" "https://packages.microsoft.com/keys/microsoft.asc" "vscode"
 		add_repository "apt" "https://packages.cisofy.com/community/lynis/deb/ stable main" "https://packages.cisofy.com/keys/cisofy-software-public.key" "cisofy-lynis"
 		add_repository "apt" "https://download.docker.com/linux/ubuntu focal stable" "https://download.docker.com/linux/ubuntu/gpg" "docker"
