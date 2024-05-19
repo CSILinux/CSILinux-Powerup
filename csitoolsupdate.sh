@@ -649,11 +649,11 @@ setup_new_csi_system() {
 	
 	# SSH configuration
 	echo "Configuring SSH..."
-	sed -i 's|#Banner none|Banner /etc/issue.net|' /etc/ssh/sshd_config
-	sed -i 's/#PermitRootLogin yes/PermitRootLogin no/' /etc/ssh/sshd_config
-	sed -i 's/#Port 22/Port 2222/' /etc/ssh/sshd_config
-	sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
-	systemctl restart sshd    
+	echo $key | sudo -S sed -i 's|#Banner none|Banner /etc/issue.net|' /etc/ssh/sshd_config
+	echo $key | sudo -S sed -i 's/#PermitRootLogin yes/PermitRootLogin no/' /etc/ssh/sshd_config
+	echo $key | sudo -S sed -i 's/#Port 22/Port 2222/' /etc/ssh/sshd_config
+	echo $key | sudo -S sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
+	echo $key | sudo -S systemctl restart sshd    
     
     sudo -k
 }
