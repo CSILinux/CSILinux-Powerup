@@ -17,7 +17,7 @@
 #    written consent from CSI Linux.
 # 
 # 3. This script is provided "as is" and without warranties as to performance or merchantability. The author and CSI Linux disclaim all warranties, express or 
-#    implied, including, but not limited to, implied warranties of merchantability and fitness for a particular purpose, with respect to this script.
+#    implied, including, but not limited to, implied warranties of merchantability and fitness for a particular purpose, concerning this script.
 # 
 # 4. In no event shall CSI Linux or the author be liable for any special, indirect or consequential damages or any damages whatsoever resulting from loss of use, data or
 #    profits, whether in an action of contract, negligence, or other tortious action, arising out of or in connection with the use or performance of this script.
