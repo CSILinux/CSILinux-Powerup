@@ -1202,7 +1202,8 @@ Categories=Finance;Network;" > ~/.local/share/applications/OxenWallet.desktop
 			echo $key | sudo -S bash -c "echo 'DNSPort 5353' >> /etc/tor/torrc"
 			echo "TorVPN configured"
 		fi
-		echo $key | sudo -S service tor stop
+		echo $key | sudo -S dpkg-reconfigure tor
+  		echo $key | sudo -S service tor stop
 		echo $key | sudo -S service tor start
 		wget https://csilinux.com/wp-content/uploads/2024/02/i2pupdate.zip
 		echo $key | sudo -S service i2p stop
