@@ -883,6 +883,11 @@ for option in "${powerup_options[@]}"; do
 			wget https://download.xnview.com/XnViewMP-linux-x64.deb
 			echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt-get install -y ./XnViewMP-linux-x64.deb
 		fi
+  		if ! which zenmap > /dev/null; then
+			wget http://archive.ubuntu.com/ubuntu/pool/universe/n/nmap/zenmap_7.94+git20230807.3be01efb1+dfsg-4_all.deb
+			echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt-get install -y ./zenmap_7.94+git20230807.3be01efb1+dfsg-4_all.deb
+		fi
+  
   		# cis_lvl_1 $key
 		echo $key | sudo -S ssh-keygen -A
     		reset_DNS
