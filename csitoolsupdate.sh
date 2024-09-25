@@ -621,6 +621,7 @@ setup_new_csi_system() {
 	echo "Warning Banners - Configuring system banners..."
 	# Define the security banner
 	security_banner="
+ 
 	+---------------------------------------------------------------------------+
 	|                             SECURITY NOTICE                               |
 	|                                                                           |
@@ -642,6 +643,7 @@ setup_new_csi_system() {
 	|              ** Protecting Our Data, Protecting Our Future **             |
 	|                                                                           |
 	+---------------------------------------------------------------------------+
+ 
 	"
 	# Print the security banner
 	echo "$security_banner"
