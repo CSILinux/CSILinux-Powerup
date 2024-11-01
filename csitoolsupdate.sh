@@ -1495,33 +1495,23 @@ Categories=Finance;Network;" > ~/.local/share/applications/OxenWallet.desktop
     		sudo -k
 		;;
         "Navi-AI")
+			sudo -k
 			set -e
+			cd ~/
+			echo $key | sudo -S rm -rf Navi
+			git clone https://github.com/SaintsSec/Navi
 
-			# Variables
-			USER=$(whoami)
-			HOME_DIR="/home/$USER"
+			echo "Checking out edge branch"
+			cd Navi
+			git checkout edge
+			git pull
+			cd install
+			echo "Git update..."
+			sleep 3
+			sed -i '/exit/d' install.sh
+			sed -i 's/exec source/source/g' install.sh
 
-			# Function to clone the repository
-			git_clone() {
-				echo $key | sudo -S  rm -rf "$HOME_DIR/Navi" 
-				echo "Cloning repository to $HOME_DIR/Navi"
-				git clone https://github.com/SaintsSec/Navi "$HOME_DIR/Navi"
-			}
-
-			# Function to run the install script
-			run_install_script() {
-				echo checking out edge branch
-				cd "$HOME_DIR"/Navi/
-				git pull
-				git checkout edge
-				echo "Running install script"
-				cd "$HOME_DIR"/Navi/install
-				bash ./install.sh
-			}
-
-			# Execute functions
-			git_clone
-			run_install_script
+			echo $key | sudo -S bash ./install.sh
 
 			echo "Installation complete."			
 			
