@@ -157,6 +157,7 @@ declare -a base_names=(
     "sigint"
     "virtualization"
     "security"
+	"Navi-AI"
 )
 
 # Prepare the list for YAD
@@ -171,7 +172,7 @@ logo_path="/tmp/CSILinux-Menu.png"
 
 curl -o "$logo_path" "$logo_url"
 
-selected_options=$(yad --list --title='CSI Linux Powerup' --text="$welcome_msg" --window-icon="$logo_path" --width=400 --height=425 --checklist \
+selected_options=$(yad --list --title='CSI Linux Powerup' --text="$welcome_msg" --window-icon="$logo_path" --width=400 --height=500 --checklist \
       --column='Select':CHK --column='Name' $list_data --image="preferences-system" --button=gtk-ok:0 --button=gtk-close:1 --separator="|")
 
 if [ $? -ne 0 ]; then

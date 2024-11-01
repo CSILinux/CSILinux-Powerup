@@ -56,7 +56,7 @@ powerup_options=("$@")
 
 # Check if powerup_options is empty
 if [[ ${#powerup_options[@]} -eq 0 ]]; then
-    powerup_options+=("csi-linux-base" "os-update" "csi-linux-themes" "encryption" "malware-analysis" "sigint" "virtualization" "security")
+    powerup_options+=("csi-linux-base" "os-update" "csi-linux-themes" "encryption" "malware-analysis" "sigint" "virtualization" "security" "Navi-AI")
 fi
 
 echo "Power-up options selected:"
@@ -1490,6 +1490,40 @@ Categories=Finance;Network;" > ~/.local/share/applications/OxenWallet.desktop
 			echo $key | sudo -S ln -sf Packet_Sender_x86_64.AppImage /usr/local/bin/Packet_Sender
 		fi
     		sudo -k
+		;;
+        "Navi-AI")
+			sudo -k
+			
+			set -e
+
+			# Variables
+			USER=$(whoami)
+			HOME_DIR="/home/$USER"
+
+			# Function to clone the repository
+			git_clone() {
+				sudo rm -rf "$HOME_DIR/Navi" 
+				echo "Cloning repository to $HOME_DIR/Navi"
+				git clone https://github.com/SaintsSec/Navi "$HOME_DIR/Navi"
+			}
+
+			# Function to run the install script
+			run_install_script() {
+				echo checking out edge branch
+				cd "$HOME_DIR"/Navi/
+				git pull
+				git checkout edge
+				echo "Running install script"
+				cd "$HOME_DIR"/Navi/install
+				bash ./install.sh
+			}
+
+			# Execute functions
+			git_clone
+			run_install_script
+
+			echo "Installation complete."			
+			
 		;;
         "virtualization")
 		install_csi_tools
