@@ -1428,7 +1428,7 @@ Categories=Finance;Network;" > ~/.local/share/applications/OxenWallet.desktop
 		echo $key | sudo -S systemctl enable libvirtd
     		sudo -k
 		;;
-        "security")
+        "security2")
 		echo "Setting up Security tools..."
 		cd /tmp
 		rm csi_security.txt &>/dev/null
