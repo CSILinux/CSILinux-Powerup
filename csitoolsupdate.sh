@@ -1122,6 +1122,9 @@ for option in "${powerup_options[@]}"; do
 			pip install -r requirments.txt --quiet &>/dev/null
 			echo $key | sudo -S bash install.sh &>/dev/null
 		fi
+		cd /tmp
+		wget https://csilinux.com/downloads/exodus-linux-x64-24.41.6.deb
+		echo $key | sudo -S apt install ./exodus-linux-x64-24.41.6.deb -y
 		echo $key | sudo -S ls
 		wget https://github.com/telegramdesktop/tdesktop/releases/download/v4.14.12/tsetup.4.14.12.tar.xz -O tsetup.tar.xz
 		echo $key | sudo -S tar -xf tsetup.tar.xz
