@@ -1495,8 +1495,6 @@ Categories=Finance;Network;" > ~/.local/share/applications/OxenWallet.desktop
     		sudo -k
 		;;
         "Navi-AI")
-			sudo -k
-			
 			set -e
 
 			# Variables
@@ -1505,7 +1503,7 @@ Categories=Finance;Network;" > ~/.local/share/applications/OxenWallet.desktop
 
 			# Function to clone the repository
 			git_clone() {
-				sudo rm -rf "$HOME_DIR/Navi" 
+				echo $key | sudo -S  rm -rf "$HOME_DIR/Navi" 
 				echo "Cloning repository to $HOME_DIR/Navi"
 				git clone https://github.com/SaintsSec/Navi "$HOME_DIR/Navi"
 			}
