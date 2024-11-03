@@ -193,7 +193,7 @@ install_csi_tools() {
     echo "$key" | sudo -S mkdir -p "$backup_dir"
     echo "$key" | sudo -S chmod 777 "$backup_dir"  # Set full permissions temporarily for download
     echo "Downloading CSI Tools..."
-    if aria2c -x3 -k1M https://csilinux.com/downloads/csitools.7z http://echothislabs.com/downloads/csitools.7z https://informationwarfarecenter.com/downloads/csitools.7z -d "$backup_dir" -o "$backup_file_name.7z"; then
+    if aria2c -x3 -k1M http://echothislabs.com/downloads/csitools.7z https://csilinux.com/downloads/csitools.7z https://informationwarfarecenter.com/downloads/csitools.7z -d "$backup_dir" -o "$backup_file_name.7z"; then
         echo "Download successful."
         echo "# Installing CSI Tools..."
         if restore_backup_to_root "$backup_dir" "$backup_file_name"; then
