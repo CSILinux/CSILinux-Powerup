@@ -777,7 +777,7 @@ for option in "${powerup_options[@]}"; do
 		HOSTS_FILE="/etc/hosts"
 		
 		# Backup the original hosts file
-		sudo cp "$HOSTS_FILE" "$HOSTS_FILE.bak"
+		echo $key | sudo -S cp "$HOSTS_FILE" "$HOSTS_FILE.bak"
 		
 		# Define entries to add
 		declare -A HOSTS
