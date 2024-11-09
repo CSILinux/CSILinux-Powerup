@@ -849,6 +849,18 @@ for option in "${powerup_options[@]}"; do
 		add_repository "ppa" "ppa:obsproject/obs-studio" "" "obs-studio"
 		add_repository "ppa" "ppa:savoury1/backports" "" "savoury1"
 
+		# File to remove duplicates from
+		FILE="/etc/apt/sources.list"
+		
+		# Backup the original sources.list file
+		sudo cp "/etc/apt/sources.list" "/etc/apt/sources.bak"
+		
+		# Remove duplicate lines from sources.list
+		sudo awk '!seen[$0]++' "/etc/apt/sources.list" > /tmp/sources.list && sudo mv /tmp/sources.list "/etc/apt/sources.list"
+		
+		# Notify user
+		echo "Duplicates removed from /etc/apt/sources.list. Backup saved as /etc/apt/sources.bak."
+
   		echo "# Updating APT with updated repos"		
 		echo $key | sudo -S apt update
   		fix_broken
