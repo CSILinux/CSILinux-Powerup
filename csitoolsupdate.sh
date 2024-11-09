@@ -500,7 +500,7 @@ reset_DNS() {
     check_dns() {
         ping -c 1 google.com >/dev/null
     }
-    echo $key | sudo -S apt install systemd-resolve -y
+    echo $key | sudo -S apt install systemd-resolved -y
     echo "# Checking and updating /etc/resolv.conf"
     echo $key | sudo -S mv /etc/resolv.conf /etc/resolv.conf.bak
     echo "nameserver 127.0.0.53" | sudo tee /etc/resolv.conf > /dev/null
