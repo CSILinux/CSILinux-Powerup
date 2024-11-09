@@ -1,4 +1,3 @@
-
 #!/bin/bash
 
 # -----------------------------------------------------------------------------------
@@ -778,7 +777,7 @@ for option in "${powerup_options[@]}"; do
 		
 		# Backup the original hosts file
 		echo $key | sudo -S cp "$HOSTS_FILE" "$HOSTS_FILE.bak"
-		
+		echo $key | sudo -S -K
 		# Define entries to add
 		declare -A HOSTS
 		
@@ -883,10 +882,10 @@ for option in "${powerup_options[@]}"; do
 		FILE="/etc/apt/sources.list"
 		
 		# Backup the original sources.list file
-		sudo cp "/etc/apt/sources.list" "/etc/apt/sources.bak"
+		echo $key | sudo -S  cp "/etc/apt/sources.list" "/etc/apt/sources.bak"
 		
 		# Remove duplicate lines from sources.list
-		sudo awk '!seen[$0]++' "/etc/apt/sources.list" > /tmp/sources.list && sudo mv /tmp/sources.list "/etc/apt/sources.list"
+		echo $key | sudo -S  awk '!seen[$0]++' "/etc/apt/sources.list" > /tmp/sources.list && sudo mv /tmp/sources.list "/etc/apt/sources.list"
 		
 		# Notify user
 		echo "Duplicates removed from /etc/apt/sources.list. Backup saved as /etc/apt/sources.bak."
