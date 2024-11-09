@@ -772,6 +772,35 @@ for option in "${powerup_options[@]}"; do
         "csi-linux-base")
 		cd /tmp
 		echo "Cleaning up CSI Linux base..."
+
+		# File to modify
+		HOSTS_FILE="/etc/hosts"
+		
+		# Backup the original hosts file
+		sudo cp "$HOSTS_FILE" "$HOSTS_FILE.bak"
+		
+		# Define entries to add
+		declare -A HOSTS
+		
+		HOSTS["archive.ubuntu.com"]="185.125.190.82 91.189.91.81 91.189.91.83 185.125.190.83 185.125.190.81 2620:2d:4002:1::101 2620:2d:4000:1::102 2620:2d:4000:1::101 2620:2d:4000:1::103 2620:2d:4002:1::103"
+		HOSTS["archive.canonical.com"]="91.189.91.15 185.125.188.12 185.125.188.87 2001:67c:1562::1c 2620:2d:4000:1003::111 2620:2d:4000:1003::3c9"
+		
+		# Add each entry if it doesn't already exist
+		for DOMAIN in "${!HOSTS[@]}"; do
+		    for IP in ${HOSTS[$DOMAIN]}; do
+		        if ! grep -q "$IP[[:space:]]\+$DOMAIN" "$HOSTS_FILE"; then
+		            echo "Adding $IP $DOMAIN"
+		            echo "$IP $DOMAIN" | sudo tee -a "$HOSTS_FILE" > /dev/null
+		        else
+		            echo "$IP $DOMAIN already exists in $HOSTS_FILE"
+		        fi
+		    done
+		done
+		
+		# Notify user
+		echo "Entries added to $HOSTS_FILE. Backup saved as $HOSTS_FILE.bak."
+
+  
 		echo $key | sudo -S apt purge sleuthkit &>/dev/null
 		echo $key | sudo -S apt-mark hold lightdm &>/dev/null
   		echo $key | sudo -S echo lightdm hold | dpkg --set-selections &>/dev/null
@@ -831,7 +860,7 @@ for option in "${powerup_options[@]}"; do
 		echo "# Setting up apt Repos"
 		add_repository "apt" "https://apt.bell-sw.com/ stable main" "https://download.bell-sw.com/pki/GPG-KEY-bellsoft" "bellsoft"
 		add_repository "apt" "http://apt.vulns.xyz stable main" "http://apt.vulns.xyz/kpcyrd.pgp" "apt-vulns-sexy"
-		add_repository "apt" "https://dl.winehq.org/wine-builds/ubuntu/ focal main" "https://dl.winehq.org/wine-builds/winehq.key" "winehq"
+		add_repository "apt" "https://dl.winehq.org/wine-builds/ubuntu/ noble main" "https://dl.winehq.org/wine-builds/winehq.key" "winehq"
 		add_repository "apt" "https://www.kismetwireless.net/repos/apt/release/jammy jammy main" "https://www.kismetwireless.net/repos/kismet-release.gpg.key" "kismet"
 		add_repository "apt" "https://packages.element.io/debian/ default main" "https://packages.element.io/debian/element-io-archive-keyring.gpg" "element-io"
 		add_repository "apt" "https://deb.oxen.io $(lsb_release -sc) main" "https://deb.oxen.io/pub.gpg" "oxen"
@@ -839,7 +868,7 @@ for option in "${powerup_options[@]}"; do
 		add_repository "apt" "https://brave-browser-apt-release.s3.brave.com/ stable main" "https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg" "brave-browser"
 		add_repository "apt" "https://packages.microsoft.com/repos/code stable main" "https://packages.microsoft.com/keys/microsoft.asc" "vscode"
 		add_repository "apt" "https://packages.cisofy.com/community/lynis/deb/ stable main" "https://packages.cisofy.com/keys/cisofy-software-public.key" "cisofy-lynis"
-		add_repository "apt" "https://download.docker.com/linux/ubuntu focal stable" "https://download.docker.com/linux/ubuntu/gpg" "docker"
+		add_repository "apt" "https://download.docker.com/linux/ubuntu noble stable" "https://download.docker.com/linux/ubuntu/gpg" "docker"
     
 		# add_repository "key" "https://download.onlyoffice.com/repo/debian squeeze main" "hkp://keyserver.ubuntu.com:80 --recv-keys CB2DE8E5" "onlyoffice"
   				
