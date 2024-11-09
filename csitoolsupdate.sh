@@ -797,25 +797,23 @@ for option in "${powerup_options[@]}"; do
 		echo $key | sudo -S apt remove sleuthkit  &>/dev/null
 
 
-#!/bin/bash
+		
+		echo "# Setting up repo environment"
 
-# Setting up repo environment
-echo "# Setting up repo environment"
-
-REPOS=(
-"deb http://archive.ubuntu.com/ubuntu/ jammy main restricted universe multiverse"
-"deb http://archive.ubuntu.com/ubuntu/ jammy-updates main restricted universe multiverse"
-"deb http://archive.ubuntu.com/ubuntu/ jammy-security main restricted universe multiverse"
-"deb http://archive.ubuntu.com/ubuntu/ jammy-backports main restricted universe multiverse"
-"deb http://archive.canonical.com/ubuntu/ jammy partner"
-"deb http://archive.ubuntu.com/ubuntu/ noble main restricted universe multiverse"
-"deb http://archive.ubuntu.com/ubuntu/ noble-updates main restricted universe multiverse"
-"deb http://archive.ubuntu.com/ubuntu/ noble-security main restricted universe multiverse"
-"deb http://archive.ubuntu.com/ubuntu/ noble-backports main restricted universe multiverse"
-)
-
-# The file to be checked and modified
-FILE="/etc/apt/sources.list"
+		REPOS=(
+		"deb http://archive.ubuntu.com/ubuntu/ jammy main restricted universe multiverse"
+		"deb http://archive.ubuntu.com/ubuntu/ jammy-updates main restricted universe multiverse"
+		"deb http://archive.ubuntu.com/ubuntu/ jammy-security main restricted universe multiverse"
+		"deb http://archive.ubuntu.com/ubuntu/ jammy-backports main restricted universe multiverse"
+		"deb http://archive.canonical.com/ubuntu/ jammy partner"
+		"deb http://archive.ubuntu.com/ubuntu/ nobel main restricted universe multiverse"
+		"deb http://archive.ubuntu.com/ubuntu/ nobel-updates main restricted universe multiverse"
+		"deb http://archive.ubuntu.com/ubuntu/ nobel-security main restricted universe multiverse"
+		"deb http://archive.ubuntu.com/ubuntu/ nobel-backports main restricted universe multiverse"
+		)
+		
+		# The file to be checked and modified
+		FILE="/etc/apt/sources.list"
 
 # Backup the original sources.list file
 sudo cp "$FILE" "$FILE.bak"
@@ -834,56 +832,45 @@ done
 
 # Remove duplicate lines from sources.list
 sudo awk '!seen[$0]++' "$FILE" > /tmp/sources.list && sudo mv /tmp/sources.list "$FILE"
+  
+		# Iterate over each repository line
+		for repo in "${REPOS[@]}"; do
+		    # Use grep to check if the line is already in the file
+		    if ! grep -q "^$(echo $repo | sed 's/ /\\ /g')" "$FILE"; then
+		        # If the line is not found, append it to the file
+		        echo "Adding repository: $repo"
+		        echo "$repo" | sudo tee -a "$FILE" > /dev/null
+		    else
+		        echo "Repository already exists: $repo"
+		    fi
+		done
+  
+		cd /tmp
+		
+		echo "# Setting up apt Repos"
+		add_repository "apt" "https://apt.bell-sw.com/ stable main" "https://download.bell-sw.com/pki/GPG-KEY-bellsoft" "bellsoft"
+		add_repository "apt" "http://apt.vulns.xyz stable main" "http://apt.vulns.xyz/kpcyrd.pgp" "apt-vulns-sexy"
+		add_repository "apt" "https://dl.winehq.org/wine-builds/ubuntu/ focal main" "https://dl.winehq.org/wine-builds/winehq.key" "winehq"
+		add_repository "apt" "https://www.kismetwireless.net/repos/apt/release/jammy jammy main" "https://www.kismetwireless.net/repos/kismet-release.gpg.key" "kismet"
+		add_repository "apt" "https://packages.element.io/debian/ default main" "https://packages.element.io/debian/element-io-archive-keyring.gpg" "element-io"
+		add_repository "apt" "https://deb.oxen.io $(lsb_release -sc) main" "https://deb.oxen.io/pub.gpg" "oxen"
+		add_repository "apt" "https://updates.signal.org/desktop/apt xenial main" "https://updates.signal.org/desktop/apt/keys.asc" "signal-desktop"
+		add_repository "apt" "https://brave-browser-apt-release.s3.brave.com/ stable main" "https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg" "brave-browser"
+		add_repository "apt" "https://packages.microsoft.com/repos/code stable main" "https://packages.microsoft.com/keys/microsoft.asc" "vscode"
+		add_repository "apt" "https://packages.cisofy.com/community/lynis/deb/ stable main" "https://packages.cisofy.com/keys/cisofy-software-public.key" "cisofy-lynis"
+		add_repository "apt" "https://download.docker.com/linux/ubuntu focal stable" "https://download.docker.com/linux/ubuntu/gpg" "docker"
+    
+		# add_repository "key" "https://download.onlyoffice.com/repo/debian squeeze main" "hkp://keyserver.ubuntu.com:80 --recv-keys CB2DE8E5" "onlyoffice"
+  				
+		add_repository "ppa" "ppa:danielrichter2007/grub-customizer" "" "grub-customizer"
+		add_repository "ppa" "ppa:phoerious/keepassxc" "" "keepassxc"
+		add_repository "ppa" "ppa:cappelikan/ppa" "" "mainline"
+		add_repository "ppa" "ppa:apt-fast/stable" "" "apt-fast"
+		add_repository "ppa" "ppa:obsproject/obs-studio" "" "obs-studio"
+		add_repository "ppa" "ppa:savoury1/backports" "" "savoury1"
 
-# Setting up additional repositories
-echo "# Setting up apt Repos"
-add_repository() {
-    local type="$1"
-    local repo="$2"
-    local key="$3"
-    local name="$4"
-
-    if [ "$type" == "apt" ]; then
-        if ! grep -Fxq "$repo" "$FILE"; then
-            echo "Adding $name repository: $repo"
-            echo "$repo" | sudo tee -a "$FILE" > /dev/null
-            curl -s "$key" | sudo apt-key add -
-        else
-            echo "$name repository already exists: $repo"
-        fi
-    elif [ "$type" == "ppa" ]; then
-        if ! grep -Fxq "$repo" /etc/apt/sources.list /etc/apt/sources.list.d/*; then
-            echo "Adding PPA: $repo"
-            sudo add-apt-repository -y "$repo"
-        else
-            echo "PPA already exists: $repo"
-        fi
-    fi
-}
-
-add_repository "apt" "https://apt.bell-sw.com/ stable main" "https://download.bell-sw.com/pki/GPG-KEY-bellsoft" "bellsoft"
-add_repository "apt" "http://apt.vulns.xyz stable main" "http://apt.vulns.xyz/kpcyrd.pgp" "apt-vulns-sexy"
-add_repository "apt" "https://dl.winehq.org/wine-builds/ubuntu/ focal main" "https://dl.winehq.org/wine-builds/winehq.key" "winehq"
-add_repository "apt" "https://www.kismetwireless.net/repos/apt/release/jammy jammy main" "https://www.kismetwireless.net/repos/kismet-release.gpg.key" "kismet"
-add_repository "apt" "https://packages.element.io/debian/ default main" "https://packages.element.io/debian/element-io-archive-keyring.gpg" "element-io"
-add_repository "apt" "https://deb.oxen.io $(lsb_release -sc) main" "https://deb.oxen.io/pub.gpg" "oxen"
-add_repository "apt" "https://updates.signal.org/desktop/apt xenial main" "https://updates.signal.org/desktop/apt/keys.asc" "signal-desktop"
-add_repository "apt" "https://brave-browser-apt-release.s3.brave.com/ stable main" "https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg" "brave-browser"
-add_repository "apt" "https://packages.microsoft.com/repos/code stable main" "https://packages.microsoft.com/keys/microsoft.asc" "vscode"
-add_repository "apt" "https://packages.cisofy.com/community/lynis/deb/ stable main" "https://packages.cisofy.com/keys/cisofy-software-public.key" "cisofy-lynis"
-add_repository "apt" "https://download.docker.com/linux/ubuntu focal stable" "https://download.docker.com/linux/ubuntu/gpg" "docker"
-
-add_repository "ppa" "ppa:danielrichter2007/grub-customizer" "" "grub-customizer"
-add_repository "ppa" "ppa:phoerious/keepassxc" "" "keepassxc"
-add_repository "ppa" "ppa:cappelikan/ppa" "" "mainline"
-add_repository "ppa" "ppa:apt-fast/stable" "" "apt-fast"
-add_repository "ppa" "ppa:obsproject/obs-studio" "" "obs-studio"
-add_repository "ppa" "ppa:savoury1/backports" "" "savoury1"
-
-# Updating APT with updated repos
-echo "# Updating APT with updated repos"
-sudo apt update
-
+  		echo "# Updating APT with updated repos"		
+		echo $key | sudo -S apt update		
 
   
   		fix_broken
