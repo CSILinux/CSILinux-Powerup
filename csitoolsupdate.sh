@@ -1065,8 +1065,8 @@ for option in "${powerup_options[@]}"; do
 	        
 		if ! which veracrypt > /dev/null; then
 			echo "Installing veracrypt"
-			wget https://github.com/veracrypt/VeraCrypt/releases/download/VeraCrypt_1.26.7/veracrypt-1.26.7-Ubuntu-22.04-amd64.deb
-			echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt-get install -y ./veracrypt-1.26.7-Ubuntu-22.04-amd64.deb -y
+			wget https://github.com/veracrypt/VeraCrypt/releases/download/VeraCrypt_1.26.14/veracrypt-1.26.14-Ubuntu-24.04-amd64.deb
+			echo $key | sudo -S DEBIAN_FRONTEND=noninteractive apt-get install -y ./veracrypt-1.26.14-Ubuntu-24.04-amd64.deb -y
 		fi
      		sudo -k
             ;;
