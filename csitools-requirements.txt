@@ -1,0 +1,15 @@
+PySide6
+pyqtdarktheme
+pyudev
+bs4
+selenium
+webdriver_manager
+stem
+psutil
+pytesseract
+streamlink
+numpy
+image
+sublist3r
+requests
+notebook

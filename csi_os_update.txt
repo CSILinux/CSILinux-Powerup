@@ -1,0 +1,12 @@
+unattended-upgrades
+mainline
+rsyslog
+auditd
+curl
+aria2
+curl
+ntp
+acpi-support
+blueman
+bluez
+bluez-cups

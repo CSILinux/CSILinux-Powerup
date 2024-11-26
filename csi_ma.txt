@@ -1,0 +1,13 @@
+bubblewrap
+doxygen
+edb-debugger
+gcc-12
+code
+gdb
+hexer
+wxhexeditor
+jd-gui
+vkd3d-compiler
+radare2
+cutter
+binwalk
