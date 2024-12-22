@@ -149,7 +149,7 @@ install_missing_programs() {
     local missing_programs=()
     local output_file="/tmp/outputfile.txt" # Define the output file path correctly
     echo "Creating file at: $output_file"
-    touch "$output_file"
+    sudo touch "$output_file"
     for program in "${programs[@]}"; do
         if ! dpkg -s "$program" &> /dev/null; then
             echo "$program is not installed. Will attempt to install." | tee -a "$output_file"
