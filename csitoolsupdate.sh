@@ -828,7 +828,6 @@ for option in "${powerup_options[@]}"; do
 			"deb http://archive.ubuntu.com/ubuntu/ jammy-security main restricted universe multiverse"
 			"deb http://archive.ubuntu.com/ubuntu/ jammy-backports main restricted universe multiverse"
 			"deb http://archive.canonical.com/ubuntu/ jammy partner"
-			"deb http://archive.ubuntu.com/ubuntu/ noble main restricted universe multiverse"
 			"deb http://archive.ubuntu.com/ubuntu/ noble-updates main restricted universe multiverse"
 			"deb http://archive.ubuntu.com/ubuntu/ noble-security main restricted universe multiverse"
 			"deb http://archive.ubuntu.com/ubuntu/ noble-backports main restricted universe multiverse"
