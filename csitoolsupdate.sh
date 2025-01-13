@@ -143,38 +143,6 @@ install_vm_tools() {
     sudo apt autoremove -y
 }
 
-
-install_missing_programs() {
-    local programs=(curl bpytop xterm aria2 yad zenity)
-    local missing_programs=()
-    local output_file="/tmp/outputfile.txt" # Define the output file path correctly
-    echo "Creating file at: $output_file"
-    sudo touch "$output_file"
-    for program in "${programs[@]}"; do
-        if ! dpkg -s "$program" &> /dev/null; then
-            echo "$program is not installed. Will attempt to install." | tee -a "$output_file"
-            missing_programs+=("$program")
-        else
-            echo "$program is already installed." | tee -a "$output_file"
-        fi
-    done
-
-    if [ ${#missing_programs[@]} -ne 0 ]; then
-        echo "Updating package lists..." | tee -a "$output_file"
-        echo $key | sudo -S apt update | tee -a "$output_file"
-        for program in "${missing_programs[@]}"; do
-            echo "Attempting to install $program..." | tee -a "$output_file"
-            if echo $key | sudo -S -E DEBIAN_FRONTEND=noninteractive apt-get install -yq "$program" 2>&1 | tee -a "$output_file"; then
-                echo "$program installed successfully." | tee -a "$output_file"
-            else
-                echo "Failed to install $program. It may not be available in the repository or another error occurred." | tee -a "$output_file"
-            fi
-        done
-    else
-        echo "Starter programs are already installed." | tee -a "$output_file"
-    fi
-}
-
 install_csi_tools() {
     local flag_file="/tmp/csi_tools_installed.flag"  # Secure location for flag file
 
@@ -218,7 +186,6 @@ install_csi_tools() {
     return 0  # Successfully completed the function
 }
 
-
 restore_backup_to_root() {
     echo $key | sudo -S sleep 1
     sudo -k
@@ -249,60 +216,6 @@ restore_backup_to_root() {
         return 1  # Exit the function with an error status
     fi
     return 0  # Successfully completed the function
-}
-
-install_packages() {
-    local -n packages=$1
-    local newpackages=()
-    local already_installed=0
-    local installed=0
-    local failed=0
-    local total_packages=${#packages[@]}
-    local current_package=0
-    
-    echo "Checking which packages need installation..."
-
-    # Pre-check installed status to avoid unnecessary operations
-    for package in "${packages[@]}"; do
-        let current_package++
-        if dpkg-query -W -f='${Status}' "$package" 2>/dev/null | grep -q "install ok installed"; then
-            # echo "[$current_package/$total_packages] Package $package is already installed, skipping."
-            ((already_installed++))
-        else
-            newpackages+=("$package")
-        fi
-    done
-
-    echo "Out of $total_packages packages, $already_installed are already installed."
-    
-    local new_total=${#newpackages[@]}
-    if [ "$new_total" -eq 0 ]; then
-        echo "No new packages to install."
-        return
-    fi
-
-    echo "Starting installation of $new_total new packages..."
-    current_package=0
-
-    for package in "${newpackages[@]}"; do
-        let current_package++
-        echo -n "[$current_package/$new_total] Installing $package... "
-	echo $key | sudo -S apt install --fix-broken
-        if echo $key | sudo -S -E DEBIAN_FRONTEND=noninteractive apt-get install -yq --assume-yes "$package"; then
-            echo "SUCCESS"
-            ((installed++))
-        else
-            echo "FAILED"
-            ((failed++))
-            echo "$package" >> /opt/csitools/apt-failed.txt
-        fi
-    done
-
-    echo -e "\nInstallation complete."
-    echo "Summary: $already_installed skipped, $installed installed, $failed failed."
-    if [ $failed -gt 0 ]; then
-        echo "Details of failed installations have been logged to /opt/csitools/apt-failed.txt."
-    fi
 }
 
 # Function to remove specific files
@@ -393,67 +306,15 @@ fix_broken() {
     echo $key | sudo -S dpkg --configure -a --force-confold
     echo "# Fixing and configuring broken apt installs (dpkg --configure -a)..."
     echo $key | sudo -S dpkg --configure -a
-    echo $key | sudo -S apt remove sleuthkit  &>/dev/null
     echo "# Fixing and configuring broken apt installs (apt install --fix-broken -y)..."
     echo $key | sudo -S apt install --fix-broken -y
-}
-
-update_git_repository() {
-    local repo_name="$1"
-    local repo_url="$2"
-    local _venv="$3" # Accepting the new _venv argument
-    local repo_dir="/opt/$repo_name"
-
-    # Check if the repository directory already exists
-    if [ -d "$repo_dir" ]; then
-        echo "Repository $repo_name already exists. Skipping..."
-        return # Exit the function to avoid further actions
-    fi
-
-    # If the directory does not exist, clone the new repository
-    echo "Cloning new repository $repo_name..."
-    echo $key | sudo -S git clone "$repo_url" "$repo_dir"
-    echo $key | sudo -S chown -R $USER:$USER "$repo_dir"
-
-    # After cloning, handle Python dependencies if required
-    if [ -f "$repo_dir/requirements.txt" ]; then
-        # Setup virtual environment if required
-        if [[ -n $_venv ]]; then
-            echo "Setting up Python virtual environment and installing dependencies..."
-            python -m venv "${repo_dir}/${repo_name}-venv"
-            source "${repo_dir}/${repo_name}-venv/bin/activate"
-        fi
-
-        # Read each line in requirements.txt and check if the package is installed
-        while IFS= read -r requirement; do
-            local package_name=$(echo "$requirement" | cut -d= -f1)
-            if ! pip show "$package_name" &>/dev/null; then
-                echo "Installing $requirement..."
-                pip install "$requirement"
-                if [ $? -eq 0 ]; then
-                    echo "$requirement installed successfully."
-                else
-                    echo "Failed to install $requirement."
-                fi
-            else
-                echo "$requirement is already installed."
-            fi
-        done < "${repo_dir}/requirements.txt"
-
-        # Deactivate virtual environment if one was set up
-        if [[ -n $_venv ]]; then
-            deactivate
-            echo "Virtual environment deactivated."
-        fi
-        echo "Dependencies setup completed."
-    fi
 }
 
 
 disable_services() {
     # Define a list of services to disable
     local disableservices=(
-	"apache-htcacheclean.service"
+		"apache-htcacheclean.service"
         "apache-htcacheclean@.service"
         "apache2.service"
         "apache2@.service"
@@ -576,33 +437,12 @@ setup_new_csi_system() {
     echo 'Acquire::Languages "none";' | sudo tee /etc/apt/apt.conf.d/99disable-translations
     echo "# System setup starting..."
     echo "\$nrconf{'restart'} = 'a';" | sudo tee /etc/needrestart/conf.d/autorestart.conf > /dev/null
-    export DEBIAN_FRONTEND=noninteractive
-    export apt_LISTCHANGES_FRONTEND=none
-    # export DISPLAY=:0.0
-    # export TERM=xterm
-    echo $key | sudo -S apt-mark hold lightdm &>/dev/null
-    echo $key | sudo -S apt-mark hold lightdm-gtk-greeter &>/dev/null
-    echo 'Dpkg::Options {
-        "--force-confdef";
-        "--force-confold";
-    }' | sudo tee /etc/apt/apt.conf.d/99force-conf &>/dev/null
-
-    echo "# Architecture cleanup"
-    if dpkg --print-foreign-architectures | grep -q 'i386'; then
-        echo "# Cleaning up old Arch"
-        i386_packages=$(dpkg --get-selections | awk '/i386/{print $1}')
-        if [ ! -z "$i386_packages" ]; then
-            echo "Removing i386 packages..."
-	    echo $key | sudo -S apt remove sleuthkit &>/dev/null
-            echo $key | sudo -S apt remove --purge --allow-remove-essential -y $i386_packages
-        fi
-        echo "# Standardizing Arch"
-        echo $key | sudo -S dpkg --remove-architecture i386
-    fi
-
     echo $key | sudo -S dpkg-reconfigure debconf --frontend=noninteractive
     echo $key | sudo -S DEBIAN_FRONTEND=noninteractive dpkg --configure -a  &>/dev/null
     echo $key | sudo -S NEEDRESTART_MODE=a apt update --ignore-missing &>/dev/null
+    export DEBIAN_FRONTEND=noninteractive
+    export apt_LISTCHANGES_FRONTEND=none
+
 
     echo "# Cleaning old tools"
     csi_remove /var/lib/tor/hidden_service/ &>/dev/null
@@ -683,74 +523,6 @@ update_xfce_wallpapers() {
     done
 }
 
-install_from_requirements_url() {
-    local requirements_url="$1"
-    rm /tmp/requirements.txt &>/dev/null
-    curl -s "$requirements_url" -o /tmp/requirements.txt
-    
-    # Prepare a list of installed packages for reference
-    local installed_packages=$(python3 -m pip list --format=freeze)
-    
-    local total_packages=$(wc -l < /tmp/requirements.txt)
-    local current_package=0
-    echo "Checking and installing Python packages..."
-
-    while IFS= read -r package; do
-        local package_name=$(echo "$package" | cut -d'=' -f1) # Extract package name
-        if ! echo "$installed_packages" | grep -Fq "$package_name"; then
-            let current_package++
-            if ! python3 -m pip install "$package" --quiet &>/dev/null; then
-                echo "Failed to install $package_name"
-            fi
-        else
-            echo "Package $package_name already installed, skipping."
-        fi
-    done < /tmp/requirements.txt
-    echo "Installation complete."
-}
-
-installed_packages_desc() {
-    local -n packages=$1  # Indirect reference to the array variable
-    local descriptions_file="$HOME/Documents/${1}_descriptions.csv"
-    local no_descriptions_file="$HOME/Documents/${1}_no_descriptions.csv"
-    echo "# Listing Installed Packages and Descriptions"
-
-    # Ensure the Documents directory exists
-    mkdir -p "$HOME/Documents"
-
-    # Initialize files with headers
-    echo "package_name,description" > "$descriptions_file"
-    echo "package_name" > "$no_descriptions_file"
-
-    local description_found=false
-
-    for pkg in "${packages[@]}"; do
-        local description=$(apt-cache show "$pkg" 2>/dev/null | grep -m 1 -Po '^Description: \K.*')
-        if [ -n "$description" ]; then
-            # Append package name and description to CSV, escaping internal quotes in descriptions
-            echo "${pkg},\"${description//\"/\"\"}\"" >> "$descriptions_file"
-            description_found=true
-        else
-            # Log packages without descriptions separately
-            echo "$pkg" >> "$no_descriptions_file"
-        fi
-    done
-
-    # Remove the no_descriptions_file if no packages were found without descriptions
-    if [ "$description_found" = false ]; then
-        rm -f "$no_descriptions_file"
-        echo "All packages had descriptions. No packages without descriptions file created."
-    else
-        echo "Some packages had no descriptions. Check the no_descriptions.csv file."
-    fi
-
-    echo "CSV files created in the Documents folder:"
-    echo "- With descriptions: $descriptions_file"
-    if [ -f "$no_descriptions_file" ]; then
-        echo "- Without descriptions: $no_descriptions_file"
-    fi
-}
-
 # echo "To remember the null output " &>/dev/null
 # echo $key | sudo -S ln -s /opt/csitools/csi_app /usr/bin/csi_app &>/dev/null
 # Use sudo with the provided key
@@ -804,16 +576,7 @@ for option in "${powerup_options[@]}"; do
 			echo $key | sudo -S echo postfix hold | dpkg --set-selections &>/dev/null
 			echo $key | sudo -S apt-mark hold sleuthkit &>/dev/null
 			echo $key | sudo -S echo sleuthkit hold | dpkg --set-selections &>/dev/null
-			echo $key | sudo -S ssh-keygen -A 
-			echo $key | sudo -S rm -rf /etc/apt/sources.list.d/archive_u* &>/dev/null
-			echo $key | sudo -S rm -rf /etc/apt/sources.list.d/brave* &>/dev/null
-			echo $key | sudo -S rm -rf /etc/apt/sources.list.d/signal* &>/dev/null
-			echo $key | sudo -S rm -rf /etc/apt/sources.list.d/apt-vulns-sexy* &>/dev/null
-			echo $key | sudo -S rm -rf /etc/apt/trusted.gpg.d/apt-vulns-sexy* &>/dev/null
-			echo $key | sudo -S rm -rf /etc/apt/sources.list.d/wine* &>/dev/null
-			echo $key | sudo -S rm -rf /etc/apt/trusted.gpg.d/wine* &>/dev/null
-			echo $key | sudo -S rm -rf /etc/apt/trusted.gpg.d/brave* &>/dev/null
-			echo $key | sudo -S rm -rf /etc/apt/trusted.gpg.d/signal* &>/dev/null
+
 			echo $key | sudo -S csi_remove /var/crash/* &>/dev/null
 			echo $key | sudo -S rm /var/crash/* &>/dev/null
 			rm ~/.vbox* &>/dev/null
@@ -821,34 +584,7 @@ for option in "${powerup_options[@]}"; do
 			setup_new_csi_system
 			echo $key | sudo -S apt remove sleuthkit  &>/dev/null
 			echo "# Setting up repo environment"
-
-			REPOS=(
-			"deb http://archive.ubuntu.com/ubuntu/ jammy main restricted universe multiverse"
-			"deb http://archive.ubuntu.com/ubuntu/ jammy-updates main restricted universe multiverse"
-			"deb http://archive.ubuntu.com/ubuntu/ jammy-security main restricted universe multiverse"
-			"deb http://archive.ubuntu.com/ubuntu/ jammy-backports main restricted universe multiverse"
-			"deb http://archive.canonical.com/ubuntu/ jammy partner"
-			"deb http://archive.ubuntu.com/ubuntu/ noble-updates main restricted universe multiverse"
-			"deb http://archive.ubuntu.com/ubuntu/ noble-security main restricted universe multiverse"
-			"deb http://archive.ubuntu.com/ubuntu/ noble-backports main restricted universe multiverse"
-			"deb http://archive.canonical.com/ubuntu/ noble partner"
-			)
-			
-			# The file to be checked and modified
-			FILE="/etc/apt/sources.list"
-			
-			# Iterate over each repository line
-			for repo in "${REPOS[@]}"; do
-				# Use grep to check if the line is already in the file
-				if ! grep -q "^$(echo $repo | sed 's/ /\\ /g')" "$FILE"; then
-					# If the line is not found, append it to the file
-					echo "Adding repository: $repo"
-					echo "$repo" | sudo tee -a "$FILE" > /dev/null
-				else
-					echo "Repository already exists: $repo"
-				fi
-			done
-	  
+ 
 			cd /tmp
 			
 			echo "# Setting up apt Repos"
@@ -866,12 +602,9 @@ for option in "${powerup_options[@]}"; do
 		
 			# add_repository "key" "https://download.onlyoffice.com/repo/debian squeeze main" "hkp://keyserver.ubuntu.com:80 --recv-keys CB2DE8E5" "onlyoffice"
 					
-			add_repository "ppa" "ppa:danielrichter2007/grub-customizer" "" "grub-customizer"
 			add_repository "ppa" "ppa:phoerious/keepassxc" "" "keepassxc"
 			add_repository "ppa" "ppa:cappelikan/ppa" "" "mainline"
-			add_repository "ppa" "ppa:apt-fast/stable" "" "apt-fast"
 			add_repository "ppa" "ppa:obsproject/obs-studio" "" "obs-studio"
-			add_repository "ppa" "ppa:savoury1/backports" "" "savoury1"
 
 			# File to remove duplicates from
 			FILE="/etc/apt/sources.list"
@@ -888,10 +621,8 @@ for option in "${powerup_options[@]}"; do
 			echo "# Updating APT with updated repos"		
 			echo $key | sudo -S apt update
 			fix_broken
-				install_vm_tools
-			echo $key | sudo -S apt upgrade -y
-			echo "# Checking Starter Apps"
-			install_missing_programs
+			install_vm_tools
+
 			echo $key | sudo -S apt remove sleuthkit -y  &>/dev/null
 			echo "# Disabling un-needed Services"
 			disable_services &>/dev/null
@@ -1179,19 +910,7 @@ Categories=Finance;Network;" > ~/.local/share/applications/OxenWallet.desktop
 			install_packages csi_cf
 			# installed_packages_des csi_cf
 			echo "# Installing Computer Forensic Tools Packages"		
-
-			# Iterate through the repositories and update them
-			for entry in "${repositories[@]}"; do
-				IFS="|" read -r repo_name repo_url _venv <<< "$entry"
-				echo "# Checking $repo_name"
-				if [[ -n $_venv ]]; then
-					update_git_repository "$repo_name" "$repo_url" "$_venv" &>/dev/null
-				else
-					update_git_repository "$repo_name" "$repo_url" &>/dev/null
-				fi
-			done			
-			echo "# Installing Video Packages"
-			install_packages apt_video
+			
 			cd /tmp
 			rm csi_ma.txt &>/dev/null
 			wget https://csilinux.com/downloads/csi_ma.txt -O csi_ma.txt
@@ -1277,8 +996,6 @@ echo $key | sudo -S echo ""
 cd /tmp
 sudo -k
 fix_broken
-echo "# Upgrading all packages including third-party tools..."
-echo $key | sudo -S apt full-upgrade -y --fix-missing
 echo "# Removing unused packages and kernels..."
 echo $key | sudo -S apt autoremove --purge -y
 echo "# Cleaning apt cache..."
@@ -1290,13 +1007,6 @@ echo $key | sudo -S updatedb
 echo "System maintenance and cleanup completed successfully."
 reset_DNS
 echo $key | sudo -S rm /tmp/csi_tools_installed.flag
-
-# echo "Listing installed applications with thier descriptions"
-# Generate a mapfile of all installed packages on the system
-# mapfile -t csi_linux_all_desc < <(dpkg-query -W -f='${binary:Package}\n')
-
-# Now you can use the # installed_packages_desc function with this mapfile
-# # installed_packages_desc csi_linux_all_desc
 
 end_time=$(date +%s)
 duration=$((end_time - start_time))
