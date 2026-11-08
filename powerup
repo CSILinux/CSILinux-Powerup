@@ -1,222 +1,575 @@
 #!/bin/bash
-
 # -----------------------------------------------------------------------------------
 # Script Name: powerup
-# Description: CSI Linux powerup is the updater script within the CSI Linux Platform 
-#              to maintain updates for the OS, CSI Linux Tools, and Third Party Tools.
+# Description: CSI Linux updater for Ubuntu 26.04 LTS (Resolute Raccoon).
 # Author: Jeremy Martin
 # Website: https://csilinux.com
 # Copyright: (C) 2024 CSI Linux - csilinux.com
 # License: Closed Source
-# 
-# This script is part of CSI Linux (https://csilinux.com). Unauthorized copying, 
-# modification, distribution, or use of this script, without express approval from 
+#
+# This script is part of CSI Linux (https://csilinux.com). Unauthorized copying,
+# modification, distribution, or use of this script, without express approval from
 # CSI Linux, is strictly prohibited. This script is proprietary and confidential.
 # -----------------------------------------------------------------------------------
+# Revision: 2026-11-08. Requires an ALREADY installed Ubuntu Resolute base.
+# This is package maintenance, not a release upgrader. See README-powerup.md.
 
-clear
-timestamp=$(date +"%Y-%m-%d_%H-%M-%S")
-output_file="/tmp/powerup-$timestamp.txt"
+set -Eeuo pipefail
 
-prompt_for_sudo() {
-    while true; do
-        key=$(zenity --password --title "Power up your system with an upgrade." --text "Enter your CSI password." --width=400)
-        if [ $? -ne 0 ]; then
-            zenity --info --text="Operation cancelled. Exiting script." --width=400
-            exit 1
-        fi
-        if echo "$key" | sudo -S -v -k &> /dev/null; then
-            sudo -k # Reset the sudo timestamp after verification
-            break # Exit loop if the password is correct
-        else
-            zenity --error --title="Authentication Failure" --text="Incorrect password or lack of sudo privileges. Please try again." --width=400
-        fi
-    done
+readonly TOR_FINGERPRINT=A3C4F0F979CAA22CDBA8F512EE8CBC9E886DDD89
+readonly UPDATER_URL=https://raw.githubusercontent.com/CSILinux/CSILinux-Powerup/main/csitoolsupdate.sh
+readonly -a CATEGORIES=(csi-linux-base csi-linux-themes os-update encryption osint
+    incident-response computer-forensics malware-analysis sigint virtualization security Navi-AI)
+readonly -a APT_OPTIONS=(-o DPkg::Lock::Timeout=180 -o Acquire::Retries=3
+    -o Dpkg::Use-Pty=0 -o APT::Update::Error-Mode=any)
+
+die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
+log() { printf '\n[%s] %s\n' "$(date '+%F %T')" "$*"; }
+
+usage() {
+    cat <<'HELP'
+CSI Linux Powerup — Ubuntu 26.04 / Resolute
+Usage: bash powerup.sh [OPTIONS] [os-update | CATEGORY ... | all]
+
+Ubuntu repositories, the stable Tor repository, Tor, and OS updates are maintained
+on every normal run. Categories additionally invoke the CSI tool updater.
+No category arguments: use the existing YAD/Zenity chooser or a terminal menu.
+
+  --check                   Show platform and planned work; make no changes
+  --full-upgrade            Permit dependency-related package removals
+                            (default: upgrade --with-new-pkgs; no removals)
+  --refresh-tools           Refresh /opt/csitools from the CSI archive
+  --tools-sha256 HEX         Verify the CSI archive against a supplied SHA-256
+  --updater FILE             Use your production csitoolsupdate.sh instead of GitHub
+  --updater-sha256 HEX       Verify the selected/downloaded updater's SHA-256
+  --help                    Show this help
+
+Examples:
+  bash powerup.sh --check
+  bash powerup.sh os-update
+  bash powerup.sh --full-upgrade os-update
+  bash powerup.sh --updater /path/to/csitoolsupdate.sh all
+
+This script refuses other Ubuntu releases; it does not replace do-release-upgrade.
+HELP
 }
 
-install_missing_programs() {
-    local programs=(curl bpytop xterm aria2 yad zenity)
-    local missing_programs=()
-    local output_file="/tmp/outputfile.txt" # Define the output file path correctly
-    echo "Creating file at: $output_file"
-    touch "$output_file"
-	
-    for program in "${programs[@]}"; do
-        if ! dpkg -s "$program" &> /dev/null; then
-            echo "$program is not installed. Will attempt to install." | tee -a "$output_file"
-            missing_programs+=("$program")
-        else
-            echo "$program is already installed." | tee -a "$output_file"
-        fi
-    done
-
-    if [ ${#missing_programs[@]} -ne 0 ]; then
-        echo "Updating package lists..." | tee -a "$output_file"
-        echo $key | sudo -S apt update | tee -a "$output_file"
-        for program in "${missing_programs[@]}"; do
-            echo "Attempting to install $program..." | tee -a "$output_file"
-            if echo $key | sudo -S apt install -y "$program" 2>&1 | tee -a "$output_file"; then
-                echo "$program installed successfully." | tee -a "$output_file"
-            else
-                echo "Failed to install $program. It may not be available in the repository or another error occurred." | tee -a "$output_file"
-            fi
-        done
-    else
-        echo "Starter programs are already installed." | tee -a "$output_file"
+validate_platform() {
+    local ID='' ID_LIKE='' VERSION_ID='' VERSION_CODENAME='' UBUNTU_CODENAME=''
+    [[ -r /etc/os-release ]] || die '/etc/os-release is missing.'
+    # shellcheck disable=SC1091
+    . /etc/os-release
+    local codename=${UBUNTU_CODENAME:-${VERSION_CODENAME:-}}
+    [[ $codename == resolute ]] || die "Requires Ubuntu base resolute; detected '${codename:-unknown}'. Use the supported release upgrade process first."
+    [[ $ID == ubuntu || " $ID_LIKE " == *' ubuntu '* || $UBUNTU_CODENAME == resolute ]] ||
+        die 'Cannot verify an Ubuntu Resolute base.'
+    if [[ $ID == ubuntu && $VERSION_ID != 26.04 ]]; then
+        die "Inconsistent Ubuntu version: $VERSION_ID / $codename."
     fi
+    ARCH=$(dpkg --print-architecture)
+    case $ARCH in
+        amd64|arm64) ;;
+        *) die "Tor Project's repository supplies amd64 and arm64; architecture '$ARCH' is unsupported by this updater." ;;
+    esac
+    command -v python3 >/dev/null || die 'python3 is required (normally included with CSI Linux).'
+    [[ -s /usr/share/keyrings/ubuntu-archive-keyring.gpg ]] || die 'Ubuntu archive keyring is missing; repair ubuntu-keyring first.'
+}
+
+choose_categories() {
+    local answer='' name
+    local -a rows=()
+    for name in "${CATEGORIES[@]}"; do
+        if [[ $name == os-update ]]; then rows+=(TRUE "$name"); else rows+=(FALSE "$name"); fi
+    done
+    rows+=(FALSE all)
+    if [[ -n ${DISPLAY:-}${WAYLAND_DISPLAY:-} ]] && command -v yad >/dev/null; then
+        answer=$(yad --list --checklist --title='CSI Linux Powerup' --width=520 --height=580 \
+            --text='Ubuntu 26.04 and Tor maintenance always run. Select optional CSI tool categories.' \
+            --column='Select':CHK --column='Name' --print-column=2 --separator='|' \
+            --button='Update:0' --button='Cancel:1' "${rows[@]}") || return 1
+    elif [[ -n ${DISPLAY:-}${WAYLAND_DISPLAY:-} ]] && command -v zenity >/dev/null; then
+        answer=$(zenity --list --checklist --title='CSI Linux Powerup' --width=520 --height=580 \
+            --text='Ubuntu 26.04 and Tor maintenance always run. Select optional CSI tool categories.' \
+            --column='Select' --column='Name' --print-column=2 --separator='|' "${rows[@]}") || return 1
+    elif [[ -t 0 ]]; then
+        printf 'Available categories:\n  %s\n' "${CATEGORIES[*]}"
+        printf 'Enter space-separated categories, all, or press Enter for OS/Tor only: '
+        read -r answer || return 1
+    else
+        die 'No chooser or terminal is available. Run from a terminal and specify os-update or categories.'
+    fi
+    answer=${answer//|/ }
+    answer=${answer//$'\n'/ }
+    read -r -a REQUESTED <<< "${answer:-os-update}"
+    if (( ! ${#REQUESTED[@]} )); then REQUESTED=(os-update); fi
+}
+
+normalize_categories() {
+    local requested category found all_requested=0
+    SELECTED=()
+    for requested in "${REQUESTED[@]}"; do
+        if [[ $requested == all ]]; then all_requested=1; continue; fi
+        found=0
+        for category in "${CATEGORIES[@]}"; do
+            if [[ $requested == "$category" ]]; then found=1; break; fi
+        done
+        (( found )) || die "Unknown category: $requested"
+        if [[ " ${SELECTED[*]} " != *" $requested "* ]]; then SELECTED+=("$requested"); fi
+    done
+    if (( all_requested )); then SELECTED=("${CATEGORIES[@]}"); fi
+}
+
+elevate() {
+    local self=$1; shift
+    local askdir status
+    if [[ -t 0 && -t 2 ]]; then
+        exec sudo -- /bin/bash "$self" "$@"
+    elif command -v zenity >/dev/null && [[ -n ${DISPLAY:-}${WAYLAND_DISPLAY:-} ]]; then
+        # sudo obtains the password directly from askpass. No password variable,
+        # command-line argument, log entry, or long-running credential keepalive.
+        askdir=$(mktemp -d "${TMPDIR:-/tmp}/powerup-askpass.XXXXXXXX")
+        chmod 700 "$askdir"
+        printf '#!/bin/sh\nexec zenity --password --title="CSI Linux Powerup" --text="Enter your sudo password."\n' > "$askdir/askpass"
+        chmod 700 "$askdir/askpass"
+        status=0
+        SUDO_ASKPASS="$askdir/askpass" sudo -A -- /bin/bash "$self" "$@" || status=$?
+        rm -rf -- "$askdir"
+        exit "$status"
+    elif command -v pkexec >/dev/null; then
+        exec pkexec /bin/bash "$self" "$@"
+    else
+        die 'Open a terminal and run this script with sudo.'
+    fi
+}
+
+# Parse both APT formats. Touch only identified Ubuntu/Tor sources, preserving
+# unrelated repositories and comments. A transaction manifest supports rollback.
+repository_config() {
+    python3 - "$@" <<'PY_REPOSITORIES'
+import json, os, re, shlex, shutil, sys, tempfile
+from pathlib import Path
+from urllib.parse import urlsplit
+
+mode, root_s, backup_s, tor_enabled, arch = sys.argv[1:]
+root, backup = Path(root_s), Path(backup_s)
+manifest = backup / 'manifest.json'
+ubuntu_target = root / 'sources.list.d/csi-powerup-ubuntu.sources'
+tor_target = root / 'sources.list.d/csi-powerup-tor.sources'
+
+def atomic(path, text):
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o755)
+    fd, temp = tempfile.mkstemp(prefix='.powerup-', dir=path.parent)
+    try:
+        with os.fdopen(fd, 'w') as f:
+            f.write(text)
+        os.chmod(temp, 0o644)
+        os.replace(temp, path)
+    finally:
+        if os.path.exists(temp): os.unlink(temp)
+
+if mode == 'rollback':
+    if manifest.exists():
+        for relative, existed in json.loads(manifest.read_text()).items():
+            path = root / relative
+            if existed:
+                shutil.copy2(backup / 'files' / relative, path)
+            else:
+                path.unlink(missing_ok=True)
+        print('Restored APT source files from', backup)
+    sys.exit(0)
+if mode != 'configure': raise SystemExit('Unknown repository operation')
+
+def kind(uri, signed=''):
+    host = (urlsplit(uri).hostname or '').lower()
+    if host == 'deb.torproject.org': return 'tor'
+    if (host in ('archive.ubuntu.com', 'security.ubuntu.com', 'ports.ubuntu.com',
+                 'old-releases.ubuntu.com') or host.endswith('.archive.ubuntu.com')
+            or 'ubuntu-archive-keyring.gpg' in signed): return 'ubuntu'
+    return 'other'
+
+# Do not rewrite a PPA's distribution. Refuse recognizable mismatched Ubuntu
+# release suites rather than quietly leave a mixed-release package source active.
+old_series = set('precise trusty xenial bionic focal jammy kinetic lunar mantic noble oracular plucky questing stonking devel'.split())
+def check_other(suites, path):
+    for suite in suites:
+        if suite.split('-')[0] in old_series:
+            raise ValueError(f'{path}: unrelated repository uses {suite}; disable it or verify its Resolute support first')
+
+def stanza_fields(block):
+    fields, last = {}, None
+    for line in block.splitlines():
+        if not line.strip() or line.lstrip().startswith('#'): continue
+        if line[:1].isspace() and last:
+            fields[last] += ' ' + line.strip()
+        else:
+            key, sep, value = line.partition(':')
+            if not sep: raise ValueError('Malformed deb822 line: ' + line)
+            last = key.lower()
+            if last in fields: raise ValueError('Duplicate deb822 field: ' + key)
+            fields[last] = value.strip()
+    return fields
+
+changes = {}
+paths = sorted(set([root / 'sources.list', *root.glob('sources.list.d/*.list'),
+                    *root.glob('sources.list.d/*.sources')]))
+for path in paths:
+    if not path.exists(): continue
+    if path.is_symlink(): raise ValueError(f'{path}: symlinked source files require manual review')
+    original = path.read_text()
+    pieces = []
+    has_other = False
+    if path.suffix == '.sources':
+        for block in re.split(r'\n[ \t]*\n', original):
+            fields = stanza_fields(block)
+            if not fields or fields.get('enabled', 'yes').lower() == 'no':
+                pieces.append(block); continue
+            uris = fields.get('uris', '').split()
+            if not uris: raise ValueError(f'{path}: active stanza has no URIs')
+            kinds = {kind(u, fields.get('signed-by', '')) for u in uris}
+            if 'other' in kinds and len(kinds) > 1:
+                raise ValueError(f'{path}: mixed Ubuntu/Tor and unrelated URIs in one stanza')
+            if kinds <= {'ubuntu', 'tor'}:
+                pieces.append('# Source replaced by CSI Powerup managed deb822 sources.')
+            else:
+                has_other = True
+                check_other(fields.get('suites', '').split(), path)
+                pieces.append(block)
+        updated = '\n\n'.join(pieces).rstrip() + '\n'
+    else:
+        for line in original.splitlines(keepends=True):
+            if not re.match(r'^\s*deb(?:-src)?\s', line): pieces.append(line); continue
+            tokens = shlex.split(line, comments=True)
+            i, options = 1, []
+            if tokens[i].startswith('['):
+                while i < len(tokens):
+                    options.append(tokens[i]); i += 1
+                    if options[-1].endswith(']'): break
+            if len(tokens) <= i + 1: raise ValueError(f'{path}: malformed deb source')
+            uri, suite = tokens[i:i+2]
+            if kind(uri, ' '.join(options)) != 'other':
+                pieces.append('# Disabled by CSI Powerup: ' + line.lstrip())
+            else:
+                has_other = True; check_other([suite], path); pieces.append(line)
+        updated = ''.join(pieces)
+    if path in (ubuntu_target, tor_target):
+        if has_other: raise ValueError(f'{path}: managed filename contains unrelated sources')
+        continue
+    if updated != original: changes[path] = updated
+
+# Signed HTTP is used only for dependency bootstrap, allowing CA certificates
+# themselves to be installed. Final configuration always uses HTTPS.
+scheme = 'https' if tor_enabled == '1' else 'http'
+archive = f'{scheme}://archive.ubuntu.com/ubuntu' if arch == 'amd64' else f'{scheme}://ports.ubuntu.com/ubuntu-ports'
+security = f'{scheme}://security.ubuntu.com/ubuntu' if arch == 'amd64' else archive
+changes[ubuntu_target] = f'''# Managed by CSI Linux Powerup. Original sources are backed up.
+Types: deb
+URIs: {archive}
+Suites: resolute resolute-updates resolute-backports
+Components: main restricted universe multiverse
+Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+
+Types: deb
+URIs: {security}
+Suites: resolute-security
+Components: main restricted universe multiverse
+Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+'''
+changes[tor_target] = f'''# Managed by CSI Linux Powerup. Stable Tor packages only.
+Types: deb
+URIs: https://deb.torproject.org/torproject.org/
+Suites: resolute
+Components: main
+Architectures: {arch}
+Signed-By: /etc/apt/keyrings/csi-torproject.gpg
+''' if tor_enabled == '1' else '# Tor repository temporarily disabled during dependency bootstrap.\n'
+changes = {p: data for p, data in changes.items() if not p.exists() or p.read_text() != data}
+backup.mkdir(parents=True, exist_ok=True, mode=0o700)
+entries = json.loads(manifest.read_text()) if manifest.exists() else {}
+# Save the complete rollback manifest before the first mutation.
+for path in changes:
+    relative = str(path.relative_to(root))
+    if relative not in entries:
+        entries[relative] = path.exists()
+        if path.exists():
+            dest = backup / 'files' / relative
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(path, dest)
+atomic(manifest, json.dumps(entries, indent=2) + '\n')
+for path, data in changes.items():
+    atomic(path, data)
+    print('Configured', path)
+if not changes: print('APT source files already match the requested configuration.')
+PY_REPOSITORIES
+}
+
+apt_run() { DEBIAN_FRONTEND=noninteractive apt-get "${APT_OPTIONS[@]}" "$@"; }
+apt_refresh() { log 'Refreshing signed package indexes'; apt_run update; }
+
+download() {
+    local url=$1 destination=$2
+    curl --fail --show-error --location --proto '=https' --proto-redir '=https' \
+        --connect-timeout 20 --retry 3 --retry-delay 2 --speed-limit 1024 --speed-time 60 \
+        --output "$destination" "$url"
+}
+
+verify_sha256() {
+    local path=$1 expected=$2 actual
+    [[ -n $expected ]] || return 0
+    actual=$(sha256sum -- "$path"); actual=${actual%% *}
+    [[ $actual == "${expected,,}" ]] || die "SHA-256 mismatch: $path"
+}
+
+install_tor_key() {
+    log 'Validating the Tor Project repository signing key'
+    # Refresh the certificate so renewed expiry/subkey data is not hidden by a
+    # stale local copy. Verify the primary fingerprint before trusting its bytes.
+    download "https://deb.torproject.org/torproject.org/$TOR_FINGERPRINT.asc" "$WORK/tor.asc"
+    mkdir -m 700 "$WORK/gnupg"
+    local listing fingerprint
+    listing=$(gpg --homedir "$WORK/gnupg" --batch --with-colons --show-keys "$WORK/tor.asc")
+    fingerprint=$(awk -F: '$1=="pub"{p=1;next} p && $1=="fpr"{print $10;p=0}' <<< "$listing")
+    [[ $fingerprint == "$TOR_FINGERPRINT" ]] || die 'Downloaded Tor key has an unexpected primary fingerprint.'
+    gpg --homedir "$WORK/gnupg" --batch --yes --dearmor --output "$WORK/tor.gpg" "$WORK/tor.asc"
+    install -d -m 755 /etc/apt/keyrings
+    if ! cmp -s "$WORK/tor.gpg" /etc/apt/keyrings/csi-torproject.gpg; then
+        [[ ! -e /etc/apt/keyrings/csi-torproject.gpg ]] ||
+            cp -p /etc/apt/keyrings/csi-torproject.gpg "$BACKUP/previous-tor-key.gpg"
+        install -m 644 "$WORK/tor.gpg" /etc/apt/keyrings/.csi-torproject.gpg.new
+        mv -f /etc/apt/keyrings/.csi-torproject.gpg.new /etc/apt/keyrings/csi-torproject.gpg
+    fi
+}
+
+prepare_repositories() {
+    local package status
+    local -a missing=()
+    for package in ca-certificates curl gnupg; do
+        status=$(dpkg-query -W -f='${db:Status-Status}' "$package" 2>/dev/null) || status=''
+        [[ $status == installed ]] || missing+=("$package")
+    done
+    SOURCES_PENDING=1
+    if (( ${#missing[@]} )); then
+        log "Bootstrapping dependencies in one transaction: ${missing[*]}"
+        repository_config configure /etc/apt "$BACKUP" 0 "$ARCH"
+        apt_refresh
+        apt_run install --no-install-recommends -y "${missing[@]}"
+    fi
+    install_tor_key
+    repository_config configure /etc/apt "$BACKUP" 1 "$ARCH"
+    apt_refresh
+    SOURCES_PENDING=0
+}
+
+update_os() {
+    local policy
+    local -a packages=(tor)
+    # Some Resolute repository snapshots have lacked this optional rollover
+    # package. Do not fail the entire update, or substitute a different suite.
+    policy=$(apt-cache policy deb.torproject.org-keyring)
+    if awk '/Candidate:/ {if ($2 != "(none)") found=1} END {exit !found}' <<< "$policy"; then
+        packages+=(deb.torproject.org-keyring)
+    else
+        log 'Tor rollover keyring package unavailable; using the fingerprint-verified local key. It is refreshed each run.'
+    fi
+    log 'Installing/updating Tor'
+    apt_run install --no-install-recommends --no-remove -y "${packages[@]}"
+    log 'Applying Ubuntu and installed-package updates'
+    if (( FULL_UPGRADE )); then
+        apt_run dist-upgrade -y
+    else
+        apt_run upgrade --with-new-pkgs --no-remove -y
+    fi
+    apt_run check
+    log 'Held packages (if any)'
+    apt-mark showhold
+    log 'Remaining upgrades, including held or phased packages (if any)'
+    apt list --upgradable 2>/dev/null
+    if [[ -f /var/run/reboot-required ]]; then log 'A reboot is required to finish applying some updates.'; fi
+}
+
+prepare_updater() {
+    if [[ -n $UPDATER_FILE ]]; then
+        cp -- "$UPDATER_FILE" "$WORK/csitoolsupdate.sh"
+    else
+        log 'Downloading the CSI category updater'
+        download "$UPDATER_URL" "$WORK/csitoolsupdate.sh"
+    fi
+    [[ -s $WORK/csitoolsupdate.sh ]] || die 'CSI category updater is empty.'
+    verify_sha256 "$WORK/csitoolsupdate.sh" "$UPDATER_SHA256"
+    bash -n "$WORK/csitoolsupdate.sh"
+    # The public URL was this placeholder on 2026-11-08. Do not mistake it for
+    # a working tool updater, even if an environment happens to define print.
+    local body
+    body=$(sed '/^[[:space:]]*#/d; /^[[:space:]]*$/d' "$WORK/csitoolsupdate.sh")
+    if [[ $body == 'print "Updating..."' || $body == 'echo "Updating..."' || -z $body ]]; then
+        die 'OS/Tor maintenance completed, but csitoolsupdate.sh is a placeholder. Supply the production updater with --updater FILE. Selected CSI categories were NOT updated.'
+    fi
+    log "Category updater SHA-256: $(sha256sum "$WORK/csitoolsupdate.sh" | cut -d' ' -f1)"
 }
 
 install_csi_tools() {
-    local flag_file="/tmp/csi_tools_installed.flag"  # Secure location for flag file
-
-    # Check if the flag file exists, indicating the function was already run
-    if [[ -f "$flag_file" ]]; then
-        echo "CSI Tools have already been installed. Exiting."
-        return 0  # Exit the function successfully
+    if (( ! REFRESH_TOOLS )) && [[ -d /opt/csitools ]] &&
+        [[ -n $(find /opt/csitools -mindepth 1 -maxdepth 1 -print -quit) ]]; then
+        log 'CSI tools are present; skipping the large bootstrap archive.'
+        return
     fi
-
-    local backup_dir="/tmp/restore"
-    local backup_file_name="csitools"
-    local archive_path="$backup_dir/$backup_file_name.7z"
-    echo "$key" | sudo -S DEBIAN_FRONTEND=noninteractive apt install aria2 -y
-    echo "Preparing for CSI Tools download..."
-    echo "$key" | sudo -S rm -rf "$backup_dir"  # Remove the entire backup directory
-    echo "$key" | sudo -S mkdir -p "$backup_dir"
-    echo "$key" | sudo -S chmod 777 "$backup_dir"  # Set full permissions temporarily for download
-    echo "Downloading CSI Tools..."
-    if aria2c -x3 -k1M http://echothislabs.com/downloads/csitools.7z https://csilinux.com/downloads/csitools.7z https://informationwarfarecenter.com/downloads/csitools.7z -d "$backup_dir" -o "$backup_file_name.7z"; then
-        echo "Download successful."
-        echo "# Installing CSI Tools..."
-        if restore_backup_to_root "$backup_dir" "$backup_file_name"; then
-            echo "CSI Tools restored successfully."
-            echo "Setting permissions and configurations for CSI Tools..."
-            echo "$key" | sudo -S chown csi:csi -R /opt/csitools
-            echo "$key" | sudo -S chmod +x /opt/csitools/* -R
-            echo "$key" | sudo -S chmod +x ~/Desktop/*.desktop
-            echo "Converting DOS format to UNIX format in CSI Tools directories..."
-            find /opt/csitools /opt/csitools/helpers -type f -exec sudo dos2unix {} + &>/dev/null
-            echo "CSI Tools installation and configuration completed successfully."
-            echo "$key" | sudo -S touch "$flag_file"
-        else
-            echo "$key" | sudo -S rm "$flag_file"
-            echo "Failed to restore CSI Tools from the backup."
-            return 1  # Restoration failed
-        fi
+    local sevenzip url success=0
+    if command -v 7zz >/dev/null; then sevenzip=7zz
+    elif command -v 7z >/dev/null; then sevenzip=7z
     else
-        echo "Failed to download CSI Tools."
-        return 1  # Download failed
+        apt_run install --no-install-recommends --no-remove -y 7zip
+        if command -v 7zz >/dev/null; then sevenzip=7zz
+        elif command -v 7z >/dev/null; then sevenzip=7z
+        else die '7zip installed, but neither 7zz nor 7z is available.'
+        fi
     fi
-
-    return 0  # Successfully completed the function
+    log 'Downloading CSI tools into a private staging directory'
+    for url in https://csilinux.com/downloads/csitools.7z \
+        https://echothislabs.com/downloads/csitools.7z \
+        https://informationwarfarecenter.com/downloads/csitools.7z; do
+        if download "$url" "$WORK/csitools.7z"; then success=1; break; fi
+    done
+    (( success )) || die 'All CSI tools download mirrors failed.'
+    verify_sha256 "$WORK/csitools.7z" "$TOOLS_SHA256"
+    log "CSI archive SHA-256: $(sha256sum "$WORK/csitools.7z" | cut -d' ' -f1)"
+    "$sevenzip" x -so "$WORK/csitools.7z" csitools.tar > "$WORK/csitools.tar"
+    [[ -s $WORK/csitools.tar ]] || die 'Archive does not contain csitools.tar.'
+    # Restore only the tool tree, not arbitrary /etc, /usr, or root-home files.
+    # Preserve supplied executable bits; do not chmod every file or dos2unix binaries.
+    python3 - "$WORK/csitools.tar" "$WORK/payload" <<'PY_ARCHIVE'
+import copy, posixpath, sys, tarfile
+from pathlib import Path
+archive, destination = sys.argv[1:]
+prefix = 'opt/csitools'
+def within(name): return name == prefix or name.startswith(prefix + '/')
+with tarfile.open(archive) as tar:
+    selected = []
+    for original in tar.getmembers():
+        name = original.name
+        while name.startswith('./'): name = name[2:]
+        name = name.lstrip('/')
+        if not within(name): continue
+        if '..' in name.split('/') or '\\' in name:
+            raise ValueError('Unsafe archive member: ' + original.name)
+        member = copy.copy(original)
+        member.name = name
+        if member.issym() or member.islnk():
+            link = member.linkname
+            if link.startswith('/') or '\\' in link: raise ValueError('Unsafe archive link: ' + name)
+            target = posixpath.normpath(posixpath.join(posixpath.dirname(name), link) if member.issym() else link)
+            if not within(target): raise ValueError('Archive link leaves /opt/csitools: ' + name)
+        if not (member.isfile() or member.isdir() or member.issym() or member.islnk()):
+            raise ValueError('Special file in tool archive: ' + name)
+        selected.append(member)
+    if not any(m.isfile() for m in selected): raise ValueError('No tool files under opt/csitools in archive')
+    Path(destination).mkdir(mode=0o700)
+    tar.extractall(destination, members=selected, filter='data')
+PY_ARCHIVE
+    if [[ -d /opt/csitools ]]; then
+        log "Backing up the existing tool tree to $BACKUP/csitools.tar"
+        tar -cpf "$BACKUP/csitools.tar" -C /opt csitools
+    fi
+    [[ ! -L /opt/csitools ]] || die '/opt/csitools must not be a symlink.'
+    install -d -m 755 /opt/csitools
+    cp -a --remove-destination -- "$WORK/payload/opt/csitools/." /opt/csitools/
+    if id csi >/dev/null 2>&1; then chown -R csi:"$(id -gn csi)" /opt/csitools; fi
+    log 'CSI tools restored. Existing executable modes preserved.'
 }
 
-
-restore_backup_to_root() {
-    echo $key | sudo -S sleep 1
-    sudo -k
-    local backup_dir=$1
-    local backup_file_name=$2
-    local archive_path="$backup_dir/$backup_file_name.7z"
-
-    echo "Restoring CSI Tools backup..."
-    # Extract the .7z file safely and ensure files are overwritten without prompting
-    if ! echo $key | sudo -S 7z x -aoa -o"$backup_dir" "$archive_path"; then
-        echo "Failed to extract $archive_path. Please check the file and try again."
-        return 1  # Exit the function with an error status
-    fi
-
-    local tar_file="$backup_dir/$backup_file_name.tar"
-    if [ -f "$tar_file" ]; then
-        echo "Restoring backup from tar file..."
-        # Extract the tar file and ensure files are overwritten without prompting
-        if ! echo $key | sudo -S tar --overwrite -xpf "$tar_file" -C /; then
-            echo "Failed to restore from $tar_file. Please check the archive and try again."
-            return 1  # Exit the function with an error status
+cleanup() {
+    local status=$?
+    trap - EXIT ERR
+    if (( SOURCES_PENDING )); then
+        printf '\nRepository setup failed; restoring previous source files.\n' >&2
+        repository_config rollback /etc/apt "$BACKUP" 0 "$ARCH" ||
+            printf 'Automatic source rollback failed. Backup: %s\n' "$BACKUP" >&2
+        if [[ -f $BACKUP/previous-tor-key.gpg ]]; then
+            install -m 644 "$BACKUP/previous-tor-key.gpg" /etc/apt/keyrings/csi-torproject.gpg || true
         fi
-        echo "Backup restored successfully."
-        echo $key | sudo -S rm "$tar_file"
-    else
-        echo "Backup .tar file not found. Please check the archive path and try again."
-        return 1  # Exit the function with an error status
     fi
-    return 0  # Successfully completed the function
+    [[ -z ${WORK:-} ]] || rm -rf -- "$WORK"
+    printf '\nPowerup exit status: %s\nLog: %s\nBackup: %s\n' "$status" "$LOG_FILE" "$BACKUP"
+    exit "$status"
 }
 
-prompt_for_sudo
-install_missing_programs
-install_csi_tools
-
-declare -a base_names=(
-    "csi-linux-base"
-    "csi-linux-themes"
-    "os-update"
-    "encryption"
-    "osint"
-    "incident-response"
-    "computer-forensics"
-    "malware-analysis"
-    "sigint"
-    "virtualization"
-    "security"
-	"Navi-AI"
-)
-
-# Prepare the list for YAD
-list_data="FALSE all "  # Add "all" option
-for name in "${base_names[@]}"; do
-    list_data+="FALSE $name "  # Append each base name, space-delimited
-done
-
-welcome_msg="Welcome to the CSI Linux Powerup tool. Choose what sections you either want to install or update below."
-logo_url="https://csilinux.com/wp-content/uploads/2023/08/CSILinux-Menu.png"
-logo_path="/tmp/CSILinux-Menu.png"
-
-curl -o "$logo_path" "$logo_url"
-
-selected_options=$(yad --list --title='CSI Linux Powerup' --text="$welcome_msg" --window-icon="$logo_path" --width=400 --height=500 --checklist \
-      --column='Select':CHK --column='Name' $list_data --image="preferences-system" --button=gtk-ok:0 --button=gtk-close:1 --separator="|")
-
-if [ $? -ne 0 ]; then
-    echo "Dialog was canceled or closed. Exiting script."
-    exit 1
-fi
-
-# Splitting the selected options string correctly to handle newline issues
-readarray -t selections <<< "$(echo "$selected_options" | sed 's/|/\n/g')"
-
-# Initialize the array to hold the selected options
-arg_list=()
-
-# Flag to indicate if "all" has been selected
-all_selected=false
-
-# Iterate through selections to build the arg_list based on selected values
-for selection in "${selections[@]}"; do
-    if [[ "$selection" == "all" ]]; then
-        all_selected=true
-        break  # No need to continue if "all" is selected
-    elif [[ " ${base_names[*]} " =~ " ${selection} " ]]; then
-        # Add the selection to arg_list if it's a valid base name
-        arg_list+=("$selection")
+main() {
+    local check=0 option self
+    local -a forward=() tool_categories=()
+    FULL_UPGRADE=0 REFRESH_TOOLS=0 UPDATER_FILE='' TOOLS_SHA256='' UPDATER_SHA256=''
+    REQUESTED=() SELECTED=()
+    while (( $# )); do
+        case $1 in
+            --help|-h) usage; return ;;
+            --check) check=1 ;;
+            --full-upgrade) FULL_UPGRADE=1; forward+=("$1") ;;
+            --refresh-tools) REFRESH_TOOLS=1; forward+=("$1") ;;
+            --tools-sha256|--updater-sha256|--updater)
+                option=$1; (( $# >= 2 )) || die "$option requires a value"; shift
+                if [[ $option == --updater ]]; then
+                    [[ -f $1 && -r $1 ]] || die "Cannot read updater: $1"
+                    UPDATER_FILE=$(readlink -f -- "$1"); forward+=("$option" "$UPDATER_FILE")
+                else
+                    [[ $1 =~ ^[0-9a-fA-F]{64}$ ]] || die "$option requires 64 hexadecimal characters"
+                    if [[ $option == --tools-sha256 ]]; then TOOLS_SHA256=$1; else UPDATER_SHA256=$1; fi
+                    forward+=("$option" "$1")
+                fi ;;
+            --*) die "Unknown option: $1" ;;
+            *) REQUESTED+=("$1") ;;
+        esac
+        shift
+    done
+    validate_platform
+    if (( check )); then
+        (( ${#REQUESTED[@]} )) || REQUESTED=(os-update)
+        normalize_categories
+        printf 'Platform: Ubuntu base resolute (%s)\n' "$ARCH"
+        printf 'Ubuntu: resolute, resolute-updates, resolute-security, resolute-backports\n'
+        printf 'Components: main restricted universe multiverse\nTor: stable resolute / %s\n' "$ARCH"
+        printf 'Categories: %s\nFull upgrade: %s\nNo changes made.\n' "${SELECTED[*]}" "$FULL_UPGRADE"
+        return
     fi
-done
+    if (( ! ${#REQUESTED[@]} )); then
+        choose_categories || { printf 'Cancelled. No system changes made.\n'; return; }
+    fi
+    normalize_categories
+    if (( EUID != 0 )); then
+        self=$(readlink -f -- "${BASH_SOURCE[0]}")
+        elevate "$self" "${forward[@]}" "${SELECTED[@]}"
+    fi
+    export PATH=/usr/sbin:/usr/bin:/sbin:/bin LC_ALL=C
+    umask 077
+    install -d -m 700 /run/csi-powerup /var/log/csi-powerup /var/backups/csi-powerup
+    exec 9>/run/csi-powerup/lock
+    flock -n 9 || die 'Another Powerup instance is running.'
+    local run_id
+    run_id=$(date '+%Y%m%d-%H%M%S')-$$
+    LOG_FILE=/var/log/csi-powerup/powerup-$run_id.log
+    BACKUP=/var/backups/csi-powerup/$run_id
+    install -d -m 700 "$BACKUP"
+    WORK=$(mktemp -d /var/tmp/csi-powerup.XXXXXXXX)
+    SOURCES_PENDING=0
+    trap cleanup EXIT
+    trap 'exit 130' INT
+    trap 'exit 143' TERM
+    trap 'printf "ERROR: command failed at line %s (status %s).\n" "$LINENO" "$?" >&2' ERR
+    exec > >(tee -a "$LOG_FILE") 2>&1
+    log "CSI Linux Powerup — Resolute / $ARCH"
+    log "Selected: ${SELECTED[*]}"
+    prepare_repositories
+    update_os
+    for option in "${SELECTED[@]}"; do
+        [[ $option == os-update ]] || tool_categories+=("$option")
+    done
+    if (( ${#tool_categories[@]} )); then prepare_updater; fi
+    if (( ${#tool_categories[@]} || REFRESH_TOOLS )); then install_csi_tools; fi
+    if (( ${#tool_categories[@]} )); then
+        log "Running CSI category updater: ${tool_categories[*]}"
+        # Retain the original positional API: $1 was the sudo password. It is
+        # now EMPTY because the child already runs as root. Categories start $2.
+        # Production updaters must accept root execution without a real password.
+        POWERUP_APT_UPDATED=1 POWERUP_OS_UPDATED=1 \
+            bash "$WORK/csitoolsupdate.sh" '' "${tool_categories[@]}"
+    fi
+    log 'Requested maintenance completed. Review remaining upgrades and reboot status above.'
+}
 
-# If "all" is selected, populate arg_list with all base_names except "all"
-if [ "$all_selected" = true ]; then
-    echo "All options have been selected, excluding 'all'."
-    arg_list=("${base_names[@]}")  # Populate arg_list with all base_names
-else
-    echo "Specific selections have been made."
-fi
-
-echo "You have selected the following options:"
-for option in "${arg_list[@]}"; do
-    echo "- $option"
-done
-
-cd /tmp
-SCRIPT_URL="https://raw.githubusercontent.com/CSILinux/CSILinux-Powerup/main/csitoolsupdate.sh"
-rm -f ./csitoolsupdate.sh
-curl -o csitoolsupdate.sh "$SCRIPT_URL" && chmod +x csitoolsupdate.sh
-echo "Running update now..." | tee "$output_file"
-./csitoolsupdate.sh $key "${arg_list[@]}" | tee -a "$output_file"
+if [[ ${BASH_SOURCE[0]} == "$0" ]]; then main "$@"; fi
