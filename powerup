@@ -11,12 +11,17 @@
 # modification, distribution, or use of this script, without express approval from
 # CSI Linux, is strictly prohibited. This script is proprietary and confidential.
 # -----------------------------------------------------------------------------------
-# Revision: 2026-11-08-5. Dependency-first execution and state-aware maintenance UI.
+# Revision: 2026-11-08-6. Validated startup self-update with atomic replacement and restart.
 # Uses Ubuntu's release upgrader; see README-powerup.md for reboot/resume steps.
 
 set -Eeuo pipefail
 
-readonly POWERUP_REV=2026-11-08-5
+readonly POWERUP_REV=2026-11-08-6
+# Consumed by the static metadata validator in PY_SELF_UPDATE.
+# shellcheck disable=SC2034
+readonly POWERUP_SELF_UPDATE_PROTOCOL=1
+readonly POWERUP_SELF_UPDATE_URL=https://raw.githubusercontent.com/CSILinux/CSILinux-Powerup/refs/heads/main/powerup
+SELF_CHECKED_SHA=''
 readonly TOR_FINGERPRINT=A3C4F0F979CAA22CDBA8F512EE8CBC9E886DDD89
 readonly UPDATER_URL=https://raw.githubusercontent.com/CSILinux/CSILinux-Powerup/main/csitoolsupdate.sh
 readonly -a CATEGORIES=(csi-linux-base csi-linux-themes os-update encryption osint
@@ -37,7 +42,8 @@ On Ubuntu 24.04 (Noble), upgrade to Ubuntu 26.04 LTS using do-release-upgrade.
 After any required reboot, rerun the same command to finish Resolute/Tor setup.
 On Resolute, maintain repositories, Tor, and installed packages.
 Categories additionally invoke the CSI tool updater after OS maintenance.
-Default: open the YAD desktop interface. No changes occur before review and Start.
+Normal startup checks GitHub and installs a newer Powerup before opening the UI.
+Package changes wait for review and Start. --check, demos, help/version stay read-only.
 Use --cli for explicit terminal execution. Help and version are standalone.
 Update runs automatically repair pending package state and retry failures once.
 Dependency checks must pass before normal installations, upgrades or tool restores.
@@ -789,6 +795,9 @@ with tarfile.open(archive) as tar:
         while name.startswith('./'): name = name[2:]
         name = name.lstrip('/')
         if not within(name): continue
+        top = name[len(prefix) + 1:].split('/')[0]
+        # Powerup is maintained from GitHub, never downgraded by a tool archive.
+        if top in ('powerup', 'powerup.update.lock') or top.startswith('powerup.backup-'): continue
         if '..' in name.split('/') or '\\' in name:
             raise ValueError('Unsafe archive member: ' + original.name)
         member = copy.copy(original)
@@ -899,7 +908,7 @@ backend_main() {
     fi
     if (( EUID != 0 )); then
         self=$(readlink -f -- "${BASH_SOURCE[0]}")
-        elevate "$self" --cli "${FORWARD[@]}" "${REQUESTED[@]}"
+        elevate "$self" "--internal-self-update-checked=$SELF_CHECKED_SHA" --cli "${FORWARD[@]}" "${REQUESTED[@]}"
     fi
     export PATH=/usr/sbin:/usr/bin:/sbin:/bin LC_ALL=C
     umask 077
@@ -1036,6 +1045,7 @@ gui_dashboard() {
     if [[ $BASE_CODENAME == noble ]]; then
         note='NOBLE 24.04  →  RESOLUTE 26.04 LTS  •  Release upgrade required'
         for name in release preview; do
+            if (( ${GUI_READ_ONLY:-0} )) && [[ $name != preview ]]; then continue; fi
             enabled=FALSE; [[ $GUI_MODE == "$name" ]] && enabled=TRUE
             if [[ $name == release ]]; then
                 rows+=("$enabled" release 'Upgrade to Ubuntu 26.04 LTS' "Prepare Noble, open Ubuntu's graphical upgrader, then reboot and resume.")
@@ -1050,6 +1060,7 @@ gui_dashboard() {
             note+=$'\nRepository configuration will be checked and completed during maintenance.'
         fi
         for name in standard full preview; do
+            if (( ${GUI_READ_ONLY:-0} )) && [[ $name != preview ]]; then continue; fi
             if [[ $name == full ]] && (( ${GUI_REPOS_READY:-0} )); then continue; fi
             enabled=FALSE; [[ $GUI_MODE == "$name" ]] && enabled=TRUE
             case $name in
@@ -1299,7 +1310,7 @@ printf 'POWERUP_RESULT=demo-complete\n'
 DEMO
         command=(/bin/bash "$GUI_DIR/demo.sh")
     elif (( EUID == 0 )); then
-        command=(/bin/bash "$self" --cli "${GUI_ARGS[@]}")
+        command=(/bin/bash "$self" "--internal-self-update-checked=$SELF_CHECKED_SHA" --cli "${GUI_ARGS[@]}")
     else
         # Some X11 sessions omit XAUTHORITY and rely on the user's home file.
         if [[ -z ${XAUTHORITY:-} && -f $HOME/.Xauthority ]]; then export XAUTHORITY=$HOME/.Xauthority; fi
@@ -1310,7 +1321,7 @@ DEMO
                 'Enter your administrator password to start the reviewed plan.' 'Cancel:1' 'Authenticate:0'
         } > "$GUI_DIR/askpass.sh"
         chmod 700 "$GUI_DIR/askpass.sh"
-        command=(sudo -A '--preserve-env=DISPLAY,XAUTHORITY' -- /bin/bash "$self" --cli "${GUI_ARGS[@]}")
+        command=(sudo -A '--preserve-env=DISPLAY,XAUTHORITY' -- /bin/bash "$self" "--internal-self-update-checked=$SELF_CHECKED_SHA" --cli "${GUI_ARGS[@]}")
     fi
     SUDO_ASKPASS="$GUI_DIR/askpass.sh" setsid --wait /bin/bash "$GUI_DIR/runner.sh" "$GUI_STATUS" "$GUI_LOG" "${command[@]}" &
     GUI_JOB=$!
@@ -1387,6 +1398,7 @@ gui_main() {
         gui_message 'Maintenance is available' 'Ubuntu 26.04 and the repositories are already configured. Reopen Powerup without --full-upgrade to update installed packages and CSI tools.'
         return 1
     fi
+    GUI_READ_ONLY=$CHECK_ONLY
     GUI_MODE=standard; (( ! FULL_UPGRADE )) || GUI_MODE=full
     [[ $BASE_CODENAME != noble ]] || GUI_MODE=release
     (( ! CHECK_ONLY )) || GUI_MODE=preview
@@ -1425,8 +1437,274 @@ gui_main() {
     done
 }
 
+# ------------------------- Startup self-update -------------------------
+# Metadata is read as text, never sourced. HTTPS authenticates the publisher;
+# hashes bind the privileged install to the exact download that was inspected.
+self_update_program() {
+    /usr/bin/python3 - "$@" <<'PY_SELF_UPDATE'
+import datetime, fcntl, hashlib, os, re, signal, stat, subprocess, sys, tempfile
+import urllib.request
+from pathlib import Path
+
+URL = 'https://raw.githubusercontent.com/CSILinux/CSILinux-Powerup/refs/heads/main/powerup'
+LIMIT = 2 * 1024 * 1024
+END = 'if [[ ${BASH_SOURCE[0]} == "$0" ]]; then main "$@"; fi'
+
+def digest(data):
+    return hashlib.sha256(data).hexdigest()
+
+def revision(data):
+    if not data or len(data) > LIMIT or b'\0' in data:
+        raise ValueError('Powerup download is empty, oversized or contains NUL bytes')
+    text = data.decode('utf-8')
+    if not text.startswith('#!/bin/bash\n'):
+        raise ValueError('Expected a Bash script, not an HTML/error response')
+    assignments = re.findall(r'^(?:readonly )?POWERUP_REV=.*$', text, re.M)
+    if len(assignments) != 1:
+        raise ValueError('Expected exactly one literal POWERUP_REV assignment')
+    match = re.fullmatch(r'(?:readonly )?POWERUP_REV=(\d{4}-\d{2}-\d{2})-([1-9]\d{0,8})', assignments[0])
+    if not match:
+        raise ValueError('POWERUP_REV must use YYYY-MM-DD-N with a positive sequence')
+    date = datetime.date.fromisoformat(match[1])
+    return (date, int(match[2])), match[1] + '-' + match[2], text
+
+def validate(data, require_protocol=False):
+    key, label, text = revision(data)
+    env = {k: v for k, v in os.environ.items() if k not in ('BASH_ENV', 'ENV', 'SHELLOPTS', 'BASHOPTS')}
+    result = subprocess.run(['/bin/bash', '-n'], input=data, capture_output=True, env=env, timeout=15)
+    if result.returncode:
+        raise ValueError('Downloaded Powerup failed Bash syntax validation: ' + result.stderr.decode(errors='replace')[:500])
+    if require_protocol and ('\nreadonly POWERUP_SELF_UPDATE_PROTOCOL=1\n' not in text or text.rstrip().splitlines()[-1] != END):
+        raise ValueError('Newer Powerup lacks the supported restart protocol or complete entry point')
+    return key, label
+
+def read_regular(path):
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    with os.fdopen(fd, 'rb') as handle:
+        info = os.fstat(handle.fileno())
+        if not stat.S_ISREG(info.st_mode):
+            raise ValueError('Powerup must be a regular file')
+        data = handle.read(LIMIT + 1)
+    return data, info
+
+def download(path):
+    # No redirected host, cleartext transport, unverified TLS or stale fallback.
+    class NoRedirect(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, req, fp, code, msg, headers, newurl):
+            raise ValueError('Unexpected redirect from the fixed Powerup URL')
+    def expired(_signum, _frame):
+        raise TimeoutError('Powerup download exceeded 45 seconds')
+    signal.signal(signal.SIGALRM, expired)
+    signal.alarm(45)
+    try:
+        req = urllib.request.Request(URL, headers={'User-Agent': 'CSI-Linux-Powerup', 'Cache-Control': 'no-cache', 'Accept': 'text/plain'})
+        with urllib.request.build_opener(NoRedirect).open(req, timeout=20) as response:
+            if response.status != 200:
+                raise ValueError('Powerup download returned HTTP ' + str(response.status))
+            data = response.read(LIMIT + 1)
+        key, label = validate(data)
+        # Caller creates a private directory. Exclusive creation refuses links.
+        with open(path, 'xb') as handle:
+            os.chmod(path, 0o600)
+            handle.write(data)
+        return key, label, data
+    finally:
+        signal.alarm(0)
+
+def install(target, candidate, old_sha, new_sha):
+    old, info = read_regular(target)
+    new, _ = read_regular(candidate)
+    if digest(old) != old_sha or digest(new) != new_sha:
+        raise ValueError('Powerup changed during the check; reopen it to check again')
+    old_key, _ = validate(old)
+    new_key, _ = validate(new, require_protocol=True)
+    if new_key <= old_key:
+        raise ValueError('Refusing to install a revision that is not newer')
+    parent = Path(target).parent
+    # Keep a stable lock inode; unlinking locks can let competing writers enter.
+    lock = os.open(str(target) + '.update.lock', os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+    temp = None
+    try:
+        if not stat.S_ISREG(os.fstat(lock).st_mode):
+            raise ValueError('Self-update lock is not a regular file')
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        current, now = read_regular(target)
+        if digest(current) != old_sha or (now.st_dev, now.st_ino) != (info.st_dev, info.st_ino):
+            raise ValueError('Installed Powerup changed while waiting to replace it')
+        stamp = datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%d-%H%M%S')
+        fd, backup = tempfile.mkstemp(prefix=Path(target).name + '.backup-' + stamp + '-', dir=parent)
+        with os.fdopen(fd, 'wb') as handle:
+            handle.write(old)
+            handle.flush()
+            os.fsync(handle.fileno())
+        fd, temp = tempfile.mkstemp(prefix='.powerup-new-', dir=parent)
+        with os.fdopen(fd, 'wb') as handle:
+            handle.write(new)
+            handle.flush()
+            os.fchown(handle.fileno(), info.st_uid, info.st_gid)
+            os.fchmod(handle.fileno(), (stat.S_IMODE(info.st_mode) & 0o777) | 0o100)
+            os.fsync(handle.fileno())
+        current, now = read_regular(target)
+        if digest(current) != old_sha or (now.st_dev, now.st_ino) != (info.st_dev, info.st_ino):
+            raise ValueError('Installed Powerup changed before replacement')
+        os.replace(temp, target)
+        temp = None
+        directory = os.open(parent, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+        print('Previous Powerup saved to: ' + backup)
+    finally:
+        if temp is not None:
+            os.unlink(temp)
+        os.close(lock)
+
+try:
+    action, *args = sys.argv[1:]
+    if action == 'inspect':
+        data, _ = read_regular(args[0])
+        _, label = validate(data)
+        print(label, digest(data))
+    elif action == 'download':
+        _, label, data = download(args[0])
+        print(label, digest(data))
+    elif action == 'newer':
+        new, _ = read_regular(args[0])
+        old, _ = read_regular(args[1])
+        new_key, _ = validate(new)
+        old_key, _ = validate(old)
+        if new_key > old_key:
+            validate(new, require_protocol=True)
+            print('yes')
+        else:
+            print('no')
+    elif action == 'install':
+        install(*args)
+    else:
+        raise ValueError('Unknown self-update operation')
+except Exception as error:
+    print('ERROR: Self-update: ' + str(error), file=sys.stderr)
+    sys.exit(1)
+PY_SELF_UPDATE
+}
+
+self_update_root_install() (
+    (( EUID == 0 )) || die 'Internal Powerup installation requires administrator access.'
+    [[ $# == 2 && $1 =~ ^[0-9a-f]{64}$ && $2 =~ ^[0-9a-f]{64}$ ]] || die 'Invalid internal update parameters.'
+    export PATH=/usr/sbin:/usr/bin:/sbin:/bin
+    umask 077
+    local self staging meta fetched_sha
+    self=$(readlink -f -- "${BASH_SOURCE[0]}") || exit 1
+    install -d -m 700 /run/csi-powerup || exit 1
+    exec 9>/run/csi-powerup/lock
+    flock -n 9 || die 'Powerup maintenance is already running; retry after it finishes.'
+    staging=$(mktemp -d /var/tmp/powerup-self-update.XXXXXXXX) || exit 1
+    trap 'rm -rf -- "$staging"' EXIT
+    # Never run or install a candidate supplied from a user's staging directory.
+    meta=$(self_update_program download "$staging/powerup") || exit 1
+    fetched_sha=${meta##* }
+    [[ $fetched_sha == "$2" ]] || die 'GitHub changed during authentication. Reopen Powerup to check the new revision.'
+    self_update_program install "$self" "$staging/powerup" "$1" "$2"
+)
+
+self_update_prepare() (
+    local self=$1 cli=$2 staging meta old_revision old_sha new_revision new_sha newer status
+    local progress_pid='' progress_fd='' GUI_DIR=''
+    umask 077
+    staging=$(mktemp -d "${TMPDIR:-/tmp}/powerup-startup.XXXXXXXX") || return 1
+    trap 'if [[ -n $progress_fd ]]; then printf "100\n" >&"$progress_fd" || true; exec {progress_fd}>&-; fi; if [[ -n $progress_pid ]]; then wait "$progress_pid" || true; fi; rm -rf -- "$staging"' EXIT
+    if (( ! cli )) && command -v yad >/dev/null && [[ -n ${DISPLAY:-}${WAYLAND_DISPLAY:-} ]]; then
+        GUI_DIR=$staging
+        gui_assets || return 1
+        mkfifo "$staging/progress" || return 1
+        exec {progress_fd}<>"$staging/progress"
+        gui_dialog --height=300 --text="$(gui_header 'Checking for Powerup updates' 'STARTUP / GITHUB' 'Checking the latest published revision before opening the control center.')" \
+            --progress --pulsate --progress-text='Checking GitHub — validating the published revision' \
+            --auto-close --no-buttons --no-escape < "$staging/progress" >/dev/null 2>&1 &
+        progress_pid=$!
+        printf '0\n' >&"$progress_fd"
+    fi
+    printf 'Checking Powerup: %s\n' "$POWERUP_SELF_UPDATE_URL"
+    if meta=$(self_update_program inspect "$self" 2>"$staging/error") &&
+        read -r old_revision old_sha <<< "$meta" &&
+        meta=$(self_update_program download "$staging/powerup" 2>"$staging/error") &&
+        read -r new_revision new_sha <<< "$meta" &&
+        newer=$(self_update_program newer "$staging/powerup" "$self" 2>"$staging/error"); then
+        if [[ $newer == no ]]; then
+            [[ $(sha256sum -- "$self" | cut -d ' ' -f1) == "$old_sha" ]] || { printf 'Powerup changed during startup. Reopen it.\n' > "$staging/error"; newer=error; }
+        fi
+        if [[ $newer == no ]]; then
+            printf 'Installed Powerup %s is current (GitHub: %s).\n' "$old_revision" "$new_revision"
+            return 0
+        elif [[ $newer == yes ]]; then
+            printf 'New Powerup %s found; installed revision is %s.\n' "$new_revision" "$old_revision"
+            if [[ -n $progress_fd ]]; then
+                printf '100\n' >&"$progress_fd"; exec {progress_fd}>&-; progress_fd=''
+                wait "$progress_pid" || true; progress_pid=''
+            fi
+            status=0
+            if (( EUID == 0 )); then
+                self_update_root_install "$old_sha" "$new_sha" >"$staging/install.log" 2>&1 || status=$?
+            elif [[ $self != /opt/csitools/powerup && -w $self && -w ${self%/*} ]]; then
+                self_update_program install "$self" "$staging/powerup" "$old_sha" "$new_sha" >"$staging/install.log" 2>&1 || status=$?
+            elif [[ -n $GUI_DIR ]]; then
+                {
+                    printf '#!/bin/bash\n'
+                    printf 'exec env GTK_THEME=Adwaita:dark XDG_CONFIG_HOME=%q %q --entry --hide-text --center --on-top --width=480 --title=%q --text=%q --button=%q --button=%q\n' \
+                        "$GUI_DIR/config" "$(command -v yad)" 'CSI Linux — Update Powerup' \
+                        "Powerup $new_revision is available. Enter your administrator password to replace the installed script and restart." 'Cancel:1' 'Update Powerup:0'
+                } > "$staging/askpass"
+                chmod 700 "$staging/askpass"
+                # Intentionally capture output in the invoking user's private log.
+                # shellcheck disable=SC2024
+                SUDO_ASKPASS="$staging/askpass" sudo -A -- /bin/bash "$self" --internal-self-update-install "$old_sha" "$new_sha" >"$staging/install.log" 2>&1 || status=$?
+            else
+                # shellcheck disable=SC2024
+                sudo -- /bin/bash "$self" --internal-self-update-install "$old_sha" "$new_sha" >"$staging/install.log" 2>&1 || status=$?
+            fi
+            cat "$staging/install.log"
+            if (( status == 0 )); then
+                [[ $(sha256sum -- "$self" | cut -d ' ' -f1) == "$new_sha" ]] || { printf 'Installed file no longer matches the verified download. Reopen Powerup.\n' > "$staging/error"; status=1; }
+                if (( status == 0 )); then return 20; fi
+            else cp -- "$staging/install.log" "$staging/error"; fi
+        fi
+    fi
+    if [[ -n $progress_fd ]]; then
+        printf '100\n' >&"$progress_fd"; exec {progress_fd}>&-; progress_fd=''
+        wait "$progress_pid" || true; progress_pid=''
+    fi
+    cat "$staging/error" >&2
+    if [[ -n $GUI_DIR ]]; then
+        gui_message 'Powerup update check stopped' "$(cat "$staging/error")
+
+No package maintenance was started. Check connectivity or the published script, then reopen Powerup."
+    fi
+    return 1
+)
+
+startup_self_update() {
+    local self=$1 cli=$2 status=0; shift 2
+    self_update_prepare "$self" "$cli" || status=$?
+    case $status in
+        0) SELF_CHECKED_SHA=$(sha256sum -- "$self" | cut -d ' ' -f1) ;;
+        20)
+            SELF_CHECKED_SHA=$(sha256sum -- "$self" | cut -d ' ' -f1)
+            printf 'Restarting the updated Powerup with the original options.\n'
+            exec /bin/bash "$self" "--internal-self-update-checked=$SELF_CHECKED_SHA" "$@" ;;
+        *) return "$status" ;;
+    esac
+}
+
 main() {
-    local cli=0 gui=0 arg
+    local cli=0 gui=0 arg read_only=0 self checked=''
+    self=$(readlink -f -- "${BASH_SOURCE[0]}") || return 1
+    if [[ ${1:-} == --internal-self-update-install ]]; then shift; self_update_root_install "$@"; return; fi
+    if [[ ${1:-} == --internal-self-update-checked=* ]]; then
+        checked=${1#*=}; shift
+        [[ $checked =~ ^[0-9a-f]{64}$ && $(sha256sum -- "$self" | cut -d ' ' -f1) == "$checked" ]] || die 'Powerup changed since startup. Reopen it before continuing.'
+        SELF_CHECKED_SHA=$checked
+    fi
     local -a args=()
     GUI_DEMO=0 GUI_DEMO_BASE=resolute
     if (( $# == 1 )); then
@@ -1436,12 +1714,16 @@ main() {
         case $arg in
             --cli) cli=1 ;;
             --gui) gui=1 ;;
+            --check) read_only=1; args+=("$arg") ;;
             --demo|--demo=resolute) GUI_DEMO=1 ;;
             --demo=noble) GUI_DEMO=1; GUI_DEMO_BASE=noble ;;
             *) args+=("$arg") ;;
         esac
     done
     (( ! (cli && (gui || GUI_DEMO)) )) || die '--cli cannot be combined with --gui or --demo.'
+    if (( ! GUI_DEMO && ! read_only )) && [[ -z $checked ]]; then
+        startup_self_update "$self" "$cli" "$@" || return $?
+    fi
     if (( cli )); then backend_main "${args[@]}"; else gui_main "${args[@]}"; fi
 }
 
