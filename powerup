@@ -11,12 +11,12 @@
 # modification, distribution, or use of this script, without express approval from
 # CSI Linux, is strictly prohibited. This script is proprietary and confidential.
 # -----------------------------------------------------------------------------------
-# Revision: 2026-11-08-4. YAD interface, validated plans and bounded package recovery.
+# Revision: 2026-11-08-5. Dependency-first execution and state-aware maintenance UI.
 # Uses Ubuntu's release upgrader; see README-powerup.md for reboot/resume steps.
 
 set -Eeuo pipefail
 
-readonly POWERUP_REV=2026-11-08-4
+readonly POWERUP_REV=2026-11-08-5
 readonly TOR_FINGERPRINT=A3C4F0F979CAA22CDBA8F512EE8CBC9E886DDD89
 readonly UPDATER_URL=https://raw.githubusercontent.com/CSILinux/CSILinux-Powerup/main/csitoolsupdate.sh
 readonly -a CATEGORIES=(csi-linux-base csi-linux-themes os-update encryption osint
@@ -40,6 +40,7 @@ Categories additionally invoke the CSI tool updater after OS maintenance.
 Default: open the YAD desktop interface. No changes occur before review and Start.
 Use --cli for explicit terminal execution. Help and version are standalone.
 Update runs automatically repair pending package state and retry failures once.
+Dependency checks must pass before normal installations, upgrades or tool restores.
 Standard-mode recovery does not remove packages; Full/Release modes permit it.
 
   --check                   Show platform and planned work; make no changes
@@ -58,7 +59,7 @@ Standard-mode recovery does not remove packages; Full/Release modes permit it.
 Examples:
   bash powerup.sh --check
   bash powerup.sh os-update
-  bash powerup.sh --full-upgrade os-update
+  bash powerup.sh --cli --full-upgrade os-update
   bash powerup.sh --updater /path/to/csitoolsupdate.sh all
 
 GUI release upgrades use Ubuntu's graphical upgrader. --cli uses its text UI.
@@ -207,7 +208,7 @@ if mode == 'rollback':
                 path.unlink(missing_ok=True)
         print('Restored APT source files from', backup)
     sys.exit(0)
-if mode not in ('configure', 'prepare-release'): raise SystemExit('Unknown repository operation')
+if mode not in ('configure', 'prepare-release', 'verify'): raise SystemExit('Unknown repository operation')
 
 def kind(uri, signed=''):
     host = (urlsplit(uri).hostname or '').lower()
@@ -314,6 +315,9 @@ Architectures: {arch}
 Signed-By: /etc/apt/keyrings/csi-torproject.gpg
 ''' if tor_enabled == '1' else '# Tor repository temporarily disabled during dependency bootstrap.\n'
 changes = {p: data for p, data in changes.items() if not p.exists() or p.read_text() != data}
+if mode == 'verify':
+    print('Repository configuration matches.' if not changes else 'Repository configuration needs maintenance.')
+    sys.exit(1 if changes else 0)
 backup.mkdir(parents=True, exist_ok=True, mode=0o700)
 entries = json.loads(manifest.read_text()) if manifest.exists() else {}
 # Save the complete rollback manifest before the first mutation.
@@ -343,11 +347,18 @@ apt_execute() {
     for token in "$@"; do
         case $token in install|upgrade|dist-upgrade|full-upgrade|remove) mutable=1;; esac
     done
+    if (( mutable )) && [[ ${REPAIR_ACTIVE:-0} != 1 ]]; then
+        check_and_repair_packages || return 100
+    fi
     if DEBIAN_FRONTEND=noninteractive "$@"; then return 0; else result=$?; fi
     # Do not retry signature/source errors, diagnostics, or recursively repair.
     if (( ! mutable )) || [[ -z ${WORK:-} || ${REPAIR_ACTIVE:-0} == 1 ]]; then return "$result"; fi
     log "Package operation failed ($result); attempting one automatic repair"
     repair_packages || return "$result"
+    package_state_clean || {
+        log 'ERROR: Dependency checks still fail after repair; the package operation will not be retried.'
+        return "$result"
+    }
     log 'Retrying the original package operation once'
     DEBIAN_FRONTEND=noninteractive "$@"
 }
@@ -471,15 +482,30 @@ repair_packages() {
     return 1
 }
 
+package_state_clean() {
+    local audit bad=0
+    audit=$(dpkg --audit) || { audit="Package audit failed: $audit"; bad=1; }
+    if [[ -n $audit ]]; then printf '%s\n' "$audit"; bad=1; fi
+    # Invoke the diagnostic directly; routing through apt_execute would risk
+    # recursive checks. Check both configuration AND dependency consistency.
+    DEBIAN_FRONTEND=noninteractive apt-get "${APT_OPTIONS[@]}" check || bad=1
+    return "$bad"
+}
+
 check_and_repair_packages() {
-    local audit
-    audit=$(dpkg --audit) || audit='Package audit failed'
-    if [[ -n $audit ]]; then
-        printf '%s\n' "$audit"
-        repair_packages || die 'Package repair was unsuccessful; upgrade stopped before further changes.'
-    elif ! apt_run check; then
-        repair_packages || die 'Dependency repair was unsuccessful; upgrade stopped.'
+    log 'Checking package configuration and dependencies before proceeding'
+    if package_state_clean; then return 0; fi
+    log 'Repair phase only: ordinary installations and upgrades are blocked'
+    if ! repair_packages; then
+        log 'ERROR: Dependency repair failed. No further installations or upgrades will start.'
+        return 1
     fi
+    # Independently verify the result rather than trusting the repair exit code.
+    if ! package_state_clean; then
+        log 'ERROR: Package state is still inconsistent after repair. Installation remains blocked.'
+        return 1
+    fi
+    log 'Package configuration and dependency checks passed; normal work may proceed'
 }
 apt_refresh() {
     log 'Running apt update (signature checks enabled; repository errors are fatal)'
@@ -616,6 +642,7 @@ require_release_terminal() {
 }
 
 run_release_upgrader() {
+    check_and_repair_packages || return 1
     if [[ ${RELEASE_UI:-text} == gtk ]]; then
         env -u DEBIAN_FRONTEND GDK_BACKEND=x11 do-release-upgrade -f DistUpgradeViewGtk3
         return
@@ -725,6 +752,7 @@ install_csi_tools() {
         log 'CSI tools are present; skipping the large bootstrap archive.'
         return
     fi
+    check_and_repair_packages || return 1
     local sevenzip url success=0
     if command -v 7zz >/dev/null; then sevenzip=7zz
     elif command -v 7z >/dev/null; then sevenzip=7z
@@ -786,6 +814,17 @@ PY_ARCHIVE
     cp -a --remove-destination -- "$WORK/payload/opt/csitools/." /opt/csitools/
     if id csi >/dev/null 2>&1; then chown -R csi:"$(id -gn csi)" /opt/csitools; fi
     log 'CSI tools restored. Existing executable modes preserved.'
+}
+
+run_category_updater() {
+    check_and_repair_packages || return 1
+    log "Running CSI category updater: $*"
+    local child_status=0
+    # Keep the original positional API: empty password at $1; categories at $2.
+    POWERUP_APT_UPDATED=1 POWERUP_OS_UPDATED=1 \
+        bash "$WORK/csitoolsupdate.sh" '' "$@" || child_status=$?
+    check_and_repair_packages || return 1
+    (( child_status == 0 )) || die "CSI category updater failed ($child_status). Package health was checked; the unknown child workflow was not automatically repeated."
 }
 
 cleanup() {
@@ -898,15 +937,7 @@ backend_main() {
     if (( ${#tool_categories[@]} )); then prepare_updater; fi
     if (( ${#tool_categories[@]} || REFRESH_TOOLS )); then install_csi_tools; fi
     if (( ${#tool_categories[@]} )); then
-        log "Running CSI category updater: ${tool_categories[*]}"
-        # Retain the original positional API: $1 was the sudo password. It is
-        # now EMPTY because the child already runs as root. Categories start $2.
-        # Production updaters must accept root execution without a real password.
-        local child_status=0
-        POWERUP_APT_UPDATED=1 POWERUP_OS_UPDATED=1 \
-            bash "$WORK/csitoolsupdate.sh" '' "${tool_categories[@]}" || child_status=$?
-        check_and_repair_packages
-        (( child_status == 0 )) || die "CSI category updater failed ($child_status). Package health was checked; the unknown child workflow was not automatically repeated."
+        run_category_updater "${tool_categories[@]}"
     fi
     log 'Requested maintenance completed. Review remaining upgrades and reboot status above.'
     if (( SERVICE_WARNINGS )); then
@@ -988,6 +1019,17 @@ gui_help() {
         --text-info --filename="$GUI_DIR/help.txt" --fontname='Monospace 11' --wrap --button='Back:0' >/dev/null || true
 }
 
+gui_repository_state() {
+    local apt_root=${1:-/etc/apt} keyring=${2:-/etc/apt/keyrings/csi-torproject.gpg}
+    GUI_REPOS_READY=0
+    [[ $BASE_CODENAME == resolute && -s $keyring ]] || return 0
+    # Verification exits before backup creation or source writes. No network or
+    # package work occurs while deciding which actions the GUI should offer.
+    if repository_config verify "$apt_root" "$GUI_DIR/unused-backup" 1 "$ARCH" > "$GUI_DIR/repository-check.txt" 2>&1; then
+        GUI_REPOS_READY=1
+    fi
+}
+
 gui_dashboard() {
     local selected name enabled note
     local -a rows=()
@@ -1002,12 +1044,18 @@ gui_dashboard() {
         note+=$'\nTool categories and archive refresh become available after the release upgrade.'
     else
         note='RESOLUTE 26.04 LTS  •  Ubuntu + Tor repositories  •  '"$ARCH"
+        if (( ${GUI_REPOS_READY:-0} )); then
+            note+=$'\nUbuntu 26.04 and repositories are configured. Package maintenance is available.'
+        else
+            note+=$'\nRepository configuration will be checked and completed during maintenance.'
+        fi
         for name in standard full preview; do
+            if [[ $name == full ]] && (( ${GUI_REPOS_READY:-0} )); then continue; fi
             enabled=FALSE; [[ $GUI_MODE == "$name" ]] && enabled=TRUE
             case $name in
-                standard) rows+=("$enabled" "$name" 'Standard system update' 'Refresh repositories and upgrade packages without removing installed packages.') ;;
+                standard) rows+=("$enabled" "$name" 'Update installed packages' 'Repair dependencies first, refresh package lists, and apply available updates.') ;;
                 full) rows+=("$enabled" "$name" 'Full package upgrade' 'Resolve dependency changes; package removals may be required.') ;;
-                preview) rows+=("$enabled" "$name" 'Preview system and update plan' 'Read-only overview. No downloads, installation, or administrator access.') ;;
+                preview) rows+=("$enabled" "$name" 'Preview maintenance plan' 'Read-only overview. No downloads, installation, or administrator access.') ;;
             esac
         done
     fi
@@ -1147,6 +1195,9 @@ gui_build_plan() {
 gui_write_plan() {
     {
         printf 'YOUR MAINTENANCE PLAN\n\nCurrent system: Ubuntu base %s (%s)\nTarget: Ubuntu 26.04 LTS / Resolute\n\n' "$BASE_CODENAME" "$ARCH"
+        if [[ $BASE_CODENAME == resolute ]] && (( ${GUI_REPOS_READY:-0} )); then
+            printf 'Ubuntu 26.04 and the managed repositories are already configured.\nNo OS release upgrade is offered or required.\n\n'
+        fi
         if (( GUI_DEMO )); then printf 'DEMONSTRATION — No system packages or repositories will change.\nDemo activity logs are saved.\n\n'; fi
         case $GUI_MODE in
             preview) printf 'READ-ONLY PREVIEW\nNo authentication. No downloads. No package or repository changes.\n\n' ;;
@@ -1174,7 +1225,7 @@ gui_write_plan() {
         esac
         printf '\nFINAL REPOSITORIES\nUbuntu: resolute, updates, security, backports\nComponents: main, restricted, universe, multiverse\nTor Project: stable Resolute repository with fingerprint-checked signing key\n'
         if (( CHECK_ONLY )); then printf '\nRECOVERY AVAILABLE DURING AN UPDATE (not run in Preview)\n'; else printf '\nAUTOMATIC RECOVERY\n'; fi
-        printf 'Finish pending package configuration and repair broken dependencies.\nRetry a failed package operation once; retain modified configuration files.\nA failed clamav-milter restart can be deferred during repair, then retried.\nUnresolved service problems remain visible in the final result.\n'
+        printf 'Repair broken dependencies before any normal package installation.\nBoth dpkg audit and APT dependency checks must pass before continuing.\nOnly repair-related package changes are allowed until the checks pass.\nRetry a failed package operation once; retain modified configuration files.\nA failed clamav-milter restart can be deferred during repair, then retried.\nUnresolved service problems remain visible in the final result.\n'
         if [[ $GUI_MODE == standard ]]; then printf 'Automatic repair cannot remove packages in Standard mode.\n';
         elif [[ $GUI_MODE != preview ]]; then printf 'Dependency repair may remove packages in this selected upgrade mode.\n'; fi
         if [[ -n ${GUI_HEALTH_REPORT:-} ]]; then printf '\nPACKAGE HEALTH — AUTOMATIC REPAIR PENDING\n%s\n' "$GUI_HEALTH_REPORT"; fi
@@ -1319,15 +1370,23 @@ gui_main() {
     trap gui_cleanup EXIT
     gui_assets
     GUI_HEALTH_REPORT=''
-    if (( GUI_DEMO )); then BASE_CODENAME=$GUI_DEMO_BASE; ARCH=amd64
+    GUI_REPOS_READY=0
+    if (( GUI_DEMO )); then
+        BASE_CODENAME=$GUI_DEMO_BASE; ARCH=amd64
+        [[ $BASE_CODENAME != resolute ]] || GUI_REPOS_READY=1
     else
         # Platform errors are shown in a dialog; no privileged operation occurs.
         if ! note=$( (validate_platform) 2>&1); then gui_message 'System not supported' "$note"; return 1; fi
         validate_platform
         GUI_HEALTH_REPORT=$(dpkg --audit 2>&1) || GUI_HEALTH_REPORT="Could not inspect package state: $GUI_HEALTH_REPORT"
+        gui_repository_state
     fi
     if ! parse_options "$@"; then gui_message 'Check your options' "$PLAN_ERROR"; return 1; fi
     if ! validate_options; then gui_message 'Choose compatible options' "$PLAN_ERROR"; return 1; fi
+    if (( GUI_REPOS_READY && FULL_UPGRADE )); then
+        gui_message 'Maintenance is available' 'Ubuntu 26.04 and the repositories are already configured. Reopen Powerup without --full-upgrade to update installed packages and CSI tools.'
+        return 1
+    fi
     GUI_MODE=standard; (( ! FULL_UPGRADE )) || GUI_MODE=full
     [[ $BASE_CODENAME != noble ]] || GUI_MODE=release
     (( ! CHECK_ONLY )) || GUI_MODE=preview
