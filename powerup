@@ -11,12 +11,12 @@
 # modification, distribution, or use of this script, without express approval from
 # CSI Linux, is strictly prohibited. This script is proprietary and confidential.
 # -----------------------------------------------------------------------------------
-# Revision: 2026-11-08-2. Requires an ALREADY installed Ubuntu Resolute base.
-# This is package maintenance, not a release upgrader. See README-powerup.md.
+# Revision: 2026-11-08-3. Ubuntu Noble -> Resolute LTS release upgrade support.
+# Uses Ubuntu's release upgrader; see README-powerup.md for reboot/resume steps.
 
 set -Eeuo pipefail
 
-readonly POWERUP_REV=2026-11-08-2
+readonly POWERUP_REV=2026-11-08-3
 readonly TOR_FINGERPRINT=A3C4F0F979CAA22CDBA8F512EE8CBC9E886DDD89
 readonly UPDATER_URL=https://raw.githubusercontent.com/CSILinux/CSILinux-Powerup/main/csitoolsupdate.sh
 readonly -a CATEGORIES=(csi-linux-base csi-linux-themes os-update encryption osint
@@ -32,8 +32,10 @@ usage() {
 CSI Linux Powerup — Ubuntu 26.04 / Resolute
 Usage: bash powerup.sh [OPTIONS] [os-update | CATEGORY ... | all]
 
-Ubuntu repositories, the stable Tor repository, Tor, and OS updates are maintained
-on every normal run. Categories additionally invoke the CSI tool updater.
+On Ubuntu 24.04 (Noble), upgrade to Ubuntu 26.04 LTS using do-release-upgrade.
+After any required reboot, rerun the same command to finish Resolute/Tor setup.
+On Resolute, maintain repositories, Tor, and installed packages.
+Categories additionally invoke the CSI tool updater after OS maintenance.
 No category arguments: use the existing YAD/Zenity chooser or a terminal menu.
 
   --check                   Show platform and planned work; make no changes
@@ -52,22 +54,32 @@ Examples:
   bash powerup.sh --full-upgrade os-update
   bash powerup.sh --updater /path/to/csitoolsupdate.sh all
 
-This script refuses other Ubuntu releases; it does not replace do-release-upgrade.
+Release upgrades require a terminal and retain Ubuntu's interactive prompts.
+Target: Ubuntu 26.04 LTS, as requested. No development or interim release upgrade.
 HELP
 }
 
-validate_platform() {
+read_platform() {
+    local release_file=${1:-/etc/os-release}
     local ID='' ID_LIKE='' VERSION_ID='' VERSION_CODENAME='' UBUNTU_CODENAME=''
-    [[ -r /etc/os-release ]] || die '/etc/os-release is missing.'
-    # shellcheck disable=SC1091
-    . /etc/os-release
-    local codename=${UBUNTU_CODENAME:-${VERSION_CODENAME:-}}
-    [[ $codename == resolute ]] || die "Requires Ubuntu base resolute; detected '${codename:-unknown}'. Use the supported release upgrade process first."
-    [[ $ID == ubuntu || " $ID_LIKE " == *' ubuntu '* || $UBUNTU_CODENAME == resolute ]] ||
-        die 'Cannot verify an Ubuntu Resolute base.'
-    if [[ $ID == ubuntu && $VERSION_ID != 26.04 ]]; then
-        die "Inconsistent Ubuntu version: $VERSION_ID / $codename."
+    [[ -r $release_file ]] || die "$release_file is missing."
+    # shellcheck disable=SC1090
+    . "$release_file"
+    BASE_CODENAME=${UBUNTU_CODENAME:-${VERSION_CODENAME:-}}
+    case $BASE_CODENAME in
+        noble|resolute) ;;
+        *) die "Supported bases: noble (upgrade to 26.04 LTS), resolute (maintain). Detected '${BASE_CODENAME:-unknown}'." ;;
+    esac
+    [[ $ID == ubuntu || " $ID_LIKE " == *' ubuntu '* || -n $UBUNTU_CODENAME ]] ||
+        die 'Cannot verify an Ubuntu base.'
+    if [[ $ID == ubuntu ]]; then
+        [[ $BASE_CODENAME:$VERSION_ID == noble:24.04 || $BASE_CODENAME:$VERSION_ID == resolute:26.04 ]] ||
+            die "Inconsistent Ubuntu version: $VERSION_ID / $BASE_CODENAME."
     fi
+}
+
+validate_platform() {
+    read_platform
     ARCH=$(dpkg --print-architecture)
     case $ARCH in
         amd64|arm64) ;;
@@ -153,6 +165,8 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 mode, root_s, backup_s, tor_enabled, arch = sys.argv[1:]
+release_prep = mode == 'prepare-release'
+series = 'noble' if release_prep else 'resolute'
 root, backup = Path(root_s), Path(backup_s)
 manifest = backup / 'manifest.json'
 ubuntu_target = root / 'sources.list.d/csi-powerup-ubuntu.sources'
@@ -179,7 +193,7 @@ if mode == 'rollback':
                 path.unlink(missing_ok=True)
         print('Restored APT source files from', backup)
     sys.exit(0)
-if mode != 'configure': raise SystemExit('Unknown repository operation')
+if mode not in ('configure', 'prepare-release'): raise SystemExit('Unknown repository operation')
 
 def kind(uri, signed=''):
     host = (urlsplit(uri).hostname or '').lower()
@@ -228,10 +242,11 @@ for path in paths:
             uris = fields.get('uris', '').split()
             if not uris: raise ValueError(f'{path}: active stanza has no URIs')
             kinds = {kind(u, fields.get('signed-by', '')) for u in uris}
-            if 'other' in kinds and len(kinds) > 1:
+            if not release_prep and 'other' in kinds and len(kinds) > 1:
                 raise ValueError(f'{path}: mixed Ubuntu/Tor and unrelated URIs in one stanza')
-            if kinds <= {'ubuntu', 'tor'}:
-                pieces.append('# Source replaced by CSI Powerup managed deb822 sources.')
+            if release_prep or kinds <= {'ubuntu', 'tor'}:
+                reason = 'Disabled for Ubuntu release upgrade; original in Powerup backup.' if release_prep else 'Source replaced by CSI Powerup managed deb822 sources.'
+                pieces.append('# ' + reason)
             else:
                 has_other = True
                 check_other(fields.get('suites', '').split(), path)
@@ -248,7 +263,7 @@ for path in paths:
                     if options[-1].endswith(']'): break
             if len(tokens) <= i + 1: raise ValueError(f'{path}: malformed deb source')
             uri, suite = tokens[i:i+2]
-            if kind(uri, ' '.join(options)) != 'other':
+            if release_prep or kind(uri, ' '.join(options)) != 'other':
                 pieces.append('# Disabled by CSI Powerup: ' + line.lstrip())
             else:
                 has_other = True; check_other([suite], path); pieces.append(line)
@@ -266,13 +281,13 @@ security = f'{scheme}://security.ubuntu.com/ubuntu' if arch == 'amd64' else arch
 changes[ubuntu_target] = f'''# Managed by CSI Linux Powerup. Original sources are backed up.
 Types: deb
 URIs: {archive}
-Suites: resolute resolute-updates resolute-backports
+Suites: {series} {series}-updates {series}-backports
 Components: main restricted universe multiverse
 Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
 
 Types: deb
 URIs: {security}
-Suites: resolute-security
+Suites: {series}-security
 Components: main restricted universe multiverse
 Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
 '''
@@ -301,8 +316,9 @@ for path, data in changes.items():
     atomic(path, data)
     print('Configured', path)
 if not changes: print('APT source files already match the requested configuration.')
-print('Ubuntu suites: resolute resolute-updates resolute-security resolute-backports')
+print(f'Ubuntu suites: {series} {series}-updates {series}-security {series}-backports')
 print('Ubuntu components: main restricted universe multiverse')
+if release_prep: print('Third-party sources disabled for the release upgrade; original files retained in backup.')
 if tor_enabled == '1':
     print(f'Tor repository: https://deb.torproject.org/torproject.org/ resolute main ({arch})')
 PY_REPOSITORIES
@@ -409,6 +425,115 @@ maintain_system() {
     prepare_repositories
     log 'Mandatory phase 2/2: upgrade installed packages'
     update_os
+}
+
+set_lts_prompt() {
+    python3 - "${1:-/etc/update-manager/release-upgrades}" "$BACKUP" <<'PY_LTS'
+import configparser, io, os, shutil, sys, tempfile
+from pathlib import Path
+path, backup = Path(sys.argv[1]), Path(sys.argv[2])
+if path.is_symlink(): raise ValueError('release-upgrades must not be a symlink')
+config = configparser.ConfigParser()
+if path.exists():
+    config.read(path)
+    shutil.copy2(path, backup / 'release-upgrades.before')
+config['DEFAULT']['Prompt'] = 'lts'
+stream = io.StringIO()
+config.write(stream)
+path.parent.mkdir(parents=True, exist_ok=True)
+fd, temp = tempfile.mkstemp(prefix='.powerup-', dir=path.parent)
+try:
+    with os.fdopen(fd, 'w') as f: f.write(stream.getvalue())
+    os.chmod(temp, 0o644)
+    os.replace(temp, path)
+finally:
+    if os.path.exists(temp): os.unlink(temp)
+print('Release upgrade track: LTS (Prompt=lts)')
+PY_LTS
+}
+
+boot_id() { cat /proc/sys/kernel/random/boot_id; }
+reboot_required() { [[ -f /var/run/reboot-required ]]; }
+require_release_terminal() {
+    [[ -t 0 ]] || die 'The Ubuntu release upgrade needs a terminal. Run: sudo /opt/csitools/powerup os-update'
+}
+
+run_release_upgrader() {
+    # Keep the Ubuntu text frontend attached to its controlling terminal even
+    # while Powerup's own output is logged through tee. Ubuntu records its own
+    # detailed logs in /var/log/dist-upgrade/.
+    env -u DEBIAN_FRONTEND do-release-upgrade -f DistUpgradeViewText </dev/tty >/dev/tty 2>&1
+}
+
+upgrade_release_if_needed() {
+    STOP_AFTER_RELEASE=0
+    local marker=$RELEASE_STATE_DIR/upgrade-boot-id current_boot audit check_output
+    current_boot=$(boot_id)
+    if [[ $BASE_CODENAME == resolute ]]; then
+        if [[ -f $marker && $(cat "$marker") == "$current_boot" ]]; then
+            log 'Release packages are installed, but this boot predates the release upgrade.'
+            log 'Reboot, then run: sudo /opt/csitools/powerup os-update'
+            STOP_AFTER_RELEASE=1
+        fi
+        return
+    fi
+    [[ $BASE_CODENAME == noble ]] || die 'Unexpected release upgrade source.'
+    require_release_terminal
+    if reboot_required; then
+        log 'A reboot is already pending on Noble. Reboot before starting the release upgrade.'
+        log 'After reboot, run: sudo /opt/csitools/powerup os-update'
+        STOP_AFTER_RELEASE=1
+        return
+    fi
+    log 'Preparing Ubuntu 24.04 (Noble) for Ubuntu 26.04 LTS (Resolute)'
+    log 'Take a VM snapshot or complete backup before proceeding with a major OS upgrade.'
+    audit=$(dpkg --audit)
+    [[ -z $audit ]] || die "dpkg reports unfinished package work. Repair it first: $audit"
+    cp -a /etc/apt "$BACKUP/apt-before-release"
+    cp /etc/os-release "$BACKUP/os-release.before"
+    dpkg-query -W -f='${binary:Package}\t${Version}\n' > "$BACKUP/packages-before-release.tsv"
+    SOURCES_PENDING=1
+    # Keep Noble suites until Ubuntu's own release upgrader performs the
+    # distribution transition. Disable third-party sources with backups.
+    repository_config prepare-release /etc/apt "$BACKUP" 0 "$ARCH"
+    apt_refresh
+    SOURCES_PENDING=0
+    apt_run install --no-install-recommends --no-remove -y ca-certificates update-manager-core ubuntu-release-upgrader-core
+    log 'Fully updating Noble, including phased updates, before the release upgrade'
+    apt_run -o APT::Get::Always-Include-Phased-Updates=true dist-upgrade -y
+    apt_run check
+    if reboot_required; then
+        log 'Noble prerequisites are updated. Reboot before the distribution upgrade.'
+        log 'After reboot, run: sudo /opt/csitools/powerup os-update'
+        STOP_AFTER_RELEASE=1
+        return
+    fi
+    set_lts_prompt
+    if check_output=$(env -u DEBIAN_FRONTEND do-release-upgrade --check-dist-upgrade-only 2>&1); then
+        printf '%s\n' "$check_output"
+    else
+        printf '%s\n' "$check_output" >&2
+        die 'Ubuntu is not currently offering a supported LTS upgrade, or its availability check failed. Resolute repositories have not been enabled.'
+    fi
+    [[ $check_output =~ 26\.04([.][0-9]+)? ]] ||
+        die 'Ubuntu did not advertise the requested 26.04 LTS target. Refusing to guess another release.'
+    install -d -m 700 "$RELEASE_STATE_DIR"
+    boot_id > "$marker"
+    log 'Starting do-release-upgrade. Review Ubuntu prompts for package removals and configuration files.'
+    log 'After the required reboot, rerun: sudo /opt/csitools/powerup os-update'
+    log 'Release upgrader logs: /var/log/dist-upgrade/'
+    if run_release_upgrader; then
+        read_platform
+    else
+        die 'Ubuntu release upgrade failed or was cancelled. See /var/log/dist-upgrade/. No forced repository substitution was performed.'
+    fi
+    [[ $BASE_CODENAME == resolute ]] ||
+        die 'The release upgrader returned without reaching Resolute. Review /var/log/dist-upgrade/; optional tool updates were not started.'
+    # Do not finalize repositories or run CSI categories in the old boot, even
+    # if the user declines the release upgrader's restart prompt.
+    log 'Ubuntu 26.04 release packages are installed. A reboot is still required.'
+    log 'After reboot, run: sudo /opt/csitools/powerup os-update to finish Resolute/Tor maintenance.'
+    STOP_AFTER_RELEASE=1
 }
 
 prepare_updater() {
@@ -549,7 +674,10 @@ main() {
     if (( check )); then
         (( ${#REQUESTED[@]} )) || REQUESTED=(os-update)
         normalize_categories
-        printf 'Platform: Ubuntu base resolute (%s)\n' "$ARCH"
+        printf 'Platform: Ubuntu base %s (%s)\n' "$BASE_CODENAME" "$ARCH"
+        if [[ $BASE_CODENAME == noble ]]; then
+            printf 'Plan: fully update Noble, run do-release-upgrade to 26.04 LTS, reboot, rerun to finalize.\n'
+        fi
         printf 'Ubuntu: resolute, resolute-updates, resolute-security, resolute-backports\n'
         printf 'Components: main restricted universe multiverse\nTor: stable resolute / %s\n' "$ARCH"
         printf 'Categories: %s\nFull upgrade: %s\nNo changes made.\n' "${SELECTED[*]}" "$FULL_UPGRADE"
@@ -574,6 +702,7 @@ main() {
     BACKUP=/var/backups/csi-powerup/$run_id
     install -d -m 700 "$BACKUP"
     WORK=$(mktemp -d /var/tmp/csi-powerup.XXXXXXXX)
+    RELEASE_STATE_DIR=/var/lib/csi-powerup
     SOURCES_PENDING=0
     trap cleanup EXIT
     trap 'exit 130' INT
@@ -581,9 +710,12 @@ main() {
     trap 'printf "ERROR: command failed at line %s (status %s).\n" "$LINENO" "$?" >&2' ERR
     exec > >(tee -a "$LOG_FILE") 2>&1
     printf 'POWERUP_REV=%s\n' "$POWERUP_REV"
-    log "CSI Linux Powerup — Resolute / $ARCH"
+    log "CSI Linux Powerup — current base $BASE_CODENAME / $ARCH; target Ubuntu 26.04 LTS"
     log "Selected: ${SELECTED[*]}"
+    upgrade_release_if_needed
+    if (( STOP_AFTER_RELEASE )); then return; fi
     maintain_system
+    rm -f -- "$RELEASE_STATE_DIR/upgrade-boot-id"
     for option in "${SELECTED[@]}"; do
         [[ $option == os-update ]] || tool_categories+=("$option")
     done
