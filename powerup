@@ -11,11 +11,12 @@
 # modification, distribution, or use of this script, without express approval from
 # CSI Linux, is strictly prohibited. This script is proprietary and confidential.
 # -----------------------------------------------------------------------------------
-# Revision: 2026-11-08. Requires an ALREADY installed Ubuntu Resolute base.
+# Revision: 2026-11-08-2. Requires an ALREADY installed Ubuntu Resolute base.
 # This is package maintenance, not a release upgrader. See README-powerup.md.
 
 set -Eeuo pipefail
 
+readonly POWERUP_REV=2026-11-08-2
 readonly TOR_FINGERPRINT=A3C4F0F979CAA22CDBA8F512EE8CBC9E886DDD89
 readonly UPDATER_URL=https://raw.githubusercontent.com/CSILinux/CSILinux-Powerup/main/csitoolsupdate.sh
 readonly -a CATEGORIES=(csi-linux-base csi-linux-themes os-update encryption osint
@@ -37,12 +38,13 @@ No category arguments: use the existing YAD/Zenity chooser or a terminal menu.
 
   --check                   Show platform and planned work; make no changes
   --full-upgrade            Permit dependency-related package removals
-                            (default: upgrade --with-new-pkgs; no removals)
+                            (default: apt upgrade -y)
   --refresh-tools           Refresh /opt/csitools from the CSI archive
   --tools-sha256 HEX         Verify the CSI archive against a supplied SHA-256
   --updater FILE             Use your production csitoolsupdate.sh instead of GitHub
   --updater-sha256 HEX       Verify the selected/downloaded updater's SHA-256
   --help                    Show this help
+  --version                 Show the installed Powerup revision
 
 Examples:
   bash powerup.sh --check
@@ -299,11 +301,22 @@ for path, data in changes.items():
     atomic(path, data)
     print('Configured', path)
 if not changes: print('APT source files already match the requested configuration.')
+print('Ubuntu suites: resolute resolute-updates resolute-security resolute-backports')
+print('Ubuntu components: main restricted universe multiverse')
+if tor_enabled == '1':
+    print(f'Tor repository: https://deb.torproject.org/torproject.org/ resolute main ({arch})')
 PY_REPOSITORIES
 }
 
 apt_run() { DEBIAN_FRONTEND=noninteractive apt-get "${APT_OPTIONS[@]}" "$@"; }
-apt_refresh() { log 'Refreshing signed package indexes'; apt_run update; }
+# Use the specifically requested apt commands for routine OS maintenance.
+# Retain apt-get for dependency installation and explicit full-upgrade mode.
+apt_maintenance() { DEBIAN_FRONTEND=noninteractive apt "${APT_OPTIONS[@]}" "$@"; }
+apt_refresh() {
+    log 'Running apt update (signature checks enabled; repository errors are fatal)'
+    apt_maintenance update
+    log 'apt update completed successfully'
+}
 
 download() {
     local url=$1 destination=$2
@@ -362,6 +375,17 @@ prepare_repositories() {
 update_os() {
     local policy
     local -a packages=(tor)
+    # OS maintenance is independent of the starter-program list, bootstrap flag,
+    # and optional CSI category updater. Never gate this on missing packages.
+    if (( FULL_UPGRADE )); then
+        log 'Running apt-get dist-upgrade -y (explicit --full-upgrade selection)'
+        apt_run dist-upgrade -y
+        log 'Full package upgrade completed successfully'
+    else
+        log 'Running apt upgrade -y'
+        apt_maintenance upgrade -y
+        log 'apt upgrade -y completed successfully'
+    fi
     # Some Resolute repository snapshots have lacked this optional rollover
     # package. Do not fail the entire update, or substitute a different suite.
     policy=$(apt-cache policy deb.torproject.org-keyring)
@@ -372,18 +396,19 @@ update_os() {
     fi
     log 'Installing/updating Tor'
     apt_run install --no-install-recommends --no-remove -y "${packages[@]}"
-    log 'Applying Ubuntu and installed-package updates'
-    if (( FULL_UPGRADE )); then
-        apt_run dist-upgrade -y
-    else
-        apt_run upgrade --with-new-pkgs --no-remove -y
-    fi
     apt_run check
     log 'Held packages (if any)'
     apt-mark showhold
     log 'Remaining upgrades, including held or phased packages (if any)'
     apt list --upgradable 2>/dev/null
     if [[ -f /var/run/reboot-required ]]; then log 'A reboot is required to finish applying some updates.'; fi
+}
+
+maintain_system() {
+    log 'Mandatory phase 1/2: configure Ubuntu Resolute and Tor repositories; run apt update'
+    prepare_repositories
+    log 'Mandatory phase 2/2: upgrade installed packages'
+    update_os
 }
 
 prepare_updater() {
@@ -499,6 +524,7 @@ main() {
     while (( $# )); do
         case $1 in
             --help|-h) usage; return ;;
+            --version) printf 'POWERUP_REV=%s\n' "$POWERUP_REV"; return ;;
             --check) check=1 ;;
             --full-upgrade) FULL_UPGRADE=1; forward+=("$1") ;;
             --refresh-tools) REFRESH_TOOLS=1; forward+=("$1") ;;
@@ -517,6 +543,8 @@ main() {
         esac
         shift
     done
+    printf '\n========================================\nPOWERUP_REV=%s\n========================================\n' "$POWERUP_REV"
+    printf 'Running powerup script: %s\n' "$(readlink -f -- "${BASH_SOURCE[0]}")"
     validate_platform
     if (( check )); then
         (( ${#REQUESTED[@]} )) || REQUESTED=(os-update)
@@ -552,10 +580,10 @@ main() {
     trap 'exit 143' TERM
     trap 'printf "ERROR: command failed at line %s (status %s).\n" "$LINENO" "$?" >&2' ERR
     exec > >(tee -a "$LOG_FILE") 2>&1
+    printf 'POWERUP_REV=%s\n' "$POWERUP_REV"
     log "CSI Linux Powerup — Resolute / $ARCH"
     log "Selected: ${SELECTED[*]}"
-    prepare_repositories
-    update_os
+    maintain_system
     for option in "${SELECTED[@]}"; do
         [[ $option == os-update ]] || tool_categories+=("$option")
     done
