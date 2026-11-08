@@ -11,17 +11,18 @@
 # modification, distribution, or use of this script, without express approval from
 # CSI Linux, is strictly prohibited. This script is proprietary and confidential.
 # -----------------------------------------------------------------------------------
-# Revision: 2026-11-08-6. Validated startup self-update with atomic replacement and restart.
+# Revision: 2026-11-08-8. Two-step wizard, fixed resources, kernel and GRUB readiness gates.
 # Uses Ubuntu's release upgrader; see README-powerup.md for reboot/resume steps.
 
 set -Eeuo pipefail
 
-readonly POWERUP_REV=2026-11-08-6
+readonly POWERUP_REV=2026-11-08-8
 # Consumed by the static metadata validator in PY_SELF_UPDATE.
 # shellcheck disable=SC2034
 readonly POWERUP_SELF_UPDATE_PROTOCOL=1
 readonly POWERUP_SELF_UPDATE_URL=https://raw.githubusercontent.com/CSILinux/CSILinux-Powerup/refs/heads/main/powerup
-SELF_CHECKED_SHA=''
+SELF_CHECKED_REV=''
+POWERUP_LOCK_HELD=0
 readonly TOR_FINGERPRINT=A3C4F0F979CAA22CDBA8F512EE8CBC9E886DDD89
 readonly UPDATER_URL=https://raw.githubusercontent.com/CSILinux/CSILinux-Powerup/main/csitoolsupdate.sh
 readonly -a CATEGORIES=(csi-linux-base csi-linux-themes os-update encryption osint
@@ -56,9 +57,6 @@ Standard-mode recovery does not remove packages; Full/Release modes permit it.
   --full-upgrade            Permit dependency-related package removals
                             (default: apt upgrade -y)
   --refresh-tools           Refresh /opt/csitools from the CSI archive
-  --tools-sha256 HEX         Verify the CSI archive against a supplied SHA-256
-  --updater FILE             Use your production csitoolsupdate.sh instead of GitHub
-  --updater-sha256 HEX       Verify the selected/downloaded updater's SHA-256
   --help                    Show this help
   --version                 Show the installed Powerup revision
 
@@ -66,7 +64,7 @@ Examples:
   bash powerup.sh --check
   bash powerup.sh os-update
   bash powerup.sh --cli --full-upgrade os-update
-  bash powerup.sh --updater /path/to/csitoolsupdate.sh all
+  bash powerup.sh all
 
 GUI release upgrades use Ubuntu's graphical upgrader. --cli uses its text UI.
 Target: Ubuntu 26.04 LTS, as requested. No development or interim release upgrade.
@@ -126,31 +124,15 @@ validate_options() {
     normalize_categories || return 1
     local category tool_count=0
     for category in "${SELECTED[@]}"; do [[ $category == os-update ]] || tool_count=$((tool_count+1)); done
-    if (( CHECK_ONLY && (FULL_UPGRADE || REFRESH_TOOLS || tool_count) )) ||
-        { (( CHECK_ONLY )) && [[ -n $TOOLS_SHA256$UPDATER_FILE$UPDATER_SHA256 ]]; }; then
-        PLAN_ERROR='Preview is a read-only mode. Choose it without update, restore, or tool-category options.'; return 1
+    if (( CHECK_ONLY && (FULL_UPGRADE || REFRESH_TOOLS || tool_count) )); then
+        PLAN_ERROR='Preview is read-only. Choose it without update or tool options.'; return 1
     fi
-    if [[ -n $TOOLS_SHA256 ]] && (( ! REFRESH_TOOLS )); then
-        PLAN_ERROR='An archive SHA-256 requires Refresh CSI tool archive.'; return 1
+    if [[ $BASE_CODENAME == noble ]] && (( FULL_UPGRADE || REFRESH_TOOLS || tool_count )); then
+        PLAN_ERROR='Upgrade Ubuntu first. Package upgrade is included; CSI tool options become available after reboot into Resolute.'; return 1
     fi
-    if [[ -n $UPDATER_FILE$UPDATER_SHA256 ]] && (( ! tool_count )); then
-        PLAN_ERROR='Updater files and updater hashes require at least one CSI tool category.'; return 1
-    fi
-    if [[ $BASE_CODENAME == noble ]] &&
-        { (( FULL_UPGRADE || REFRESH_TOOLS || tool_count )) || [[ -n $TOOLS_SHA256$UPDATER_FILE$UPDATER_SHA256 ]]; }; then
-        PLAN_ERROR='Noble requires the release-upgrade workflow first. Full package upgrade is already included; CSI tool options become available after reboot into Resolute.'; return 1
-    fi
-    if [[ -n $TOOLS_SHA256 && ! $TOOLS_SHA256 =~ ^[0-9a-fA-F]{64}$ ]] ||
-        [[ -n $UPDATER_SHA256 && ! $UPDATER_SHA256 =~ ^[0-9a-fA-F]{64}$ ]]; then
-        PLAN_ERROR='A SHA-256 must contain exactly 64 hexadecimal characters.'; return 1
-    fi
-    if [[ -n $UPDATER_FILE ]]; then
-        if [[ ! -f $UPDATER_FILE || ! -r $UPDATER_FILE ]]; then
-            PLAN_ERROR='Select a readable production updater file.'; return 1
-        fi
-        if ! bash -n "$UPDATER_FILE" 2>/dev/null; then
-            PLAN_ERROR='The selected updater does not pass Bash syntax validation.'; return 1
-        fi
+    # One operation profile: an archive restore is not a category update.
+    if (( REFRESH_TOOLS && (FULL_UPGRADE || tool_count) )) || (( FULL_UPGRADE && tool_count )); then
+        PLAN_ERROR='Choose one profile: system update, full package upgrade, tool categories, or archive restore.'; return 1
     fi
 }
 
@@ -353,6 +335,7 @@ apt_execute() {
     for token in "$@"; do
         case $token in install|upgrade|dist-upgrade|full-upgrade|remove) mutable=1;; esac
     done
+    if (( mutable )); then BOOT_VERIFIED=0; fi
     if (( mutable )) && [[ ${REPAIR_ACTIVE:-0} != 1 ]]; then
         check_and_repair_packages || return 100
     fi
@@ -453,7 +436,7 @@ repair_packages() {
     local -a removal_guard=(--no-remove)
     local -a reinstall=()
     [[ ${FULL_UPGRADE:-0} == 1 || ${BASE_CODENAME:-} == noble ]] && removal_guard=()
-    REPAIR_ACTIVE=1
+    REPAIR_ACTIVE=1 BOOT_VERIFIED=0
     log 'Automatic repair: configure pending packages, fix dependencies, verify package state'
     if [[ ! -e $BACKUP/dpkg-status.before-repair ]]; then
         cp -a /var/lib/dpkg/status "$BACKUP/dpkg-status.before-repair" || { REPAIR_ACTIVE=0; return 1; }
@@ -526,13 +509,6 @@ download() {
         --output "$destination" "$url"
 }
 
-verify_sha256() {
-    local path=$1 expected=$2 actual
-    [[ -n $expected ]] || return 0
-    actual=$(sha256sum -- "$path"); actual=${actual%% *}
-    [[ $actual == "${expected,,}" ]] || die "SHA-256 mismatch: $path"
-}
-
 install_tor_key() {
     log 'Validating the Tor Project repository signing key'
     # Refresh the certificate so renewed expiry/subkey data is not hidden by a
@@ -602,7 +578,7 @@ update_os() {
     apt-mark showhold
     log 'Remaining upgrades, including held or phased packages (if any)'
     apt list --upgradable 2>/dev/null
-    if [[ -f /var/run/reboot-required ]]; then log 'A reboot is required to finish applying some updates.'; fi
+    if reboot_required; then log 'Packages requested a reboot. Boot checks must finish first.'; fi
 }
 
 maintain_system() {
@@ -637,6 +613,397 @@ print('Release upgrade track: LTS (Prompt=lts)')
 PY_LTS
 }
 
+# ------------------------- Kernel and GRUB readiness -------------------------
+# These checks validate the installed boot files, not an actual firmware reboot.
+# No guessed disk, --force installation, kernel purge, or automatic reboot.
+boot_fail() {
+    printf 'ERROR: Boot readiness: %s\n' "$*" >&2
+    printf 'POWERUP_RESULT=boot-attention\n'
+    BOOT_VERIFIED=0
+    return 1
+}
+
+boot_mounts() {
+    python3 - "${1:-512}" <<'PY_BOOT_MOUNTS'
+import json, os, subprocess, sys
+from pathlib import Path
+
+def run(*args):
+    return subprocess.check_output(args, text=True).strip()
+def mount(path):
+    return json.loads(run('findmnt', '-J', '-T', path, '-o', 'TARGET,SOURCE,FSTYPE,OPTIONS'))['filesystems'][0]
+# An absent separate /boot or ESP must never be mistaken for a directory on /.
+for path in ('/', '/boot', '/boot/efi'):
+    if path == '/boot/efi' and not Path('/sys/firmware/efi').exists(): continue
+    declared = subprocess.run(['findmnt', '--fstab', '--evaluate', '-n', '-o', 'SOURCE', '--mountpoint', path], capture_output=True, text=True)
+    actual = mount(path)
+    if declared.returncode == 0 and declared.stdout.strip():
+        if actual['target'] != path:
+            raise SystemExit('Configured boot filesystem is not mounted: ' + path)
+        sources = declared.stdout.strip().splitlines()
+        if len(sources) != 1 or os.path.realpath(sources[0]) != os.path.realpath(actual['source']):
+            raise SystemExit('Mounted filesystem does not match fstab: ' + path)
+    if path == '/boot/efi' and (actual['target'] != path or actual['fstype'] not in ('vfat', 'fat', 'msdos')):
+        raise SystemExit('UEFI requires the mounted FAT EFI System Partition at /boot/efi')
+    if 'rw' not in actual['options'].split(','):
+        raise SystemExit('Boot filesystem is read-only: ' + path)
+    fs = os.statvfs(path)
+    reserve_mb = int(sys.argv[1]) if len(sys.argv) > 1 else 512
+    reserve = (min(64, reserve_mb) if path == '/boot/efi' else reserve_mb) * 1024**2
+    if fs.f_bavail * fs.f_frsize < reserve:
+        raise SystemExit('Insufficient free space at ' + path + '; retain kernels and free space before updating')
+    if fs.f_files and fs.f_favail < 1000:
+        raise SystemExit('Too few free filesystem inodes at ' + path)
+print('Boot filesystems are mounted, writable, and have working space')
+PY_BOOT_MOUNTS
+}
+
+boot_loader_target() {
+    local response target real source ancestry type table parttype found=0
+    BOOT_MODE=bios BOOT_DISK=''
+    if [[ -d /sys/firmware/efi ]]; then
+        BOOT_MODE=uefi
+        case $ARCH in
+            amd64) BOOT_EFI_SUFFIX=x64; BOOT_GRUB_TARGET=x86_64-efi ;;
+            arm64) BOOT_EFI_SUFFIX=aa64; BOOT_GRUB_TARGET=arm64-efi ;;
+            *) boot_fail 'Unsupported UEFI architecture.'; return 1 ;;
+        esac
+        [[ -d /boot/efi/EFI/ubuntu ]] || { boot_fail 'Ubuntu EFI loader directory is absent; an administrator must confirm the firmware boot path.'; return 1; }
+    else
+        [[ $ARCH == amd64 ]] || { boot_fail 'Only amd64 BIOS or amd64/arm64 UEFI GRUB is supported.'; return 1; }
+        BOOT_GRUB_TARGET=i386-pc
+        response=$(printf 'GET grub-pc/install_devices\n' | debconf-communicate grub-pc) || return 1
+        [[ $response == '0 '* ]] || { boot_fail 'Cannot read the existing BIOS GRUB installation target.'; return 1; }
+        target=${response#0 }; target=${target//,/ }
+        local -a targets=()
+        read -r -a targets <<< "$target"
+        (( ${#targets[@]} == 1 )) || { boot_fail 'BIOS GRUB needs one confirmed installation disk; multi-disk or unset targets need administrator review.'; return 1; }
+        real=$(readlink -e -- "${targets[0]}") || return 1
+        [[ -b $real ]] || { boot_fail 'Recorded BIOS target is not a block device.'; return 1; }
+        type=$(lsblk -dn -o TYPE "$real") || return 1
+        [[ $type == disk ]] || { boot_fail 'Recorded BIOS target is not a whole disk; refusing a partition install.'; return 1; }
+        source=$(findmnt -n -o SOURCE -T /boot) || return 1
+        ancestry=$(lsblk -snr -o PATH "$source") || return 1
+        if ! grep -Fxq -- "$real" <<< "$ancestry"; then
+            boot_fail 'Recorded GRUB installation disk does not contain /boot; refusing to guess.'; return 1
+        fi
+        table=$(lsblk -dn -o PTTYPE "$real") || return 1
+        if [[ $table == gpt ]]; then
+            while read -r parttype; do
+                [[ ${parttype,,} != 21686148-6449-6e6f-744e-656564454649 ]] || found=1
+            done < <(lsblk -nr -o PARTTYPE "$real")
+            (( found )) || { boot_fail 'BIOS on GPT requires an existing BIOS Boot partition. No partition changes will be attempted.'; return 1; }
+        elif [[ $table != dos ]]; then
+            boot_fail 'Unrecognized BIOS partition table; refusing to reinstall GRUB.'; return 1
+        fi
+        BOOT_DISK=$real
+    fi
+    [[ -s /usr/lib/grub/$BOOT_GRUB_TARGET/normal.mod ]] || { boot_fail "Missing GRUB platform modules: $BOOT_GRUB_TARGET. Repair the installed GRUB package first."; return 1; }
+    local fs abstraction
+    fs=$(grub-probe --target=fs /boot) || return 1
+    abstraction=$(grub-probe --target=abstraction /boot) || return 1
+    case $fs in ext2|xfs|fat) ;; *) boot_fail "Boot filesystem $fs needs a layout-specific review before an OS update."; return 1;; esac
+    [[ -z $abstraction ]] || { boot_fail "Complex /boot layout ($abstraction) needs administrator review; no automatic bootloader replacement."; return 1; }
+    log "Confirmed GRUB platform: $BOOT_GRUB_TARGET ${BOOT_DISK:+on $BOOT_DISK}"
+}
+
+boot_required_modules() {
+    python3 - <<'PY_BOOT_MODULES'
+from pathlib import Path
+import subprocess
+modules = set()
+# Walk each current block device's driver ancestry, including its host controller.
+for link in Path('/sys/class/block').glob('*'):
+    device = link.resolve()
+    while str(device).startswith('/sys/devices/'):
+        module = device / 'driver/module'
+        if module.exists(): modules.add(module.resolve().name)
+        device = device.parent
+fs = subprocess.check_output(['findmnt', '-n', '-o', 'FSTYPE', '/'], text=True).strip()
+if fs not in ('ext2', 'ext3', 'ext4', 'xfs', 'btrfs'):
+    raise SystemExit('Root filesystem needs a specific initramfs check: ' + fs)
+modules.add('ext4' if fs in ('ext2', 'ext3') else fs)
+print('\n'.join(sorted(modules)))
+PY_BOOT_MODULES
+}
+
+boot_preflight() {
+    BOOT_VERIFIED=0 BOOT_ACTIVE=0
+    local command kernel required space
+    for command in findmnt lsblk grub-probe grub-mkconfig grub-script-check grub-install \
+        update-initramfs lsinitramfs depmod modprobe modinfo; do
+        command -v "$command" >/dev/null || { boot_fail "Missing boot maintenance tool: $command. Repair boot packages before updating."; return 1; }
+    done
+    boot_mounts || { boot_fail 'Boot mount or free-space checks failed. No package changes started.'; return 1; }
+    boot_loader_target || return 1
+    kernel=$(uname -r)
+    [[ $kernel =~ ^[0-9][A-Za-z0-9.+_-]+$ && -s /boot/vmlinuz-$kernel && -d /lib/modules/$kernel ]] || {
+        boot_fail 'The running kernel image or modules are missing. Restore that fallback before an upgrade.'; return 1;
+    }
+    BOOT_FALLBACK=$kernel
+    boot_required_modules > "$WORK/boot-required-modules" || return 1
+    # Keep an on-disk recovery copy of the running kernel, modules and GRUB files.
+    # This is not a VM snapshot and cannot repair a disk or firmware failure.
+    required=$(du -sb /lib/modules/"$kernel" /boot/grub /boot/vmlinuz-"$kernel" | awk '{n+=$1} END{print n+536870912}') || return 1
+    space=$(df -B1 --output=avail "$BACKUP" | tail -n 1) || return 1
+    (( space > required )) || { boot_fail 'Insufficient backup space for the running kernel and GRUB.'; return 1; }
+    install -d -m 700 "$BACKUP/boot" "$BACKUP/modules"
+    cp -a --reflink=auto /boot/grub "$BACKUP/boot/" || return 1
+    cp -a --reflink=auto /lib/modules/"$kernel" "$BACKUP/modules/" || return 1
+    local file
+    for file in /boot/vmlinuz-"$kernel" /boot/initrd.img-"$kernel" /boot/config-"$kernel" /boot/System.map-"$kernel"; do
+        [[ ! -e $file ]] || cp -L --preserve=mode,timestamps --reflink=auto "$file" "$BACKUP/boot/" || return 1
+    done
+    [[ ! -e /etc/default/grub ]] || cp -a /etc/default/grub "$BACKUP/grub.defaults" || return 1
+    [[ ! -d /etc/default/grub.d ]] || cp -a /etc/default/grub.d "$BACKUP/grub.defaults.d" || return 1
+    BOOT_ACTIVE=1
+    log "Fallback kernel $kernel and GRUB files backed up to $BACKUP"
+}
+
+boot_kernel_versions() {
+    local path package status
+    {
+        for path in /boot/vmlinuz-[0-9]*; do [[ ! -e $path ]] || printf '%s\n' "${path##*/vmlinuz-}"; done
+        while IFS=$'\t' read -r status package; do
+            [[ $status == installed ]] || continue
+            package=${package%%:*}; package=${package#linux-image-}; package=${package#unsigned-}
+            [[ $package =~ ^[0-9][A-Za-z0-9.+_-]+$ ]] && printf '%s\n' "$package"
+        done < <(dpkg-query -W -f='${db:Status-Status}\t${binary:Package}\n' 'linux-image-[0-9]*' 'linux-image-unsigned-[0-9]*' 2>/dev/null || true)
+    } | sort -Vu
+}
+
+boot_initrd_valid() {
+    local kernel=$1 listing=$WORK/initrd-contents module path dependencies
+    [[ -r $WORK/boot-required-modules && -s /boot/initrd.img-$kernel ]] || return 1
+    lsinitramfs /boot/initrd.img-"$kernel" > "$listing" || return 1
+    grep -Eq '^(\./)?(usr/)?init$' "$listing" || return 1
+    while read -r module; do
+        [[ -n $module ]] || continue
+        dependencies=$(modprobe --show-depends --set-version "$kernel" "$module") || return 1
+        while read -r path; do
+            [[ -n $path ]] || continue
+            [[ -s $path ]] || return 1
+            path=${path#/}; path=${path#usr/}
+            # usrmerge paths are both accepted; module suffix compression retained.
+            if ! grep -Fxq -- "$path" "$listing" && ! grep -Fxq -- "usr/$path" "$listing"; then return 1; fi
+        done < <(awk '$1=="insmod"{print $2}' <<< "$dependencies")
+    done < "$WORK/boot-required-modules"
+    if [[ -e /dev/mapper/control ]]; then
+        local root_source types
+        root_source=$(findmnt -n -o SOURCE /) || return 1
+        types=$(lsblk -snr -o TYPE "$root_source") || return 1
+        if grep -Fxq crypt <<< "$types"; then grep -Eq '(^|/)(cryptroot|systemd-cryptsetup)(/|$)' "$listing" || return 1; fi
+        if grep -Fxq lvm <<< "$types"; then grep -Eq '(^|/)lvm$' "$listing" || return 1; fi
+    fi
+}
+
+boot_repair_kernel() {
+    local kernel=$1 package status candidate mode=-u module modules_ok=1
+    local -a reinstall=()
+    [[ $kernel =~ ^[0-9][A-Za-z0-9.+_-]+$ ]] || return 1
+    [[ -r $WORK/boot-required-modules ]] || return 1
+    while read -r module; do
+        [[ -z $module ]] || modinfo -k "$kernel" -n "$module" >/dev/null 2>&1 || modules_ok=0
+    done < "$WORK/boot-required-modules"
+    if (( ! modules_ok )) || [[ ! -s /boot/vmlinuz-$kernel || ! -s /lib/modules/$kernel/modules.builtin || ! -s /lib/modules/$kernel/modules.order ]]; then
+        for package in "linux-image-$kernel" "linux-image-unsigned-$kernel" "linux-modules-$kernel" "linux-modules-extra-$kernel"; do
+            status=$(dpkg-query -W -f='${db:Status-Status}' "$package" 2>/dev/null) || status=''
+            candidate=$(apt-cache policy "$package" | awk '/Candidate:/ {print $2}') || return 1
+            if [[ -n $candidate && $candidate != '(none)' ]] && { [[ $status == installed || $package == linux-modules-* ]]; }; then reinstall+=("$package"); fi
+        done
+        (( ${#reinstall[@]} )) || { boot_fail "Kernel $kernel is incomplete and its installed packages are unavailable for repair."; return 1; }
+        apt_run install --reinstall --no-remove -y "${reinstall[@]}" || return 1
+    fi
+    [[ -s /boot/vmlinuz-$kernel && -s /lib/modules/$kernel/modules.builtin && -s /lib/modules/$kernel/modules.order ]] || return 1
+    depmod -a "$kernel" || return 1
+    if boot_initrd_valid "$kernel"; then return 0; fi
+    [[ -e /boot/initrd.img-$kernel ]] || mode=-c
+    log "Rebuilding the startup image for kernel $kernel ($mode)"
+    update-initramfs "$mode" -k "$kernel" || return 1
+    boot_initrd_valid "$kernel" || { boot_fail "Startup image for $kernel is still incomplete after rebuilding."; return 1; }
+}
+
+boot_validate_menu() {
+    local require_newest=1
+    if [[ ${1:-} == --kernel-hook ]]; then require_newest=0; shift; fi
+    local menu=$1; shift
+    grub-script-check "$menu" || return 1
+    local root_uuid
+    root_uuid=$(findmnt -n -o UUID /) || return 1
+    [[ -n $root_uuid ]] || return 1
+    python3 - "$menu" "$root_uuid" "$require_newest" "$@" <<'PY_BOOT_MENU'
+import re, sys
+from pathlib import Path
+text = Path(sys.argv[1]).read_text()
+entries = re.split(r'(?m)^\s*menuentry\s+', text)[1:]
+kernels = sys.argv[4:]
+for kernel in kernels:
+    valid = False
+    for entry in entries:
+        # Do not count lines from a later submenu or custom sourced script.
+        linux = re.search(r'(?m)^\s*linux(?:efi)?\s+(\S*vmlinuz-' + re.escape(kernel) + r')\s+([^\n]+)', entry)
+        initrd = re.search(r'(?m)^\s*initrd(?:efi)?\s+([^\n]+)', entry)
+        if linux and initrd and ('root=UUID=' + sys.argv[2]) in linux[2].split():
+            if any(p.endswith('/initrd.img-' + kernel) for p in initrd[1].split()):
+                valid = True
+                break
+    if not valid:
+        raise SystemExit('No matching kernel + initrd + root entry in GRUB for ' + kernel)
+if not kernels: raise SystemExit('No bootable kernels were validated')
+first_linux = re.search(r'(?m)^\s*linux(?:efi)?\s+\S*vmlinuz-' + re.escape(kernels[-1]) + r'\s+', entries[0])
+if sys.argv[3] == '1' and not first_linux: raise SystemExit('The first GRUB entry is not the newest validated Ubuntu kernel')
+print('GRUB contains matching kernel and startup-image entries')
+PY_BOOT_MENU
+}
+
+boot_update_loader() {
+    if [[ $BOOT_MODE == bios ]]; then
+        # BOOT_DISK came from debconf AND /boot ancestry. Never infer /dev/sda.
+        grub-install --target=i386-pc --recheck "$BOOT_DISK" || return 1
+        [[ -s /boot/grub/i386-pc/normal.mod ]] || return 1
+    else
+        # Ubuntu's signed package scripts maintain shim and the signed EFI loader.
+        # A generic grub-install may break Secure Boot, so do not substitute one.
+        local package status
+        for package in "grub-efi-$ARCH-signed" shim-signed; do
+            status=$(dpkg-query -W -f='${db:Status-Status}' "$package" 2>/dev/null) || return 1
+            [[ $status == installed ]] || { boot_fail "Required signed EFI package is missing: $package"; return 1; }
+        done
+        DEBIAN_FRONTEND=noninteractive dpkg-reconfigure "grub-efi-$ARCH-signed" || return 1
+        DEBIAN_FRONTEND=noninteractive dpkg-reconfigure shim-signed || return 1
+        [[ -s /boot/efi/EFI/ubuntu/shim$BOOT_EFI_SUFFIX.efi && -s /boot/efi/EFI/ubuntu/grub$BOOT_EFI_SUFFIX.efi && -s /boot/efi/EFI/ubuntu/grub.cfg ]] || {
+            boot_fail 'Ubuntu signed EFI loader or its GRUB configuration is missing.'; return 1;
+        }
+        local uuid
+        uuid=$(grub-probe --target=fs_uuid /boot/grub) || return 1
+        grep -Fq -- "$uuid" /boot/efi/EFI/ubuntu/grub.cfg || { boot_fail 'EFI GRUB configuration does not identify the current boot filesystem.'; return 1; }
+    fi
+}
+
+boot_restore_validated_menu() {
+    local restored
+    [[ -s $WORK/grub.cfg.validated ]] || return 1
+    restored=$(mktemp /boot/grub/.powerup-recovery.XXXXXXXX) || return 1
+    if ! cp -p "$WORK/grub.cfg.validated" "$restored" || ! mv -f "$restored" /boot/grub/grub.cfg; then
+        rm -f -- "$restored"; return 1
+    fi
+    sync -f /boot/grub/grub.cfg || return 1
+    log 'Restored the menu that passed the current kernel checks; loader repair still needs attention'
+}
+
+boot_ensure_ready() {
+    BOOT_VERIFIED=0
+    log 'Checking installed kernels, startup images and GRUB before completion'
+    boot_mounts || { boot_fail 'Boot filesystems are no longer ready.'; return 1; }
+    boot_loader_target || return 1
+    local kernel menu phase=${1:-final}
+    local -a kernels=()
+    if [[ ! -s /boot/vmlinuz-$BOOT_FALLBACK || ! -s /lib/modules/$BOOT_FALLBACK/modules.builtin || ! -s /lib/modules/$BOOT_FALLBACK/modules.order ]]; then
+        log "Restoring the running fallback kernel $BOOT_FALLBACK from the private backup"
+        [[ -s $BACKUP/boot/vmlinuz-$BOOT_FALLBACK && -s $BACKUP/boot/initrd.img-$BOOT_FALLBACK && -d $BACKUP/modules/$BOOT_FALLBACK ]] || {
+            boot_fail 'Fallback recovery files are incomplete.'; return 1;
+        }
+        cp -a --reflink=auto "$BACKUP/modules/$BOOT_FALLBACK" /lib/modules/ || return 1
+        local saved
+        for saved in "$BACKUP/boot/"*-"$BOOT_FALLBACK"; do
+            [[ ! -f $saved ]] || cp -a --reflink=auto "$saved" /boot/ || return 1
+        done
+    fi
+    mapfile -t kernels < <(boot_kernel_versions)
+    (( ${#kernels[@]} )) || { boot_fail 'No installed kernels found.'; return 1; }
+    for kernel in "${kernels[@]}"; do
+        boot_repair_kernel "$kernel" || { boot_fail "Could not prepare kernel $kernel. Keep this system running; review the log."; return 1; }
+    done
+    [[ -s /boot/vmlinuz-$BOOT_FALLBACK && -s /boot/initrd.img-$BOOT_FALLBACK && -d /lib/modules/$BOOT_FALLBACK ]] || {
+        boot_fail "The running fallback kernel $BOOT_FALLBACK was removed. Recovery files are in $BACKUP; restore it before reboot."; return 1;
+    }
+    install -d -m 755 /etc/default/grub.d
+    # Predictable visible menu, latest validated Ubuntu kernel first, fallback in
+    # Advanced options. Avoid stale saved entries and incompatible custom themes.
+    cat > /etc/default/grub.d/99-csi-powerup-boot.cfg <<'GRUB_DEFAULTS'
+# Maintained by CSI Linux Powerup; prior settings are saved with each run.
+GRUB_DEFAULT=0
+GRUB_SAVEDEFAULT=false
+GRUB_TIMEOUT_STYLE=menu
+GRUB_TIMEOUT=5
+GRUB_TERMINAL_OUTPUT=console
+GRUB_THEME=
+GRUB_DEFAULTS
+    chmod 644 /etc/default/grub.d/99-csi-powerup-boot.cfg
+    menu=$(mktemp /boot/grub/.powerup-menu.XXXXXXXX) || return 1
+    if ! grub-mkconfig -o "$menu" || ! boot_validate_menu "$menu" "${kernels[@]}"; then
+        rm -f -- "$menu"
+        boot_fail 'Generated GRUB menu failed validation; it was not installed.'; return 1
+    fi
+    chmod 600 "$menu"
+    cp -p -- "$menu" "$WORK/grub.cfg.validated" || return 1
+    mv -f -- "$menu" /boot/grub/grub.cfg || return 1
+    if [[ $phase != baseline ]]; then
+        if ! boot_update_loader; then
+            boot_restore_validated_menu || true
+            boot_fail 'GRUB loader refresh failed. Keep the system running and review the log.'; return 1
+        fi
+    fi
+    if ! boot_validate_menu /boot/grub/grub.cfg "${kernels[@]}"; then
+        boot_restore_validated_menu || true
+        boot_fail 'The loader changed the GRUB menu and its final validation failed.'; return 1
+    fi
+    sync -f /boot/grub/grub.cfg || return 1
+    if [[ $BOOT_MODE == uefi && $phase != baseline ]]; then sync -f /boot/efi/EFI/ubuntu/grub.cfg || return 1; fi
+    BOOT_VERIFIED=1
+    if [[ $phase == baseline ]]; then
+        cp -L --preserve=mode,timestamps --reflink=auto /boot/initrd.img-"$BOOT_FALLBACK" "$BACKUP/boot/" || return 1
+        cp -au --reflink=auto /lib/modules/"$BOOT_FALLBACK" "$BACKUP/modules/" || return 1
+        log 'Baseline kernel and menu checks passed; proceeding with maintenance'
+    else
+        log 'Installed boot-file checks passed. The actual firmware boot still requires verification after restart.'
+    fi
+}
+
+install_kernel_guard() {
+    local target=${1:-/etc/kernel/postinst.d/zzzz-csi-powerup-boot} staged=$WORK/kernel-guard
+    [[ ! -L $target ]] || { boot_fail 'Kernel guard path is a symbolic link.'; return 1; }
+    if [[ -e $target ]] && ! grep -Fq '# CSI Linux Powerup kernel boot guard' "$target"; then
+        boot_fail 'An unrelated kernel hook occupies the Powerup guard path.'; return 1
+    fi
+    {
+        printf '#!/bin/bash\n# CSI Linux Powerup kernel boot guard\n# Self-contained; never sources the user-owned CSI tools directory.\nset -Eeuo pipefail\nexport PATH=/usr/sbin:/usr/bin:/sbin:/bin LC_ALL=C\n'
+        declare -f boot_mounts boot_required_modules boot_initrd_valid boot_validate_menu
+        cat <<'KERNEL_GUARD'
+(( EUID == 0 )) || exit 1
+kernel=${1:-}
+[[ $kernel =~ ^[0-9][A-Za-z0-9.+_-]+$ ]] || exit 1
+umask 077
+WORK=$(mktemp -d /var/tmp/csi-kernel-check.XXXXXXXX)
+menu=''
+trap 'status=$?; [[ -z $menu ]] || rm -f -- "$menu"; rm -rf -- "$WORK"; if (( status )); then printf "ERROR: CSI kernel boot guard failed for %s. Do not reboot until repaired.\n" "$kernel" >&2; fi; exit "$status"' EXIT
+boot_mounts 0
+boot_required_modules > "$WORK/boot-required-modules"
+[[ -s /boot/vmlinuz-$kernel && -s /lib/modules/$kernel/modules.builtin && -s /lib/modules/$kernel/modules.order ]]
+depmod -a "$kernel"
+if ! boot_initrd_valid "$kernel"; then
+    mode=-u; [[ -e /boot/initrd.img-$kernel ]] || mode=-c
+    update-initramfs "$mode" -k "$kernel"
+fi
+boot_initrd_valid "$kernel"
+menu=$(mktemp /boot/grub/.csi-kernel-menu.XXXXXXXX)
+grub-mkconfig -o "$menu"
+boot_validate_menu --kernel-hook "$menu" "$kernel"
+chmod 600 "$menu"
+mv -f -- "$menu" /boot/grub/grub.cfg
+menu=''
+sync -f /boot/grub/grub.cfg
+printf 'CSI kernel boot guard: %s startup image and GRUB menu checked.\n' "$kernel"
+KERNEL_GUARD
+    } > "$staged" || return 1
+    bash -n "$staged" || return 1
+    if ! cmp -s "$staged" "$target"; then
+        [[ ! -e $target ]] || cp -a "$target" "$BACKUP/kernel-guard.before" || return 1
+        install -o root -g root -m 755 "$staged" "$target" || return 1
+    fi
+    log 'Kernel installation guard is active; kernel setup cannot succeed with a missing startup image'
+}
+
 boot_id() { cat /proc/sys/kernel/random/boot_id; }
 reboot_required() { [[ -f /var/run/reboot-required ]]; }
 require_release_terminal() {
@@ -649,6 +1016,8 @@ require_release_terminal() {
 
 run_release_upgrader() {
     check_and_repair_packages || return 1
+    log 'Choose Restart Later at the Ubuntu final prompt. Powerup must finish boot checks before you reboot.'
+    BOOT_VERIFIED=0
     if [[ ${RELEASE_UI:-text} == gtk ]]; then
         env -u DEBIAN_FRONTEND GDK_BACKEND=x11 do-release-upgrade -f DistUpgradeViewGtk3
         return
@@ -666,7 +1035,7 @@ upgrade_release_if_needed() {
     if [[ $BASE_CODENAME == resolute ]]; then
         if [[ -f $marker && $(cat "$marker") == "$current_boot" ]]; then
             log 'Release packages are installed, but this boot predates the release upgrade.'
-            log 'Reboot, then run: /opt/csitools/powerup'
+            log 'A reboot is pending; Powerup will check boot readiness before reporting completion.'
             STOP_AFTER_RELEASE=1
         fi
         return
@@ -674,7 +1043,7 @@ upgrade_release_if_needed() {
     [[ $BASE_CODENAME == noble ]] || die 'Unexpected release upgrade source.'
     require_release_terminal
     if reboot_required; then
-        log 'A reboot is already pending on Noble. Reboot before starting the release upgrade.'
+        log 'A reboot is pending on Noble. Boot checks will run before restart advice.'
         log 'After reboot, run: /opt/csitools/powerup'
         STOP_AFTER_RELEASE=1
         return
@@ -699,7 +1068,7 @@ upgrade_release_if_needed() {
     apt_run -o APT::Get::Always-Include-Phased-Updates=true dist-upgrade -y
     apt_run check
     if reboot_required; then
-        log 'Noble prerequisites are updated. Reboot before the distribution upgrade.'
+        log 'Noble prerequisites are updated. Boot checks will run before restart advice.'
         log 'After reboot, run: /opt/csitools/powerup'
         STOP_AFTER_RELEASE=1
         return
@@ -733,23 +1102,15 @@ upgrade_release_if_needed() {
 }
 
 prepare_updater() {
-    if [[ -n $UPDATER_FILE ]]; then
-        cp -- "$UPDATER_FILE" "$WORK/csitoolsupdate.sh"
-    else
-        log 'Downloading the CSI category updater'
-        download "$UPDATER_URL" "$WORK/csitoolsupdate.sh"
-    fi
+    log 'Downloading the CSI category updater from its configured resource'
+    download "$UPDATER_URL" "$WORK/csitoolsupdate.sh"
     [[ -s $WORK/csitoolsupdate.sh ]] || die 'CSI category updater is empty.'
-    verify_sha256 "$WORK/csitoolsupdate.sh" "$UPDATER_SHA256"
     bash -n "$WORK/csitoolsupdate.sh"
-    # The public URL was this placeholder on 2026-11-08. Do not mistake it for
-    # a working tool updater, even if an environment happens to define print.
     local body
     body=$(sed '/^[[:space:]]*#/d; /^[[:space:]]*$/d' "$WORK/csitoolsupdate.sh")
     if [[ $body == 'print "Updating..."' || $body == 'echo "Updating..."' || -z $body ]]; then
-        die 'OS/Tor maintenance completed, but csitoolsupdate.sh is a placeholder. Supply the production updater with --updater FILE. Selected CSI categories were NOT updated.'
+        die 'The configured csitoolsupdate.sh resource is a placeholder. Publish the production updater at the CSI GitHub resource. Selected CSI categories were NOT updated.'
     fi
-    log "Category updater SHA-256: $(sha256sum "$WORK/csitoolsupdate.sh" | cut -d' ' -f1)"
 }
 
 install_csi_tools() {
@@ -776,8 +1137,6 @@ install_csi_tools() {
         if download "$url" "$WORK/csitools.7z"; then success=1; break; fi
     done
     (( success )) || die 'All CSI tools download mirrors failed.'
-    verify_sha256 "$WORK/csitools.7z" "$TOOLS_SHA256"
-    log "CSI archive SHA-256: $(sha256sum "$WORK/csitools.7z" | cut -d' ' -f1)"
     "$sevenzip" x -so "$WORK/csitools.7z" csitools.tar > "$WORK/csitools.tar"
     [[ -s $WORK/csitools.tar ]] || die 'Archive does not contain csitools.tar.'
     # Restore only the tool tree, not arbitrary /etc, /usr, or root-home files.
@@ -848,17 +1207,18 @@ cleanup() {
             install -m 644 "$BACKUP/previous-tor-key.gpg" /etc/apt/keyrings/csi-torproject.gpg || true
         fi
     fi
+    if (( status != 0 )) && [[ ${BOOT_ACTIVE:-0} == 1 && ${BOOT_VERIFIED:-0} != 1 ]]; then
+        printf "ERROR: Boot readiness has not been confirmed. Keep this system running and review the log before reboot.\nPOWERUP_RESULT=boot-attention\n" >&2
+    fi
     [[ -z ${WORK:-} ]] || rm -rf -- "$WORK"
     printf '\nPowerup exit status: %s\nLog: %s\nBackup: %s\n' "$status" "$LOG_FILE" "$BACKUP"
     exit "$status"
 }
 
 parse_options() {
-    local option
-    local -A seen=()
     FORWARD=()
     CHECK_ONLY=0 RELEASE_UI=text
-    FULL_UPGRADE=0 REFRESH_TOOLS=0 UPDATER_FILE='' TOOLS_SHA256='' UPDATER_SHA256=''
+    FULL_UPGRADE=0 REFRESH_TOOLS=0
     REQUESTED=() SELECTED=()
     while (( $# )); do
         case $1 in
@@ -867,19 +1227,7 @@ parse_options() {
             --full-upgrade) FULL_UPGRADE=1; FORWARD+=("$1") ;;
             --refresh-tools) REFRESH_TOOLS=1; FORWARD+=("$1") ;;
             --tools-sha256|--updater-sha256|--updater)
-                option=$1
-                [[ -z ${seen[$option]:-} ]] || { PLAN_ERROR="Duplicate option: $option"; return 1; }
-                seen[$option]=1
-                (( $# >= 2 )) || { PLAN_ERROR="$option requires a value"; return 1; }; shift
-                if [[ $option == --updater ]]; then
-                    [[ -f $1 && -r $1 ]] || { PLAN_ERROR="Cannot read updater: $1"; return 1; }
-                    UPDATER_FILE=$(readlink -f -- "$1") || return 1
-                    FORWARD+=("$option" "$UPDATER_FILE")
-                else
-                    [[ $1 =~ ^[0-9a-fA-F]{64}$ ]] || { PLAN_ERROR="$option requires 64 hexadecimal characters"; return 1; }
-                    if [[ $option == --tools-sha256 ]]; then TOOLS_SHA256=$1; else UPDATER_SHA256=$1; fi
-                    FORWARD+=("$option" "$1")
-                fi ;;
+                PLAN_ERROR='Custom updater and checksum options were removed. Powerup uses the configured CSI resources automatically.'; return 1 ;;
             --*) PLAN_ERROR="Unknown or incompatible option: $1"; return 1 ;;
             *) REQUESTED+=("$1") ;;
         esac
@@ -888,15 +1236,67 @@ parse_options() {
     if (( ! ${#REQUESTED[@]} )); then REQUESTED=(os-update); fi
 }
 
+powerup_lock_busy() {
+    printf 'ERROR: The Powerup lock is still held; no second update was started.\n' >&2
+    python3 - "$1" <<'PY_LOCK_HOLDERS' >&2
+import os, sys
+from pathlib import Path
+try:
+    target = os.stat(sys.argv[1])
+    found = False
+    for process in Path('/proc').iterdir():
+        if not process.name.isdigit():
+            continue
+        try:
+            for fd in (process / 'fd').iterdir():
+                info = fd.stat()
+                if (info.st_dev, info.st_ino) == (target.st_dev, target.st_ino):
+                    # Do not expose command-line arguments or credentials.
+                    name = (process / 'comm').read_text().strip()
+                    print('Lock holder: PID ' + process.name + ' (' + name + ')')
+                    found = True
+                    break
+        except (OSError, PermissionError):
+            continue
+    if not found:
+        print('The lock changed during inspection; retry after the earlier run finishes.')
+except OSError as error:
+    print('Could not inspect lock holders: ' + str(error))
+PY_LOCK_HOLDERS
+    printf 'Use the existing Powerup window or inspect the listed processes. Closing a monitor does not stop its worker.\nDo not delete the lock file while an update may still be running.\n' >&2
+}
+
+powerup_locked_call() {
+    local self=$1 entry=$2 lock_file=$3 status=0 checked
+    shift 3
+    case $entry in backend_main|self_update_root_install) ;; *) die 'Invalid internal lock operation.';; esac
+    checked=$(self_revision "$self") || return 1
+    [[ -z $SELF_CHECKED_REV || $checked == "$SELF_CHECKED_REV" ]] || die 'Powerup changed since review. Reopen it.'
+    # flock owns the descriptor in its waiting parent. --close removes it from
+    # the worker and ALL descendants (including tee, package scripts and daemons).
+    # Keep the same lock inode/protocol so older Powerup runs still exclude us.
+    # Variables in this program belong to the fresh Bash worker.
+    # shellcheck disable=SC2016
+    flock --nonblock --conflict-exit-code 75 --close "$lock_file" /bin/bash -c '
+        locked_source=$1; locked_revision=$2; locked_entry=$3; shift 3
+        source "$locked_source"
+        [[ $POWERUP_REV == "$locked_revision" ]] || exit 1
+        SELF_CHECKED_REV=$locked_revision
+        POWERUP_LOCK_HELD=1
+        "$locked_entry" "$@"
+    ' powerup-locked "$self" "$checked" "$entry" "$@" || status=$?
+    if (( status == 75 )); then powerup_lock_busy "$lock_file"; fi
+    return "$status"
+}
+
 backend_main() {
     local self option
     local -a tool_categories=()
     parse_options "$@" || die "$PLAN_ERROR"
-    printf '\n========================================\nPOWERUP_REV=%s\n========================================\n' "$POWERUP_REV"
-    printf 'Running powerup script: %s\n' "$(readlink -f -- "${BASH_SOURCE[0]}")"
     validate_platform
     validate_options || die "$PLAN_ERROR"
     if (( CHECK_ONLY )); then
+        printf 'POWERUP_REV=%s\n' "$POWERUP_REV"
         printf 'Platform: Ubuntu base %s (%s)\n' "$BASE_CODENAME" "$ARCH"
         if [[ $BASE_CODENAME == noble ]]; then
             printf 'Plan: fully update Noble, run do-release-upgrade to 26.04 LTS, reboot, rerun to finalize.\n'
@@ -908,13 +1308,17 @@ backend_main() {
     fi
     if (( EUID != 0 )); then
         self=$(readlink -f -- "${BASH_SOURCE[0]}")
-        elevate "$self" "--internal-self-update-checked=$SELF_CHECKED_SHA" --cli "${FORWARD[@]}" "${REQUESTED[@]}"
+        elevate "$self" "--internal-self-update-revision=$SELF_CHECKED_REV" --cli "${FORWARD[@]}" "${REQUESTED[@]}"
     fi
     export PATH=/usr/sbin:/usr/bin:/sbin:/bin LC_ALL=C
     umask 077
-    install -d -m 700 /run/csi-powerup /var/log/csi-powerup /var/backups/csi-powerup
-    exec 9>/run/csi-powerup/lock
-    flock -n 9 || die 'Another Powerup instance is running.'
+    install -d -m 700 /run/csi-powerup
+    if (( ! POWERUP_LOCK_HELD )); then
+        self=$(readlink -f -- "${BASH_SOURCE[0]}")
+        powerup_locked_call "$self" backend_main /run/csi-powerup/lock "$@"
+        return $?
+    fi
+    install -d -m 700 /var/log/csi-powerup /var/backups/csi-powerup
     local run_id
     run_id=$(date '+%Y%m%d-%H%M%S')-$$
     LOG_FILE=/var/log/csi-powerup/powerup-$run_id.log
@@ -928,17 +1332,26 @@ backend_main() {
     trap 'exit 143' TERM
     trap 'printf "ERROR: command failed at line %s (status %s).\n" "$LINENO" "$?" >&2' ERR
     exec > >(tee -a "$LOG_FILE") 2>&1
-    printf 'POWERUP_REV=%s\n' "$POWERUP_REV"
+    printf '\n========================================\nPOWERUP_REV=%s\n========================================\n' "$POWERUP_REV"
+    printf 'Running powerup script: %s\n' "$(readlink -f -- "${BASH_SOURCE[0]}")"
     log "CSI Linux Powerup — current base $BASE_CODENAME / $ARCH; target Ubuntu 26.04 LTS"
     log "Selected: ${SELECTED[*]}"
     restore_interrupted_policy
+    boot_preflight
     check_and_repair_packages
+    boot_ensure_ready baseline
+    install_kernel_guard
     upgrade_release_if_needed
     if (( STOP_AFTER_RELEASE )); then
+        check_and_repair_packages
+        boot_ensure_ready
         if (( SERVICE_WARNINGS )); then printf 'POWERUP_RESULT=reboot-with-warnings\n'; else printf 'POWERUP_RESULT=reboot-required\n'; fi
         return
     fi
+    BOOT_VERIFIED=0
     maintain_system
+    check_and_repair_packages
+    boot_ensure_ready
     rm -f -- "$RELEASE_STATE_DIR/upgrade-boot-id"
     for option in "${SELECTED[@]}"; do
         [[ $option == os-update ]] || tool_categories+=("$option")
@@ -946,7 +1359,12 @@ backend_main() {
     if (( ${#tool_categories[@]} )); then prepare_updater; fi
     if (( ${#tool_categories[@]} || REFRESH_TOOLS )); then install_csi_tools; fi
     if (( ${#tool_categories[@]} )); then
+        BOOT_VERIFIED=0
         run_category_updater "${tool_categories[@]}"
+    fi
+    if (( ${#tool_categories[@]} || REFRESH_TOOLS )); then
+        check_and_repair_packages
+        boot_ensure_ready
     fi
     log 'Requested maintenance completed. Review remaining upgrades and reboot status above.'
     if (( SERVICE_WARNINGS )); then
@@ -968,7 +1386,7 @@ button.default { background-color: #104c61; color: #e4ffff; border-color: #26c6d
 button:disabled, entry:disabled { color: #62738a; background-color: #101a2a; }
 entry, combobox button { background: #111e31; color: #f2f8ff; border: 1px solid #34516c; border-radius: 6px; padding: 9px; min-height: 24px; }
 entry:focus { border-color: #35c9dd; }
-treeview.view { background-color: #101c2d; color: #dceaf6; border: 1px solid #253c56; padding: 12px; }
+treeview.view { background-color: #101c2d; color: #dceaf6; border: 1px solid #253c56; padding: 6px; }
 treeview.view:selected { background-color: #16465c; color: #ffffff; }
 treeview header button { background: #14253a; color: #6ed8e5; font-size: 11px; font-weight: bold; border-radius: 0; padding: 10px; }
 textview, textview text { background: #0e1a2a; color: #d7e5f2; }
@@ -1003,11 +1421,70 @@ gui_header() {
     if (( GUI_DEMO )); then printf '\n<span foreground="#f6c66b" weight="bold">DEMO • Simulated system. No changes or authentication.</span>'; fi
 }
 
+gui_yad_command() {
+    GUI_YAD_COMMAND=(env GTK_THEME=Adwaita:dark "XDG_CONFIG_HOME=$GUI_DIR/config"
+        yad "--gtkrc=$GUI_DIR/style.css" "--window-icon=$GUI_DIR/icon.svg"
+        "--image=$GUI_DIR/icon.svg" --keep-icon-size --center --width=930 --height=580
+        --borders=24 --buttons-layout=end --title='CSI Linux Powerup')
+}
+
 gui_dialog() {
-    GTK_THEME=Adwaita:dark XDG_CONFIG_HOME="$GUI_DIR/config" \
-        yad --gtkrc="$GUI_DIR/style.css" --window-icon="$GUI_DIR/icon.svg" \
-        --image="$GUI_DIR/icon.svg" --keep-icon-size --center --width=930 --height=580 \
-        --borders=24 --buttons-layout=end --title='CSI Linux Powerup' "$@"
+    local -a GUI_YAD_COMMAND=()
+    gui_yad_command
+    "${GUI_YAD_COMMAND[@]}" "$@"
+}
+
+gui_stop_monitor_child() {
+    local pid=${1:-} first_signal=${2:-USR1} signal attempt
+    [[ $pid =~ ^[0-9]+$ && $pid != "$BASHPID" && $pid != "${GUI_JOB:-}" ]] || return 0
+    # Only call this for our direct monitor children, never the maintenance job.
+    # SIGUSR1 is YAD's successful-close signal. Hung displays have bounded
+    # TERM/KILL fallbacks; no unbounded wait for a cosmetic progress window.
+    for signal in "$first_signal" TERM KILL; do
+        kill -0 "$pid" 2>/dev/null || break
+        kill -s "$signal" "$pid" 2>/dev/null || true
+        for (( attempt=0; attempt<10; attempt++ )); do
+            kill -0 "$pid" 2>/dev/null || break
+            sleep 0.05
+        done
+    done
+    if kill -0 "$pid" 2>/dev/null; then
+        printf 'WARNING: Progress monitor %s did not exit; continuing without waiting for it.\n' "$pid" >&2
+    else
+        wait "$pid" 2>/dev/null || true
+    fi
+}
+
+gui_progress_open() {
+    local hold_fd
+    local -a GUI_YAD_COMMAND=()
+    gui_yad_command
+    mkfifo "$GUI_DIR/progress.fifo" || return 1
+    # A temporary read/write endpoint lets both real endpoints open without
+    # blocking. It is explicitly closed in the child BEFORE exec'ing YAD.
+    exec {hold_fd}<>"$GUI_DIR/progress.fifo"
+    (
+        exec 0<"$GUI_DIR/progress.fifo"
+        exec {hold_fd}>&-
+        exec "${GUI_YAD_COMMAND[@]}" "$@"
+    ) >/dev/null 2>&1 &
+    GUI_PROGRESS_PID=$!
+    exec {GUI_PROGRESS_FD}>"$GUI_DIR/progress.fifo"
+    exec {hold_fd}>&-
+}
+
+gui_progress_close() {
+    if [[ -n ${GUI_PROGRESS_FD:-} ]]; then
+        # Closing the writer delivers EOF. Do not write here: a stalled GTK
+        # reader could fill the pipe and turn a completion write into a hang.
+        exec {GUI_PROGRESS_FD}>&-
+        GUI_PROGRESS_FD=''
+    fi
+    gui_stop_monitor_child "${GUI_PROGRESS_PID:-}"
+    GUI_PROGRESS_PID=''
+    gui_stop_monitor_child "${GUI_LOG_FEEDER:-}" TERM
+    GUI_LOG_FEEDER=''
+    [[ -z ${GUI_DIR:-} ]] || rm -f -- "$GUI_DIR/progress.fifo"
 }
 
 gui_capture() {
@@ -1040,77 +1517,42 @@ gui_repository_state() {
 }
 
 gui_dashboard() {
-    local selected name enabled note
-    local -a rows=()
+    local note selected name enabled
+    local -a rows=() profiles=(standard all selected refresh)
     if [[ $BASE_CODENAME == noble ]]; then
-        note='NOBLE 24.04  →  RESOLUTE 26.04 LTS  •  Release upgrade required'
-        for name in release preview; do
-            if (( ${GUI_READ_ONLY:-0} )) && [[ $name != preview ]]; then continue; fi
-            enabled=FALSE; [[ $GUI_MODE == "$name" ]] && enabled=TRUE
-            if [[ $name == release ]]; then
-                rows+=("$enabled" release 'Upgrade to Ubuntu 26.04 LTS' "Prepare Noble, open Ubuntu's graphical upgrader, then reboot and resume.")
-            else rows+=("$enabled" preview 'Preview system and upgrade plan' 'Read-only overview. No downloads, installation, or administrator access.'); fi
-        done
-        note+=$'\nTool categories and archive refresh become available after the release upgrade.'
+        profiles=(release)
+        note='UBUNTU 24.04 → 26.04 LTS • System upgrade first; CSI tools after reboot.'
     else
-        note='RESOLUTE 26.04 LTS  •  Ubuntu + Tor repositories  •  '"$ARCH"
-        if (( ${GUI_REPOS_READY:-0} )); then
-            note+=$'\nUbuntu 26.04 and repositories are configured. Package maintenance is available.'
-        else
-            note+=$'\nRepository configuration will be checked and completed during maintenance.'
-        fi
-        for name in standard full preview; do
-            if (( ${GUI_READ_ONLY:-0} )) && [[ $name != preview ]]; then continue; fi
-            if [[ $name == full ]] && (( ${GUI_REPOS_READY:-0} )); then continue; fi
-            enabled=FALSE; [[ $GUI_MODE == "$name" ]] && enabled=TRUE
-            case $name in
-                standard) rows+=("$enabled" "$name" 'Update installed packages' 'Repair dependencies first, refresh package lists, and apply available updates.') ;;
-                full) rows+=("$enabled" "$name" 'Full package upgrade' 'Resolve dependency changes; package removals may be required.') ;;
-                preview) rows+=("$enabled" "$name" 'Preview maintenance plan' 'Read-only overview. No downloads, installation, or administrator access.') ;;
-            esac
-        done
+        note='UBUNTU 26.04 LTS • System updates include Ubuntu and Tor repositories.'
+        if (( ! ${GUI_REPOS_READY:-0} )); then profiles+=(full)
+        else note+=$'\nYour OS and repositories are configured. No OS upgrade is needed.'; fi
     fi
-    if [[ -n ${GUI_HEALTH_REPORT:-} ]]; then note+=$'\nAUTOMATIC REPAIR PENDING • Package configuration will be repaired first.'; fi
+    if [[ -n ${GUI_HEALTH_REPORT:-} ]]; then note+=$'\nPending package problems will be repaired before installation.'; fi
+    if (( ${GUI_READ_ONLY:-0} )); then profiles=(preview); fi
+    for name in "${profiles[@]}"; do
+        enabled=FALSE; [[ $GUI_PROFILE == "$name" ]] && enabled=TRUE
+        case $name in
+            standard) rows+=("$enabled" "$name" 'Update system (recommended)' 'Update installed packages, then check kernel startup files and GRUB.') ;;
+            all) rows+=("$enabled" "$name" 'Update system + all CSI tools' 'Include every CSI tool category using the published CSI updater.') ;;
+            selected) rows+=("$enabled" "$name" 'Update system + selected CSI tools' 'Choose tool categories on the next screen. System updates are included.') ;;
+            refresh) rows+=("$enabled" "$name" 'Restore CSI tool files' 'Update the system, back up the tool folder, and restore the CSI archive.') ;;
+            full) rows+=("$enabled" "$name" 'Full package upgrade' 'Allow package removals needed to resolve dependency changes.') ;;
+            release) rows+=("$enabled" "$name" 'Upgrade to Ubuntu 26.04 LTS' 'Use the Ubuntu supported upgrade, with boot checks before and after.') ;;
+            preview) rows+=(TRUE "$name" 'Preview maintenance plan' 'Read-only overview. No system changes or administrator access.') ;;
+        esac
+    done
     while :; do
-        gui_capture --text="$(gui_header 'Powerup control center' '01  PLAN     /     02  SCOPE     /     03  VERIFY     /     04  REVIEW' "$note")" \
-            --list --radiolist --no-click --column='':RD --column='Key':HD --column='WORKFLOW' --column='WHAT TO EXPECT' \
-            --print-column=2 --separator='' --expand-column=4 --wrap-cols=4 --wrap-width=460 \
-            --button='Options and help:4' --button='About:6' --button='Close:1' --button='Continue:0' "${rows[@]}"
+        gui_capture --text="$(gui_header 'Ready to power up' '01  CHOOSE     /     02  START' "$note")" \
+            --list --radiolist --no-click --column='':RD --column='Key':HD --column='ACTION' --column='INCLUDED' \
+            --print-column=2 --separator='' --expand-column=4 --wrap-cols=4 --wrap-width=455 \
+            --button='Help:4' --button='Preview:3' --button='Close:1' --button='Continue:0' "${rows[@]}"
         case $GUI_CODE in
-            0) selected=${GUI_RESPONSE//$'\n'/}; [[ -n $selected ]] || continue; GUI_MODE=$selected; return 0 ;;
+            0) selected=${GUI_RESPONSE//$'\n'/}; [[ -n $selected ]] || continue; GUI_PROFILE=$selected; return 0 ;;
+            3) GUI_PROFILE=preview; return 0 ;;
             4) gui_help ;;
-            6) gui_message 'About Powerup' "CSI Linux • csilinux.com • Jeremy Martin
-Revision $POWERUP_REV
-Bash updater with a native YAD interface.
-Ubuntu 26.04 LTS / Resolute Raccoon" ;;
             *) return 1 ;;
         esac
     done
-}
-
-gui_scope() {
-    local -a values=()
-    local choices='System only!System + selected categories!System + all categories'
-    case $GUI_SCOPE in selected) choices='System only!^System + selected categories!System + all categories';;
-        all) choices='System only!System + selected categories!^System + all categories';; esac
-    gui_capture --height=480 --text="$(gui_header 'Choose your scope' '01  PLAN     /     02  SCOPE     /     03  VERIFY     /     04  REVIEW' 'System and repository maintenance is included in every update run.')" \
-        --form --separator=$'\x1f' --align=left \
-        --field='Update scope:CB' "$choices" \
-        --field='Refresh CSI tool archive:CHK' "$GUI_REFRESH" \
-        --field='Choose all categories or a selected subset; these are separate routes.:LBL' '' \
-        --field='Archive refresh backs up the current tool tree, then restores the CSI archive.:LBL' '' \
-        --button='Cancel:1' --button='Back:2' --button='Continue:0'
-    (( GUI_CODE == 0 )) || return "$GUI_CODE"
-    IFS=$'\x1f' read -r -a values <<< "$GUI_RESPONSE"
-    case ${values[0]} in
-        'System only') GUI_SCOPE=os ;;
-        'System + selected categories') GUI_SCOPE=selected ;;
-        'System + all categories') GUI_SCOPE=all ;;
-        *) return 2 ;;
-    esac
-    GUI_REFRESH=${values[1]:-FALSE}
-    [[ $GUI_REFRESH == TRUE ]] || GUI_TOOLS_HASH=''
-    if [[ $GUI_SCOPE == os ]]; then GUI_UPDATER='' GUI_UPDATER_HASH=''; fi
 }
 
 gui_categories() {
@@ -1123,129 +1565,60 @@ gui_categories() {
         rows+=("$checked" "$name")
     done
     while :; do
-        gui_capture --text="$(gui_header 'Select tool categories' '02  SCOPE  /  SELECTED CATEGORIES' 'Choose one or more categories. OS maintenance runs first.')" \
+        gui_capture --height=740 --text="$(gui_header 'Choose tools and start' '02  START' $'System updates, dependency repair and boot checks are included.\nChoose one or more categories. Updates use the published CSI resources.\nKeep power connected and a backup or VM snapshot available.')" \
             --list --checklist --column='':CHK --column='CSI TOOL CATEGORY' --print-column=2 --separator='|' \
-            --button='Cancel:1' --button='Back:2' --button='Continue:0' "${rows[@]}"
+            --button='Cancel:1' --button='Back:2' --button='Start updates:0' "${rows[@]}"
         (( GUI_CODE == 0 )) || return "$GUI_CODE"
         local answer=${GUI_RESPONSE//|/ }
         answer=${answer//$'\n'/ }
         read -r -a GUI_CATEGORIES <<< "$answer"
         (( ${#GUI_CATEGORIES[@]} )) && return 0
-        gui_message 'Select a category' 'Select at least one category, or go Back and choose System only.'
-    done
-}
-
-gui_integrity() {
-    local -a values=() fields=()
-    local source='CSI GitHub updater!Local production updater'
-    if [[ $GUI_SCOPE != os ]]; then
-        [[ $GUI_SOURCE != local ]] || source='CSI GitHub updater!^Local production updater'
-        gui_capture --height=420 --text="$(gui_header 'Choose updater source' '03  VERIFY  /  TOOL UPDATER' 'Use a production updater for your CSI tool categories.')" \
-            --form --separator=$'\x1f' --field='Updater source:CB' "$source" \
-            --field='The public file previously contained a placeholder; a production file may be required.:LBL' '' \
-            --button='Cancel:1' --button='Back:2' --button='Continue:0'
-        (( GUI_CODE == 0 )) || return "$GUI_CODE"
-        IFS=$'\x1f' read -r -a values <<< "$GUI_RESPONSE"
-        if [[ ${values[0]} == 'Local production updater' ]]; then GUI_SOURCE=local; else GUI_SOURCE=remote; GUI_UPDATER=''; fi
-    fi
-    [[ $GUI_SCOPE != os || $GUI_REFRESH == TRUE ]] || return 0
-    while :; do
-        fields=()
-        if [[ $GUI_SCOPE != os ]]; then
-            if [[ $GUI_SOURCE == local ]]; then fields+=(--field='Production updater file:FL' "$GUI_UPDATER"); fi
-            fields+=(--field='Updater SHA-256 (optional)' "$GUI_UPDATER_HASH")
-        fi
-        if [[ $GUI_REFRESH == TRUE ]]; then fields+=(--field='Archive SHA-256 (optional)' "$GUI_TOOLS_HASH"); fi
-        gui_capture --height=480 --text="$(gui_header 'Verify selected downloads' '03  VERIFY  /  INTEGRITY' 'Paste a trusted 64-character SHA-256, or leave it empty to use HTTPS transport trust.')" \
-            --form --separator=$'\x1f' --align=left "${fields[@]}" \
-            --button='Cancel:1' --button='Back:2' --button='Continue:0'
-        (( GUI_CODE == 0 )) || return "$GUI_CODE"
-        IFS=$'\x1f' read -r -a values <<< "$GUI_RESPONSE"
-        local index=0
-        if [[ $GUI_SCOPE != os ]]; then
-            if [[ $GUI_SOURCE == local ]]; then GUI_UPDATER=${values[index]:-}; index=$((index+1)); fi
-            GUI_UPDATER_HASH=${values[index]:-}; index=$((index+1))
-        fi
-        if [[ $GUI_REFRESH == TRUE ]]; then GUI_TOOLS_HASH=${values[index]:-}; fi
-        if [[ $GUI_SCOPE != os && $GUI_SOURCE == local && -z $GUI_UPDATER ]]; then
-            gui_message 'Select an updater' 'Choose your production csitoolsupdate.sh file, or go Back and choose the GitHub source.'
-            continue
-        fi
-        gui_build_plan
-        if validate_options; then return 0; fi
-        gui_message 'Check your settings' "$PLAN_ERROR"
+        gui_message 'Choose a category' 'Select at least one category, or go Back and choose Update system.'
     done
 }
 
 gui_build_plan() {
     CHECK_ONLY=0 FULL_UPGRADE=0 REFRESH_TOOLS=0 RELEASE_UI=text
-    TOOLS_SHA256=$GUI_TOOLS_HASH UPDATER_SHA256=$GUI_UPDATER_HASH UPDATER_FILE=$GUI_UPDATER
     REQUESTED=(os-update)
-    case $GUI_MODE in
-        preview) CHECK_ONLY=1; TOOLS_SHA256='' UPDATER_SHA256='' UPDATER_FILE='';;
-        release) RELEASE_UI=gtk; TOOLS_SHA256='' UPDATER_SHA256='' UPDATER_FILE='';;
-        standard|full)
-            [[ $GUI_MODE != full ]] || FULL_UPGRADE=1
-            [[ $GUI_REFRESH != TRUE ]] || REFRESH_TOOLS=1
-            case $GUI_SCOPE in
-                all) REQUESTED=(all) ;;
-                selected) REQUESTED=(os-update "${GUI_CATEGORIES[@]}") ;;
-            esac ;;
+    case $GUI_PROFILE in
+        preview) CHECK_ONLY=1 ;;
+        release) RELEASE_UI=gtk ;;
+        full) FULL_UPGRADE=1 ;;
+        refresh) REFRESH_TOOLS=1 ;;
+        all) REQUESTED=(all) ;;
+        selected) REQUESTED=(os-update "${GUI_CATEGORIES[@]}") ;;
+        standard) ;;
+        *) die 'Unknown wizard action.' ;;
     esac
     GUI_ARGS=()
     (( ! CHECK_ONLY )) || GUI_ARGS+=(--check)
     (( ! FULL_UPGRADE )) || GUI_ARGS+=(--full-upgrade)
     (( ! REFRESH_TOOLS )) || GUI_ARGS+=(--refresh-tools)
-    [[ -z $TOOLS_SHA256 ]] || GUI_ARGS+=(--tools-sha256 "$TOOLS_SHA256")
-    [[ -z $UPDATER_FILE ]] || GUI_ARGS+=(--updater "$UPDATER_FILE")
-    [[ -z $UPDATER_SHA256 ]] || GUI_ARGS+=(--updater-sha256 "$UPDATER_SHA256")
     [[ $RELEASE_UI != gtk ]] || GUI_ARGS+=(--release-ui=gtk)
     GUI_ARGS+=("${REQUESTED[@]}")
 }
 
 gui_write_plan() {
     {
-        printf 'YOUR MAINTENANCE PLAN\n\nCurrent system: Ubuntu base %s (%s)\nTarget: Ubuntu 26.04 LTS / Resolute\n\n' "$BASE_CODENAME" "$ARCH"
-        if [[ $BASE_CODENAME == resolute ]] && (( ${GUI_REPOS_READY:-0} )); then
-            printf 'Ubuntu 26.04 and the managed repositories are already configured.\nNo OS release upgrade is offered or required.\n\n'
-        fi
-        if (( GUI_DEMO )); then printf 'DEMONSTRATION — No system packages or repositories will change.\nDemo activity logs are saved.\n\n'; fi
-        case $GUI_MODE in
-            preview) printf 'READ-ONLY PREVIEW\nNo authentication. No downloads. No package or repository changes.\n\n' ;;
-            release) printf 'RELEASE UPGRADE\nFully update Noble, then open the Ubuntu graphical release upgrader.\nThird-party repositories are backed up and disabled for the transition.\nUbuntu will ask about package removals and configuration changes.\n\nREBOOT & RESUME\nA reboot may be needed before and after the release upgrade.\nReopen Powerup after reboot to finish Resolute and Tor maintenance.\nTool-category updates are available once this transition is complete.\n' ;;
-            *)
-                if [[ $GUI_MODE == full ]]; then printf 'FULL PACKAGE UPGRADE\nMay remove packages to resolve dependency changes.\n';
-                else printf 'STANDARD SYSTEM UPDATE\nUpgrade packages without removing installed packages.\n'; fi
-                case $GUI_SCOPE in
-                    os) printf '\nScope: System and repositories only\n';;
-                    selected) printf '\nScope: System and selected CSI categories\n';;
-                    all) printf '\nScope: System and all CSI categories\n';;
-                esac
-                [[ $GUI_SCOPE != selected ]] || printf 'Categories: %s\n' "${GUI_CATEGORIES[*]}"
-                [[ $GUI_SCOPE != all ]] || printf 'All 11 CSI tool categories are included.\n'
-                if [[ $GUI_REFRESH == TRUE ]]; then printf 'Refresh tool archive: Yes, with an existing-tree backup\n';
-                else printf 'Refresh tool archive: No\n'; fi
-                if [[ $GUI_SCOPE != os ]]; then
-                    printf 'Updater source: %s\n' "$GUI_SOURCE"
-                    [[ -z $GUI_UPDATER ]] || printf 'Updater file: %s\n' "$GUI_UPDATER"
-                    printf 'Updater checksum: %s\n' "${GUI_UPDATER_HASH:-Not supplied — HTTPS/local file trust}"
-                    printf 'Category success requires a functional production updater.\n'
-                fi
-                [[ $GUI_REFRESH != TRUE ]] || printf 'Archive checksum: %s\n' "${GUI_TOOLS_HASH:-Not supplied — HTTPS transport trust}"
-                ;;
+        printf 'Ubuntu base: %s • %s\n\n' "$BASE_CODENAME" "$ARCH"
+        if (( GUI_DEMO )); then printf 'DEMONSTRATION: simulated work; no system changes.\n\n'; fi
+        case $GUI_PROFILE in
+            preview) printf 'READ-ONLY PREVIEW\nNo downloads, package changes or authentication.\n\nUpdate runs would repair dependencies, maintain Ubuntu/Tor repositories,\nupdate packages and check kernel startup files and GRUB.\n' ;;
+            release) printf 'UPGRADE TO UBUNTU 26.04 LTS\nPrepare Noble and open the Ubuntu supported upgrade assistant.\nUbuntu may ask about configuration changes and package removals.\n\nChoose “Restart Later” at the Ubuntu final prompt so Powerup can\nfinish its boot checks. Keep the existing kernel when offered cleanup.\nReopen Powerup after reboot to finish Resolute/Tor maintenance.\n' ;;
+            full) printf 'FULL PACKAGE UPGRADE\nRepair dependencies and update Ubuntu/Tor repositories.\nUpgrade packages; dependency-related removals are allowed.\n' ;;
+            refresh) printf 'RESTORE CSI TOOL FILES\nUpdate the system, back up /opt/csitools, then restore its CSI archive.\n' ;;
+            all) printf 'SYSTEM + ALL CSI TOOLS\nUpdate the system and all 11 CSI tool categories.\n' ;;
+            *) printf 'SYSTEM UPDATE\nRepair dependencies, refresh Ubuntu/Tor repositories,\nand run apt update followed by apt upgrade -y.\n' ;;
         esac
-        printf '\nFINAL REPOSITORIES\nUbuntu: resolute, updates, security, backports\nComponents: main, restricted, universe, multiverse\nTor Project: stable Resolute repository with fingerprint-checked signing key\n'
-        if (( CHECK_ONLY )); then printf '\nRECOVERY AVAILABLE DURING AN UPDATE (not run in Preview)\n'; else printf '\nAUTOMATIC RECOVERY\n'; fi
-        printf 'Repair broken dependencies before any normal package installation.\nBoth dpkg audit and APT dependency checks must pass before continuing.\nOnly repair-related package changes are allowed until the checks pass.\nRetry a failed package operation once; retain modified configuration files.\nA failed clamav-milter restart can be deferred during repair, then retried.\nUnresolved service problems remain visible in the final result.\n'
-        if [[ $GUI_MODE == standard ]]; then printf 'Automatic repair cannot remove packages in Standard mode.\n';
-        elif [[ $GUI_MODE != preview ]]; then printf 'Dependency repair may remove packages in this selected upgrade mode.\n'; fi
-        if [[ -n ${GUI_HEALTH_REPORT:-} ]]; then printf '\nPACKAGE HEALTH — AUTOMATIC REPAIR PENDING\n%s\n' "$GUI_HEALTH_REPORT"; fi
-        if [[ $BASE_CODENAME == noble ]]; then printf '\nNoble repositories remain in use until Ubuntu performs the release upgrade.\n'; fi
-        if (( ! CHECK_ONLY && ! GUI_DEMO )); then printf '\nBEFORE YOU START\nKeep power and network connected. Back up important data or take a VM snapshot.\nAdministrator authentication is requested only after Start.\n'; fi
+        if (( ! CHECK_ONLY )); then
+            printf '\nBOOT CHECKS\nCheck boot mounts, free space, kernel modules and startup images.\nRebuild missing startup images and validate the generated GRUB menu.\nUnresolved boot problems stop completion and reboot advice.\n\nKeep power connected and a backup or VM snapshot available.\nClick Start to authenticate and run this plan. No automatic reboot.\n'
+        fi
+        if [[ -n ${GUI_HEALTH_REPORT:-} ]]; then printf '\nPACKAGE REPAIR PENDING\n%s\n' "$GUI_HEALTH_REPORT"; fi
     } > "$GUI_DIR/plan.txt"
 }
 
 gui_cleanup() {
+    gui_progress_close
     # A detached runner may still be finishing APT if this frontend is closed.
     # Never kill it, remove its files, or show a false completion status.
     if [[ -n ${GUI_JOB:-} && ! -f ${GUI_STATUS:-/nonexistent} ]]; then return; fi
@@ -1253,7 +1626,9 @@ gui_cleanup() {
 }
 
 gui_feed_log() {
-    python3 -u - "$GUI_LOG" "$GUI_STATUS" "$GUI_JOB" <<'PY_GUI_LOG'
+    # Called only in its own background subshell. Exec gives us the actual
+    # feeder PID, so cleanup cannot leave an orphan holding the pipe open.
+    exec python3 -u - "$GUI_LOG" "$GUI_STATUS" "$GUI_JOB" <<'PY_GUI_LOG'
 import os, sys, time
 log, status, pid = sys.argv[1:]
 def running():
@@ -1310,7 +1685,7 @@ printf 'POWERUP_RESULT=demo-complete\n'
 DEMO
         command=(/bin/bash "$GUI_DIR/demo.sh")
     elif (( EUID == 0 )); then
-        command=(/bin/bash "$self" "--internal-self-update-checked=$SELF_CHECKED_SHA" --cli "${GUI_ARGS[@]}")
+        command=(/bin/bash "$self" "--internal-self-update-revision=$SELF_CHECKED_REV" --cli "${GUI_ARGS[@]}")
     else
         # Some X11 sessions omit XAUTHORITY and rely on the user's home file.
         if [[ -z ${XAUTHORITY:-} && -f $HOME/.Xauthority ]]; then export XAUTHORITY=$HOME/.Xauthority; fi
@@ -1321,18 +1696,34 @@ DEMO
                 'Enter your administrator password to start the reviewed plan.' 'Cancel:1' 'Authenticate:0'
         } > "$GUI_DIR/askpass.sh"
         chmod 700 "$GUI_DIR/askpass.sh"
-        command=(sudo -A '--preserve-env=DISPLAY,XAUTHORITY' -- /bin/bash "$self" "--internal-self-update-checked=$SELF_CHECKED_SHA" --cli "${GUI_ARGS[@]}")
+        command=(sudo -A '--preserve-env=DISPLAY,XAUTHORITY' -- /bin/bash "$self" "--internal-self-update-revision=$SELF_CHECKED_REV" --cli "${GUI_ARGS[@]}")
     fi
     SUDO_ASKPASS="$GUI_DIR/askpass.sh" setsid --wait /bin/bash "$GUI_DIR/runner.sh" "$GUI_STATUS" "$GUI_LOG" "${command[@]}" &
     GUI_JOB=$!
-    gui_feed_log | gui_dialog --text="$(gui_header 'Maintenance in progress' 'EXECUTING YOUR REVIEWED PLAN' 'Live activity is shown below. Closing this monitor does not cancel package operations.')" \
+    if gui_progress_open --text="$(gui_header 'Maintenance in progress' 'EXECUTING YOUR REVIEWED PLAN' 'Live activity is shown below. Closing this monitor does not cancel package operations.')" \
         --progress --pulsate --progress-text='Working — duration depends on downloads and package changes' \
-        --enable-log='Activity log' --log-expanded --log-height=300 --auto-close --no-buttons --no-escape >/dev/null || true
+        --enable-log='Activity log' --log-expanded --log-height=300 --auto-close --no-buttons --no-escape; then
+        (
+            exec 1>&"$GUI_PROGRESS_FD"
+            exec {GUI_PROGRESS_FD}>&-
+            gui_feed_log
+        ) 2>/dev/null &
+        GUI_LOG_FEEDER=$!
+    fi
+    # Completion is tied to the worker, not to GTK handling "100" or EOF.
+    # A manually closed monitor also leaves the worker running normally.
     wait "$GUI_JOB" || true
+    gui_progress_close
     if [[ -f $GUI_STATUS ]]; then read -r exit_code < "$GUI_STATUS"; else exit_code=125; fi
     outcome=$(sed -n 's/^POWERUP_RESULT=//p' "$GUI_LOG" | tail -n 1)
     local title detail
-    if [[ $exit_code != 0 ]]; then
+    if [[ $exit_code == 75 ]]; then
+        title='An earlier Powerup run holds the lock'
+        detail='No second update was started. The earlier worker may still be running even if its window was closed. View the log for the process IDs holding the lock; let active package work finish before retrying.'
+    elif [[ $outcome == boot-attention ]]; then
+        title='Boot repair needs attention'
+        detail='Keep this system running. Kernel or GRUB readiness was not confirmed. Review the saved log and backup path before rebooting; no successful completion is being reported.'
+    elif [[ $exit_code != 0 ]]; then
         title='Maintenance needs attention'
         detail="The operation stopped with status $exit_code. Some earlier steps may have completed. Review the log before retrying."
         local errors
@@ -1377,7 +1768,7 @@ gui_main() {
     command -v setsid >/dev/null || die 'setsid (util-linux) is required for the update worker.'
     umask 077
     GUI_DIR=$(mktemp -d "${TMPDIR:-/tmp}/csi-powerup-gui.XXXXXXXX")
-    GUI_JOB='' GUI_STATUS=''
+    GUI_JOB='' GUI_STATUS='' GUI_PROGRESS_PID='' GUI_PROGRESS_FD='' GUI_LOG_FEEDER=''
     trap gui_cleanup EXIT
     gui_assets
     GUI_HEALTH_REPORT=''
@@ -1399,59 +1790,58 @@ gui_main() {
         return 1
     fi
     GUI_READ_ONLY=$CHECK_ONLY
-    GUI_MODE=standard; (( ! FULL_UPGRADE )) || GUI_MODE=full
-    [[ $BASE_CODENAME != noble ]] || GUI_MODE=release
-    (( ! CHECK_ONLY )) || GUI_MODE=preview
-    GUI_SCOPE=os GUI_REFRESH=FALSE GUI_SOURCE=remote
-    GUI_UPDATER=$UPDATER_FILE GUI_UPDATER_HASH=$UPDATER_SHA256 GUI_TOOLS_HASH=$TOOLS_SHA256
+    GUI_PROFILE=standard
+    (( ! FULL_UPGRADE )) || GUI_PROFILE=full
+    (( ! REFRESH_TOOLS )) || GUI_PROFILE=refresh
+    [[ $BASE_CODENAME != noble ]] || GUI_PROFILE=release
     GUI_CATEGORIES=()
-    (( ! REFRESH_TOOLS )) || GUI_REFRESH=TRUE
-    [[ -z $GUI_UPDATER ]] || GUI_SOURCE=local
     for note in "${REQUESTED[@]}"; do
-        if [[ $note == all ]]; then GUI_SCOPE=all
-        elif [[ $note != os-update ]]; then GUI_SCOPE=selected; GUI_CATEGORIES+=("$note"); fi
+        if [[ $note == all ]]; then GUI_PROFILE=all
+        elif [[ $note != os-update ]]; then GUI_PROFILE=selected; GUI_CATEGORIES+=("$note"); fi
     done
+    (( ! CHECK_ONLY )) || GUI_PROFILE=preview
     while :; do
-        if ! gui_dashboard; then return 0; fi
-        if [[ $GUI_MODE != preview ]] && (( ! GUI_DEMO )); then
-            GUI_HEALTH_REPORT=$(dpkg --audit 2>&1) || GUI_HEALTH_REPORT="Could not inspect package state: $GUI_HEALTH_REPORT"
+        if (( ! GUI_READ_ONLY )); then
+            if ! gui_dashboard; then return 0; fi
         fi
-        if [[ $GUI_MODE == standard || $GUI_MODE == full ]]; then
-            if gui_scope; then :; else code=$?; if (( code == 2 )); then continue; else return 0; fi; fi
-            if [[ $GUI_SCOPE == selected ]]; then
-                if gui_categories; then :; else code=$?; if (( code == 2 )); then continue; else return 0; fi; fi
-            fi
-            if gui_integrity; then :; else code=$?; if (( code == 2 )); then continue; else return 0; fi; fi
+        if [[ $GUI_PROFILE == selected ]]; then
+            if gui_categories; then :; else code=$?; if (( code == 2 )); then continue; else return 0; fi; fi
+            gui_build_plan
+            if ! validate_options; then gui_message 'Check your choices' "$PLAN_ERROR"; continue; fi
+            gui_run_plan "$self"; return
         fi
         gui_build_plan
-        if ! validate_options; then gui_message 'Check your settings' "$PLAN_ERROR"; continue; fi
+        if ! validate_options; then gui_message 'Check your choices' "$PLAN_ERROR"; continue; fi
         gui_write_plan
-        if [[ $GUI_MODE == preview ]]; then
-            gui_dialog --text="$(gui_header 'System preview' 'READ ONLY' 'No changes made. No administrator access requested.')" --text-info --filename="$GUI_DIR/plan.txt" \
-                --fontname='Monospace 11' --wrap --button='Back to plans:0' >/dev/null || true
+        if (( CHECK_ONLY )); then
+            gui_dialog --text="$(gui_header 'System preview' 'READ ONLY' 'No system changes or administrator access.')" --text-info --filename="$GUI_DIR/plan.txt" \
+                --fontname='DejaVu Sans 11' --wrap --button='Close:0' >/dev/null || true
+            (( ! GUI_READ_ONLY )) || return 0
+            GUI_PROFILE=standard; [[ $BASE_CODENAME != noble ]] || GUI_PROFILE=release
             continue
         fi
-        gui_capture --height=700 --text="$(gui_header 'Review before starting' '04  REVIEW' 'Only the choices below will be executed.')" --text-info --filename="$GUI_DIR/plan.txt" \
-            --fontname='Monospace 11' --wrap --button='Cancel:1' --button='Edit choices:2' --button='Start maintenance:0'
+        gui_capture --height=650 --text="$(gui_header 'Ready to start' '02  START' 'Your selected action is shown below.')" --text-info --filename="$GUI_DIR/plan.txt" \
+            --fontname='DejaVu Sans 11' --wrap --button='Cancel:1' --button='Back:2' --button='Start updates:0'
         case $GUI_CODE in 2) continue;; 0) gui_run_plan "$self"; return;; *) return 0;; esac
     done
 }
 
 # ------------------------- Startup self-update -------------------------
 # Metadata is read as text, never sourced. HTTPS authenticates the publisher;
-# hashes bind the privileged install to the exact download that was inspected.
+# revision checks prevent downgrades. No user checksum or source selection.
+self_revision() {
+    sed -n 's/^readonly POWERUP_REV=//p' "$1"
+}
+
 self_update_program() {
     /usr/bin/python3 - "$@" <<'PY_SELF_UPDATE'
-import datetime, fcntl, hashlib, os, re, signal, stat, subprocess, sys, tempfile
+import datetime, fcntl, os, re, signal, stat, subprocess, sys, tempfile
 import urllib.request
 from pathlib import Path
 
 URL = 'https://raw.githubusercontent.com/CSILinux/CSILinux-Powerup/refs/heads/main/powerup'
 LIMIT = 2 * 1024 * 1024
 END = 'if [[ ${BASH_SOURCE[0]} == "$0" ]]; then main "$@"; fi'
-
-def digest(data):
-    return hashlib.sha256(data).hexdigest()
 
 def revision(data):
     if not data or len(data) > LIMIT or b'\0' in data:
@@ -1511,13 +1901,13 @@ def download(path):
     finally:
         signal.alarm(0)
 
-def install(target, candidate, old_sha, new_sha):
+def install(target, candidate, old_revision, new_revision):
     old, info = read_regular(target)
     new, _ = read_regular(candidate)
-    if digest(old) != old_sha or digest(new) != new_sha:
-        raise ValueError('Powerup changed during the check; reopen it to check again')
-    old_key, _ = validate(old)
-    new_key, _ = validate(new, require_protocol=True)
+    old_key, old_label = validate(old)
+    new_key, new_label = validate(new, require_protocol=True)
+    if (old_label, new_label) != (old_revision, new_revision):
+        raise ValueError('Powerup revision changed during the check; reopen it')
     if new_key <= old_key:
         raise ValueError('Refusing to install a revision that is not newer')
     parent = Path(target).parent
@@ -1529,7 +1919,7 @@ def install(target, candidate, old_sha, new_sha):
             raise ValueError('Self-update lock is not a regular file')
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         current, now = read_regular(target)
-        if digest(current) != old_sha or (now.st_dev, now.st_ino) != (info.st_dev, info.st_ino):
+        if current != old or (now.st_dev, now.st_ino) != (info.st_dev, info.st_ino):
             raise ValueError('Installed Powerup changed while waiting to replace it')
         stamp = datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%d-%H%M%S')
         fd, backup = tempfile.mkstemp(prefix=Path(target).name + '.backup-' + stamp + '-', dir=parent)
@@ -1545,7 +1935,7 @@ def install(target, candidate, old_sha, new_sha):
             os.fchmod(handle.fileno(), (stat.S_IMODE(info.st_mode) & 0o777) | 0o100)
             os.fsync(handle.fileno())
         current, now = read_regular(target)
-        if digest(current) != old_sha or (now.st_dev, now.st_ino) != (info.st_dev, info.st_ino):
+        if current != old or (now.st_dev, now.st_ino) != (info.st_dev, info.st_ino):
             raise ValueError('Installed Powerup changed before replacement')
         os.replace(temp, target)
         temp = None
@@ -1565,10 +1955,10 @@ try:
     if action == 'inspect':
         data, _ = read_regular(args[0])
         _, label = validate(data)
-        print(label, digest(data))
+        print(label)
     elif action == 'download':
         _, label, data = download(args[0])
-        print(label, digest(data))
+        print(label)
     elif action == 'newer':
         new, _ = read_regular(args[0])
         old, _ = read_regular(args[1])
@@ -1591,63 +1981,57 @@ PY_SELF_UPDATE
 
 self_update_root_install() (
     (( EUID == 0 )) || die 'Internal Powerup installation requires administrator access.'
-    [[ $# == 2 && $1 =~ ^[0-9a-f]{64}$ && $2 =~ ^[0-9a-f]{64}$ ]] || die 'Invalid internal update parameters.'
+    [[ $# == 2 && $1 =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}-[1-9][0-9]*$ && $2 =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}-[1-9][0-9]*$ ]] || die 'Invalid internal update parameters.'
     export PATH=/usr/sbin:/usr/bin:/sbin:/bin
     umask 077
-    local self staging meta fetched_sha
+    local self staging meta
     self=$(readlink -f -- "${BASH_SOURCE[0]}") || exit 1
     install -d -m 700 /run/csi-powerup || exit 1
-    exec 9>/run/csi-powerup/lock
-    flock -n 9 || die 'Powerup maintenance is already running; retry after it finishes.'
+    if (( ! POWERUP_LOCK_HELD )); then
+        powerup_locked_call "$self" self_update_root_install /run/csi-powerup/lock "$@"
+        return $?
+    fi
     staging=$(mktemp -d /var/tmp/powerup-self-update.XXXXXXXX) || exit 1
     trap 'rm -rf -- "$staging"' EXIT
     # Never run or install a candidate supplied from a user's staging directory.
     meta=$(self_update_program download "$staging/powerup") || exit 1
-    fetched_sha=${meta##* }
-    [[ $fetched_sha == "$2" ]] || die 'GitHub changed during authentication. Reopen Powerup to check the new revision.'
+    [[ $meta == "$2" ]] || die 'GitHub changed during authentication. Reopen Powerup to check the new revision.'
     self_update_program install "$self" "$staging/powerup" "$1" "$2"
 )
 
 self_update_prepare() (
-    local self=$1 cli=$2 staging meta old_revision old_sha new_revision new_sha newer status
-    local progress_pid='' progress_fd='' GUI_DIR=''
+    local self=$1 cli=$2 staging meta old_revision new_revision newer status
+    local GUI_PROGRESS_PID='' GUI_PROGRESS_FD='' GUI_LOG_FEEDER='' GUI_DIR=''
     umask 077
     staging=$(mktemp -d "${TMPDIR:-/tmp}/powerup-startup.XXXXXXXX") || return 1
-    trap 'if [[ -n $progress_fd ]]; then printf "100\n" >&"$progress_fd" || true; exec {progress_fd}>&-; fi; if [[ -n $progress_pid ]]; then wait "$progress_pid" || true; fi; rm -rf -- "$staging"' EXIT
+    trap 'gui_progress_close; rm -rf -- "$staging"' EXIT
     if (( ! cli )) && command -v yad >/dev/null && [[ -n ${DISPLAY:-}${WAYLAND_DISPLAY:-} ]]; then
         GUI_DIR=$staging
         gui_assets || return 1
-        mkfifo "$staging/progress" || return 1
-        exec {progress_fd}<>"$staging/progress"
-        gui_dialog --height=300 --text="$(gui_header 'Checking for Powerup updates' 'STARTUP / GITHUB' 'Checking the latest published revision before opening the control center.')" \
+        gui_progress_open --height=300 --text="$(gui_header 'Checking for Powerup updates' 'STARTUP / GITHUB' 'Checking the latest published revision before opening the control center.')" \
             --progress --pulsate --progress-text='Checking GitHub — validating the published revision' \
-            --auto-close --no-buttons --no-escape < "$staging/progress" >/dev/null 2>&1 &
-        progress_pid=$!
-        printf '0\n' >&"$progress_fd"
+            --auto-close --no-buttons --no-escape || return 1
     fi
     printf 'Checking Powerup: %s\n' "$POWERUP_SELF_UPDATE_URL"
     if meta=$(self_update_program inspect "$self" 2>"$staging/error") &&
-        read -r old_revision old_sha <<< "$meta" &&
+        read -r old_revision <<< "$meta" &&
         meta=$(self_update_program download "$staging/powerup" 2>"$staging/error") &&
-        read -r new_revision new_sha <<< "$meta" &&
+        read -r new_revision <<< "$meta" &&
         newer=$(self_update_program newer "$staging/powerup" "$self" 2>"$staging/error"); then
         if [[ $newer == no ]]; then
-            [[ $(sha256sum -- "$self" | cut -d ' ' -f1) == "$old_sha" ]] || { printf 'Powerup changed during startup. Reopen it.\n' > "$staging/error"; newer=error; }
+            [[ $(self_revision "$self") == "$old_revision" ]] || { printf 'Powerup changed during startup. Reopen it.\n' > "$staging/error"; newer=error; }
         fi
         if [[ $newer == no ]]; then
             printf 'Installed Powerup %s is current (GitHub: %s).\n' "$old_revision" "$new_revision"
             return 0
         elif [[ $newer == yes ]]; then
             printf 'New Powerup %s found; installed revision is %s.\n' "$new_revision" "$old_revision"
-            if [[ -n $progress_fd ]]; then
-                printf '100\n' >&"$progress_fd"; exec {progress_fd}>&-; progress_fd=''
-                wait "$progress_pid" || true; progress_pid=''
-            fi
+            gui_progress_close
             status=0
             if (( EUID == 0 )); then
-                self_update_root_install "$old_sha" "$new_sha" >"$staging/install.log" 2>&1 || status=$?
+                self_update_root_install "$old_revision" "$new_revision" >"$staging/install.log" 2>&1 || status=$?
             elif [[ $self != /opt/csitools/powerup && -w $self && -w ${self%/*} ]]; then
-                self_update_program install "$self" "$staging/powerup" "$old_sha" "$new_sha" >"$staging/install.log" 2>&1 || status=$?
+                self_update_program install "$self" "$staging/powerup" "$old_revision" "$new_revision" >"$staging/install.log" 2>&1 || status=$?
             elif [[ -n $GUI_DIR ]]; then
                 {
                     printf '#!/bin/bash\n'
@@ -1658,22 +2042,19 @@ self_update_prepare() (
                 chmod 700 "$staging/askpass"
                 # Intentionally capture output in the invoking user's private log.
                 # shellcheck disable=SC2024
-                SUDO_ASKPASS="$staging/askpass" sudo -A -- /bin/bash "$self" --internal-self-update-install "$old_sha" "$new_sha" >"$staging/install.log" 2>&1 || status=$?
+                SUDO_ASKPASS="$staging/askpass" sudo -A -- /bin/bash "$self" --internal-self-update-install "$old_revision" "$new_revision" >"$staging/install.log" 2>&1 || status=$?
             else
                 # shellcheck disable=SC2024
-                sudo -- /bin/bash "$self" --internal-self-update-install "$old_sha" "$new_sha" >"$staging/install.log" 2>&1 || status=$?
+                sudo -- /bin/bash "$self" --internal-self-update-install "$old_revision" "$new_revision" >"$staging/install.log" 2>&1 || status=$?
             fi
             cat "$staging/install.log"
             if (( status == 0 )); then
-                [[ $(sha256sum -- "$self" | cut -d ' ' -f1) == "$new_sha" ]] || { printf 'Installed file no longer matches the verified download. Reopen Powerup.\n' > "$staging/error"; status=1; }
+                [[ $(self_revision "$self") == "$new_revision" ]] || { printf 'Installed revision changed during the update. Reopen Powerup.\n' > "$staging/error"; status=1; }
                 if (( status == 0 )); then return 20; fi
             else cp -- "$staging/install.log" "$staging/error"; fi
         fi
     fi
-    if [[ -n $progress_fd ]]; then
-        printf '100\n' >&"$progress_fd"; exec {progress_fd}>&-; progress_fd=''
-        wait "$progress_pid" || true; progress_pid=''
-    fi
+    gui_progress_close
     cat "$staging/error" >&2
     if [[ -n $GUI_DIR ]]; then
         gui_message 'Powerup update check stopped' "$(cat "$staging/error")
@@ -1687,11 +2068,11 @@ startup_self_update() {
     local self=$1 cli=$2 status=0; shift 2
     self_update_prepare "$self" "$cli" || status=$?
     case $status in
-        0) SELF_CHECKED_SHA=$(sha256sum -- "$self" | cut -d ' ' -f1) ;;
+        0) SELF_CHECKED_REV=$(self_revision "$self") ;;
         20)
-            SELF_CHECKED_SHA=$(sha256sum -- "$self" | cut -d ' ' -f1)
+            SELF_CHECKED_REV=$(self_revision "$self")
             printf 'Restarting the updated Powerup with the original options.\n'
-            exec /bin/bash "$self" "--internal-self-update-checked=$SELF_CHECKED_SHA" "$@" ;;
+            exec /bin/bash "$self" "--internal-self-update-revision=$SELF_CHECKED_REV" "$@" ;;
         *) return "$status" ;;
     esac
 }
@@ -1700,10 +2081,14 @@ main() {
     local cli=0 gui=0 arg read_only=0 self checked=''
     self=$(readlink -f -- "${BASH_SOURCE[0]}") || return 1
     if [[ ${1:-} == --internal-self-update-install ]]; then shift; self_update_root_install "$@"; return; fi
+    # Older revisions pass this marker when restarting an updated script.
+    # Accept it as a loop marker only; checksum verification has been removed.
     if [[ ${1:-} == --internal-self-update-checked=* ]]; then
+        shift; checked=$POWERUP_REV; SELF_CHECKED_REV=$POWERUP_REV
+    elif [[ ${1:-} == --internal-self-update-revision=* ]]; then
         checked=${1#*=}; shift
-        [[ $checked =~ ^[0-9a-f]{64}$ && $(sha256sum -- "$self" | cut -d ' ' -f1) == "$checked" ]] || die 'Powerup changed since startup. Reopen it before continuing.'
-        SELF_CHECKED_SHA=$checked
+        [[ $checked == "$POWERUP_REV" ]] || die 'Powerup changed since startup. Reopen it before continuing.'
+        SELF_CHECKED_REV=$checked
     fi
     local -a args=()
     GUI_DEMO=0 GUI_DEMO_BASE=resolute
