@@ -11,18 +11,19 @@
 # modification, distribution, or use of this script, without express approval from
 # CSI Linux, is strictly prohibited. This script is proprietary and confidential.
 # -----------------------------------------------------------------------------------
-# Revision: 2026-11-08-3. Ubuntu Noble -> Resolute LTS release upgrade support.
+# Revision: 2026-11-08-4. YAD interface, validated plans and bounded package recovery.
 # Uses Ubuntu's release upgrader; see README-powerup.md for reboot/resume steps.
 
 set -Eeuo pipefail
 
-readonly POWERUP_REV=2026-11-08-3
+readonly POWERUP_REV=2026-11-08-4
 readonly TOR_FINGERPRINT=A3C4F0F979CAA22CDBA8F512EE8CBC9E886DDD89
 readonly UPDATER_URL=https://raw.githubusercontent.com/CSILinux/CSILinux-Powerup/main/csitoolsupdate.sh
 readonly -a CATEGORIES=(csi-linux-base csi-linux-themes os-update encryption osint
     incident-response computer-forensics malware-analysis sigint virtualization security Navi-AI)
 readonly -a APT_OPTIONS=(-o DPkg::Lock::Timeout=180 -o Acquire::Retries=3
-    -o Dpkg::Use-Pty=0 -o APT::Update::Error-Mode=any)
+    -o Dpkg::Use-Pty=0 -o APT::Update::Error-Mode=any
+    -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold)
 
 die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 log() { printf '\n[%s] %s\n' "$(date '+%F %T')" "$*"; }
@@ -30,15 +31,21 @@ log() { printf '\n[%s] %s\n' "$(date '+%F %T')" "$*"; }
 usage() {
     cat <<'HELP'
 CSI Linux Powerup — Ubuntu 26.04 / Resolute
-Usage: bash powerup.sh [OPTIONS] [os-update | CATEGORY ... | all]
+Usage: bash powerup.sh [--gui | --cli] [OPTIONS] [os-update | CATEGORY ... | all]
 
 On Ubuntu 24.04 (Noble), upgrade to Ubuntu 26.04 LTS using do-release-upgrade.
 After any required reboot, rerun the same command to finish Resolute/Tor setup.
 On Resolute, maintain repositories, Tor, and installed packages.
 Categories additionally invoke the CSI tool updater after OS maintenance.
-No category arguments: use the existing YAD/Zenity chooser or a terminal menu.
+Default: open the YAD desktop interface. No changes occur before review and Start.
+Use --cli for explicit terminal execution. Help and version are standalone.
+Update runs automatically repair pending package state and retry failures once.
+Standard-mode recovery does not remove packages; Full/Release modes permit it.
 
   --check                   Show platform and planned work; make no changes
+  --gui                     Open the desktop interface (default)
+  --cli                     Run in the terminal without YAD
+  --demo[=noble|resolute]     Explore the GUI with simulated work; no system changes
   --full-upgrade            Permit dependency-related package removals
                             (default: apt upgrade -y)
   --refresh-tools           Refresh /opt/csitools from the CSI archive
@@ -54,7 +61,7 @@ Examples:
   bash powerup.sh --full-upgrade os-update
   bash powerup.sh --updater /path/to/csitoolsupdate.sh all
 
-Release upgrades require a terminal and retain Ubuntu's interactive prompts.
+GUI release upgrades use Ubuntu's graphical upgrader. --cli uses its text UI.
 Target: Ubuntu 26.04 LTS, as requested. No development or interim release upgrade.
 HELP
 }
@@ -89,35 +96,6 @@ validate_platform() {
     [[ -s /usr/share/keyrings/ubuntu-archive-keyring.gpg ]] || die 'Ubuntu archive keyring is missing; repair ubuntu-keyring first.'
 }
 
-choose_categories() {
-    local answer='' name
-    local -a rows=()
-    for name in "${CATEGORIES[@]}"; do
-        if [[ $name == os-update ]]; then rows+=(TRUE "$name"); else rows+=(FALSE "$name"); fi
-    done
-    rows+=(FALSE all)
-    if [[ -n ${DISPLAY:-}${WAYLAND_DISPLAY:-} ]] && command -v yad >/dev/null; then
-        answer=$(yad --list --checklist --title='CSI Linux Powerup' --width=520 --height=580 \
-            --text='Ubuntu 26.04 and Tor maintenance always run. Select optional CSI tool categories.' \
-            --column='Select':CHK --column='Name' --print-column=2 --separator='|' \
-            --button='Update:0' --button='Cancel:1' "${rows[@]}") || return 1
-    elif [[ -n ${DISPLAY:-}${WAYLAND_DISPLAY:-} ]] && command -v zenity >/dev/null; then
-        answer=$(zenity --list --checklist --title='CSI Linux Powerup' --width=520 --height=580 \
-            --text='Ubuntu 26.04 and Tor maintenance always run. Select optional CSI tool categories.' \
-            --column='Select' --column='Name' --print-column=2 --separator='|' "${rows[@]}") || return 1
-    elif [[ -t 0 ]]; then
-        printf 'Available categories:\n  %s\n' "${CATEGORIES[*]}"
-        printf 'Enter space-separated categories, all, or press Enter for OS/Tor only: '
-        read -r answer || return 1
-    else
-        die 'No chooser or terminal is available. Run from a terminal and specify os-update or categories.'
-    fi
-    answer=${answer//|/ }
-    answer=${answer//$'\n'/ }
-    read -r -a REQUESTED <<< "${answer:-os-update}"
-    if (( ! ${#REQUESTED[@]} )); then REQUESTED=(os-update); fi
-}
-
 normalize_categories() {
     local requested category found all_requested=0
     SELECTED=()
@@ -127,10 +105,46 @@ normalize_categories() {
         for category in "${CATEGORIES[@]}"; do
             if [[ $requested == "$category" ]]; then found=1; break; fi
         done
-        (( found )) || die "Unknown category: $requested"
+        (( found )) || { PLAN_ERROR="Unknown category: $requested"; return 1; }
         if [[ " ${SELECTED[*]} " != *" $requested "* ]]; then SELECTED+=("$requested"); fi
     done
-    if (( all_requested )); then SELECTED=("${CATEGORIES[@]}"); fi
+    if (( all_requested )); then
+        (( ${#REQUESTED[@]} == 1 )) || { PLAN_ERROR="Choose all OR individual categories; these choices cannot be combined."; return 1; }
+        SELECTED=("${CATEGORIES[@]}")
+    fi
+}
+
+validate_options() {
+    PLAN_ERROR=''
+    normalize_categories || return 1
+    local category tool_count=0
+    for category in "${SELECTED[@]}"; do [[ $category == os-update ]] || tool_count=$((tool_count+1)); done
+    if (( CHECK_ONLY && (FULL_UPGRADE || REFRESH_TOOLS || tool_count) )) ||
+        { (( CHECK_ONLY )) && [[ -n $TOOLS_SHA256$UPDATER_FILE$UPDATER_SHA256 ]]; }; then
+        PLAN_ERROR='Preview is a read-only mode. Choose it without update, restore, or tool-category options.'; return 1
+    fi
+    if [[ -n $TOOLS_SHA256 ]] && (( ! REFRESH_TOOLS )); then
+        PLAN_ERROR='An archive SHA-256 requires Refresh CSI tool archive.'; return 1
+    fi
+    if [[ -n $UPDATER_FILE$UPDATER_SHA256 ]] && (( ! tool_count )); then
+        PLAN_ERROR='Updater files and updater hashes require at least one CSI tool category.'; return 1
+    fi
+    if [[ $BASE_CODENAME == noble ]] &&
+        { (( FULL_UPGRADE || REFRESH_TOOLS || tool_count )) || [[ -n $TOOLS_SHA256$UPDATER_FILE$UPDATER_SHA256 ]]; }; then
+        PLAN_ERROR='Noble requires the release-upgrade workflow first. Full package upgrade is already included; CSI tool options become available after reboot into Resolute.'; return 1
+    fi
+    if [[ -n $TOOLS_SHA256 && ! $TOOLS_SHA256 =~ ^[0-9a-fA-F]{64}$ ]] ||
+        [[ -n $UPDATER_SHA256 && ! $UPDATER_SHA256 =~ ^[0-9a-fA-F]{64}$ ]]; then
+        PLAN_ERROR='A SHA-256 must contain exactly 64 hexadecimal characters.'; return 1
+    fi
+    if [[ -n $UPDATER_FILE ]]; then
+        if [[ ! -f $UPDATER_FILE || ! -r $UPDATER_FILE ]]; then
+            PLAN_ERROR='Select a readable production updater file.'; return 1
+        fi
+        if ! bash -n "$UPDATER_FILE" 2>/dev/null; then
+            PLAN_ERROR='The selected updater does not pass Bash syntax validation.'; return 1
+        fi
+    fi
 }
 
 elevate() {
@@ -324,10 +338,149 @@ if tor_enabled == '1':
 PY_REPOSITORIES
 }
 
-apt_run() { DEBIAN_FRONTEND=noninteractive apt-get "${APT_OPTIONS[@]}" "$@"; }
+apt_execute() {
+    local result token mutable=0
+    for token in "$@"; do
+        case $token in install|upgrade|dist-upgrade|full-upgrade|remove) mutable=1;; esac
+    done
+    if DEBIAN_FRONTEND=noninteractive "$@"; then return 0; else result=$?; fi
+    # Do not retry signature/source errors, diagnostics, or recursively repair.
+    if (( ! mutable )) || [[ -z ${WORK:-} || ${REPAIR_ACTIVE:-0} == 1 ]]; then return "$result"; fi
+    log "Package operation failed ($result); attempting one automatic repair"
+    repair_packages || return "$result"
+    log 'Retrying the original package operation once'
+    DEBIAN_FRONTEND=noninteractive "$@"
+}
+
+apt_run() { apt_execute apt-get "${APT_OPTIONS[@]}" "$@"; }
 # Use the specifically requested apt commands for routine OS maintenance.
 # Retain apt-get for dependency installation and explicit full-upgrade mode.
-apt_maintenance() { DEBIAN_FRONTEND=noninteractive apt "${APT_OPTIONS[@]}" "$@"; }
+apt_maintenance() { apt_execute apt "${APT_OPTIONS[@]}" "$@"; }
+
+restore_service_policy() {
+    local path=${1:-/usr/sbin/policy-rc.d}
+    if [[ ${SERVICE_POLICY_ACTIVE:-0} == 1 ]]; then
+        if cmp -s -- "$path" "$WORK/repair-policy.sh"; then
+            rm -- "$path" || return 1
+            if [[ $path == /usr/sbin/policy-rc.d ]]; then rm -f /var/lib/csi-powerup/temporary-service-policy; fi
+            SERVICE_POLICY_ACTIVE=0
+        else
+            log 'ERROR: Temporary service policy changed externally; manual review is required.'
+            return 1
+        fi
+    fi
+}
+
+restore_interrupted_policy() {
+    local path=${1:-/usr/sbin/policy-rc.d} saved=${2:-/var/lib/csi-powerup/temporary-service-policy}
+    [[ -f $saved ]] || return 0
+    if [[ ! -e $path && ! -L $path ]]; then rm -- "$saved"; return; fi
+    if cmp -s -- "$path" "$saved"; then
+        rm -- "$path" "$saved" || return 1
+        log 'Removed the temporary service policy left by an interrupted Powerup run'
+    else
+        die 'Service policy changed since an interrupted repair; review /usr/sbin/policy-rc.d before proceeding.'
+    fi
+}
+
+defer_failed_milter() {
+    local status path=${1:-/usr/sbin/policy-rc.d}
+    status=$(dpkg-query -W -f='${db:Status-Status}' clamav-milter 2>/dev/null) || return 0
+    [[ $status == half-configured || $status == unpacked ]] || return 0
+    systemctl is-failed --quiet clamav-milter.service || return 0
+    # Preserve administrator service policies. Never overwrite an existing file.
+    if [[ -e $path || -L $path ]]; then
+        log 'Existing service policy retained; no temporary milter deferral installed.'
+        return 0
+    fi
+    cat > "$WORK/repair-policy.sh" <<'POLICY'
+#!/bin/sh
+# CSI Powerup: temporary deferral of a failed milter restart during dpkg repair.
+service=${1##*/}
+service=${service%.service}
+case "$service:${2:-}" in
+    clamav-milter:start|clamav-milter:restart|clamav-milter:try-restart|clamav-milter:force-reload) exit 101 ;;
+esac
+exit 0
+POLICY
+    if [[ $path == /usr/sbin/policy-rc.d ]]; then
+        install -d -m 700 /var/lib/csi-powerup || return 1
+        cp -- "$WORK/repair-policy.sh" /var/lib/csi-powerup/temporary-service-policy || return 1
+    fi
+    # Noclobber uses exclusive creation, including protection from symlinks.
+    (set -C; cat "$WORK/repair-policy.sh" > "$path") || return 1
+    SERVICE_POLICY_ACTIVE=1
+    chmod 755 "$path" || return 1
+    MILTER_DEFERRED=1
+    log 'Temporarily deferring the failed clamav-milter restart while package configuration is repaired'
+}
+
+retry_deferred_service() {
+    [[ ${MILTER_DEFERRED:-0} == 1 ]] || return 0
+    MILTER_DEFERRED=0
+    log 'Retrying clamav-milter after package repair; service configuration is preserved'
+    systemctl reset-failed clamav-milter.service || true
+    if timeout 90 systemctl restart clamav-milter.service && systemctl is-active --quiet clamav-milter.service; then
+        log 'clamav-milter restarted successfully'
+    else
+        SERVICE_WARNINGS=1
+        log 'WARNING: Package configuration was repaired, but clamav-milter is not confirmed active. Mail filtering needs attention.'
+        systemctl status clamav-milter.service --no-pager -l || true
+        journalctl -u clamav-milter.service -n 40 --no-pager || true
+    fi
+}
+
+repair_packages() {
+    local repaired=0 audit
+    local package flag
+    local -a removal_guard=(--no-remove)
+    local -a reinstall=()
+    [[ ${FULL_UPGRADE:-0} == 1 || ${BASE_CODENAME:-} == noble ]] && removal_guard=()
+    REPAIR_ACTIVE=1
+    log 'Automatic repair: configure pending packages, fix dependencies, verify package state'
+    if [[ ! -e $BACKUP/dpkg-status.before-repair ]]; then
+        cp -a /var/lib/dpkg/status "$BACKUP/dpkg-status.before-repair" || { REPAIR_ACTIVE=0; return 1; }
+    fi
+    if ! defer_failed_milter; then
+        restore_service_policy || true
+        REPAIR_ACTIVE=0; return 1
+    fi
+    if ! DEBIAN_FRONTEND=noninteractive dpkg --force-confdef --force-confold --configure -a; then
+        log 'Pending configuration still needs dependencies or service recovery'
+        if ! defer_failed_milter; then restore_service_policy || true; REPAIR_ACTIVE=0; return 1; fi
+    fi
+    while IFS=$'\t' read -r package flag; do
+        if [[ $flag == reinstreq && $package =~ ^[a-z0-9][a-z0-9.+:-]+$ ]]; then reinstall+=("$package"); fi
+    done < <(dpkg-query -W -f='${binary:Package}\t${db:Status-Eflag}\n')
+    if (( ${#reinstall[@]} )); then
+        log "Reinstalling packages marked as requiring reinstallation: ${reinstall[*]}"
+        DEBIAN_FRONTEND=noninteractive apt-get "${APT_OPTIONS[@]}" install --reinstall --no-remove -y "${reinstall[@]}" ||
+            log 'Targeted reinstall failed; continuing to the bounded dependency-repair attempt'
+    fi
+    if DEBIAN_FRONTEND=noninteractive apt-get "${APT_OPTIONS[@]}" --fix-broken install -y "${removal_guard[@]}" &&
+       DEBIAN_FRONTEND=noninteractive dpkg --force-confdef --force-confold --configure -a &&
+       DEBIAN_FRONTEND=noninteractive apt-get "${APT_OPTIONS[@]}" check; then
+        audit=$(dpkg --audit) || audit='Package audit failed'
+        if [[ -z $audit ]]; then repaired=1; else printf '%s\n' "$audit"; fi
+    fi
+    restore_service_policy || { REPAIR_ACTIVE=0; return 1; }
+    retry_deferred_service
+    REPAIR_ACTIVE=0
+    if (( repaired )); then log 'Automatic package repair completed'; return 0; fi
+    log 'ERROR: Automatic repair could not produce a consistent package state. See the operation log.'
+    return 1
+}
+
+check_and_repair_packages() {
+    local audit
+    audit=$(dpkg --audit) || audit='Package audit failed'
+    if [[ -n $audit ]]; then
+        printf '%s\n' "$audit"
+        repair_packages || die 'Package repair was unsuccessful; upgrade stopped before further changes.'
+    elif ! apt_run check; then
+        repair_packages || die 'Dependency repair was unsuccessful; upgrade stopped.'
+    fi
+}
 apt_refresh() {
     log 'Running apt update (signature checks enabled; repository errors are fatal)'
     apt_maintenance update
@@ -455,10 +608,18 @@ PY_LTS
 boot_id() { cat /proc/sys/kernel/random/boot_id; }
 reboot_required() { [[ -f /var/run/reboot-required ]]; }
 require_release_terminal() {
-    [[ -t 0 ]] || die 'The Ubuntu release upgrade needs a terminal. Run: sudo /opt/csitools/powerup os-update'
+    if [[ ${RELEASE_UI:-text} == gtk ]]; then
+        [[ -n ${DISPLAY:-} ]] || die 'Ubuntu graphical release upgrade needs an X11/XWayland display. Start Powerup from your desktop session.'
+        return
+    fi
+    [[ -t 0 ]] || die 'The Ubuntu release upgrade needs a terminal. Run: sudo /opt/csitools/powerup --cli os-update'
 }
 
 run_release_upgrader() {
+    if [[ ${RELEASE_UI:-text} == gtk ]]; then
+        env -u DEBIAN_FRONTEND GDK_BACKEND=x11 do-release-upgrade -f DistUpgradeViewGtk3
+        return
+    fi
     # Keep the Ubuntu text frontend attached to its controlling terminal even
     # while Powerup's own output is logged through tee. Ubuntu records its own
     # detailed logs in /var/log/dist-upgrade/.
@@ -472,7 +633,7 @@ upgrade_release_if_needed() {
     if [[ $BASE_CODENAME == resolute ]]; then
         if [[ -f $marker && $(cat "$marker") == "$current_boot" ]]; then
             log 'Release packages are installed, but this boot predates the release upgrade.'
-            log 'Reboot, then run: sudo /opt/csitools/powerup os-update'
+            log 'Reboot, then run: /opt/csitools/powerup'
             STOP_AFTER_RELEASE=1
         fi
         return
@@ -481,7 +642,7 @@ upgrade_release_if_needed() {
     require_release_terminal
     if reboot_required; then
         log 'A reboot is already pending on Noble. Reboot before starting the release upgrade.'
-        log 'After reboot, run: sudo /opt/csitools/powerup os-update'
+        log 'After reboot, run: /opt/csitools/powerup'
         STOP_AFTER_RELEASE=1
         return
     fi
@@ -498,13 +659,15 @@ upgrade_release_if_needed() {
     repository_config prepare-release /etc/apt "$BACKUP" 0 "$ARCH"
     apt_refresh
     SOURCES_PENDING=0
-    apt_run install --no-install-recommends --no-remove -y ca-certificates update-manager-core ubuntu-release-upgrader-core
+    local -a release_dependencies=(ca-certificates update-manager-core ubuntu-release-upgrader-core)
+    if [[ ${RELEASE_UI:-text} == gtk ]]; then release_dependencies+=(ubuntu-release-upgrader-gtk); fi
+    apt_run install --no-install-recommends --no-remove -y "${release_dependencies[@]}"
     log 'Fully updating Noble, including phased updates, before the release upgrade'
     apt_run -o APT::Get::Always-Include-Phased-Updates=true dist-upgrade -y
     apt_run check
     if reboot_required; then
         log 'Noble prerequisites are updated. Reboot before the distribution upgrade.'
-        log 'After reboot, run: sudo /opt/csitools/powerup os-update'
+        log 'After reboot, run: /opt/csitools/powerup'
         STOP_AFTER_RELEASE=1
         return
     fi
@@ -520,7 +683,7 @@ upgrade_release_if_needed() {
     install -d -m 700 "$RELEASE_STATE_DIR"
     boot_id > "$marker"
     log 'Starting do-release-upgrade. Review Ubuntu prompts for package removals and configuration files.'
-    log 'After the required reboot, rerun: sudo /opt/csitools/powerup os-update'
+    log 'After the required reboot, rerun: /opt/csitools/powerup'
     log 'Release upgrader logs: /var/log/dist-upgrade/'
     if run_release_upgrader; then
         read_platform
@@ -532,7 +695,7 @@ upgrade_release_if_needed() {
     # Do not finalize repositories or run CSI categories in the old boot, even
     # if the user declines the release upgrader's restart prompt.
     log 'Ubuntu 26.04 release packages are installed. A reboot is still required.'
-    log 'After reboot, run: sudo /opt/csitools/powerup os-update to finish Resolute/Tor maintenance.'
+    log 'After reboot, run: /opt/csitools/powerup to finish Resolute/Tor maintenance.'
     STOP_AFTER_RELEASE=1
 }
 
@@ -628,6 +791,7 @@ PY_ARCHIVE
 cleanup() {
     local status=$?
     trap - EXIT ERR
+    restore_service_policy || printf 'ERROR: Review /usr/sbin/policy-rc.d before another update.\n' >&2
     if (( SOURCES_PENDING )); then
         printf '\nRepository setup failed; restoring previous source files.\n' >&2
         repository_config rollback /etc/apt "$BACKUP" 0 "$ARCH" ||
@@ -641,39 +805,50 @@ cleanup() {
     exit "$status"
 }
 
-main() {
-    local check=0 option self
-    local -a forward=() tool_categories=()
+parse_options() {
+    local option
+    local -A seen=()
+    FORWARD=()
+    CHECK_ONLY=0 RELEASE_UI=text
     FULL_UPGRADE=0 REFRESH_TOOLS=0 UPDATER_FILE='' TOOLS_SHA256='' UPDATER_SHA256=''
     REQUESTED=() SELECTED=()
     while (( $# )); do
         case $1 in
-            --help|-h) usage; return ;;
-            --version) printf 'POWERUP_REV=%s\n' "$POWERUP_REV"; return ;;
-            --check) check=1 ;;
-            --full-upgrade) FULL_UPGRADE=1; forward+=("$1") ;;
-            --refresh-tools) REFRESH_TOOLS=1; forward+=("$1") ;;
+            --check) CHECK_ONLY=1 ;;
+            --release-ui=gtk) RELEASE_UI=gtk; FORWARD+=("$1") ;;
+            --full-upgrade) FULL_UPGRADE=1; FORWARD+=("$1") ;;
+            --refresh-tools) REFRESH_TOOLS=1; FORWARD+=("$1") ;;
             --tools-sha256|--updater-sha256|--updater)
-                option=$1; (( $# >= 2 )) || die "$option requires a value"; shift
+                option=$1
+                [[ -z ${seen[$option]:-} ]] || { PLAN_ERROR="Duplicate option: $option"; return 1; }
+                seen[$option]=1
+                (( $# >= 2 )) || { PLAN_ERROR="$option requires a value"; return 1; }; shift
                 if [[ $option == --updater ]]; then
-                    [[ -f $1 && -r $1 ]] || die "Cannot read updater: $1"
-                    UPDATER_FILE=$(readlink -f -- "$1"); forward+=("$option" "$UPDATER_FILE")
+                    [[ -f $1 && -r $1 ]] || { PLAN_ERROR="Cannot read updater: $1"; return 1; }
+                    UPDATER_FILE=$(readlink -f -- "$1") || return 1
+                    FORWARD+=("$option" "$UPDATER_FILE")
                 else
-                    [[ $1 =~ ^[0-9a-fA-F]{64}$ ]] || die "$option requires 64 hexadecimal characters"
+                    [[ $1 =~ ^[0-9a-fA-F]{64}$ ]] || { PLAN_ERROR="$option requires 64 hexadecimal characters"; return 1; }
                     if [[ $option == --tools-sha256 ]]; then TOOLS_SHA256=$1; else UPDATER_SHA256=$1; fi
-                    forward+=("$option" "$1")
+                    FORWARD+=("$option" "$1")
                 fi ;;
-            --*) die "Unknown option: $1" ;;
+            --*) PLAN_ERROR="Unknown or incompatible option: $1"; return 1 ;;
             *) REQUESTED+=("$1") ;;
         esac
         shift
     done
+    if (( ! ${#REQUESTED[@]} )); then REQUESTED=(os-update); fi
+}
+
+backend_main() {
+    local self option
+    local -a tool_categories=()
+    parse_options "$@" || die "$PLAN_ERROR"
     printf '\n========================================\nPOWERUP_REV=%s\n========================================\n' "$POWERUP_REV"
     printf 'Running powerup script: %s\n' "$(readlink -f -- "${BASH_SOURCE[0]}")"
     validate_platform
-    if (( check )); then
-        (( ${#REQUESTED[@]} )) || REQUESTED=(os-update)
-        normalize_categories
+    validate_options || die "$PLAN_ERROR"
+    if (( CHECK_ONLY )); then
         printf 'Platform: Ubuntu base %s (%s)\n' "$BASE_CODENAME" "$ARCH"
         if [[ $BASE_CODENAME == noble ]]; then
             printf 'Plan: fully update Noble, run do-release-upgrade to 26.04 LTS, reboot, rerun to finalize.\n'
@@ -683,13 +858,9 @@ main() {
         printf 'Categories: %s\nFull upgrade: %s\nNo changes made.\n' "${SELECTED[*]}" "$FULL_UPGRADE"
         return
     fi
-    if (( ! ${#REQUESTED[@]} )); then
-        choose_categories || { printf 'Cancelled. No system changes made.\n'; return; }
-    fi
-    normalize_categories
     if (( EUID != 0 )); then
         self=$(readlink -f -- "${BASH_SOURCE[0]}")
-        elevate "$self" "${forward[@]}" "${SELECTED[@]}"
+        elevate "$self" --cli "${FORWARD[@]}" "${REQUESTED[@]}"
     fi
     export PATH=/usr/sbin:/usr/bin:/sbin:/bin LC_ALL=C
     umask 077
@@ -703,7 +874,7 @@ main() {
     install -d -m 700 "$BACKUP"
     WORK=$(mktemp -d /var/tmp/csi-powerup.XXXXXXXX)
     RELEASE_STATE_DIR=/var/lib/csi-powerup
-    SOURCES_PENDING=0
+    SOURCES_PENDING=0 SERVICE_POLICY_ACTIVE=0 MILTER_DEFERRED=0 SERVICE_WARNINGS=0 REPAIR_ACTIVE=0
     trap cleanup EXIT
     trap 'exit 130' INT
     trap 'exit 143' TERM
@@ -712,8 +883,13 @@ main() {
     printf 'POWERUP_REV=%s\n' "$POWERUP_REV"
     log "CSI Linux Powerup — current base $BASE_CODENAME / $ARCH; target Ubuntu 26.04 LTS"
     log "Selected: ${SELECTED[*]}"
+    restore_interrupted_policy
+    check_and_repair_packages
     upgrade_release_if_needed
-    if (( STOP_AFTER_RELEASE )); then return; fi
+    if (( STOP_AFTER_RELEASE )); then
+        if (( SERVICE_WARNINGS )); then printf 'POWERUP_RESULT=reboot-with-warnings\n'; else printf 'POWERUP_RESULT=reboot-required\n'; fi
+        return
+    fi
     maintain_system
     rm -f -- "$RELEASE_STATE_DIR/upgrade-boot-id"
     for option in "${SELECTED[@]}"; do
@@ -726,10 +902,488 @@ main() {
         # Retain the original positional API: $1 was the sudo password. It is
         # now EMPTY because the child already runs as root. Categories start $2.
         # Production updaters must accept root execution without a real password.
+        local child_status=0
         POWERUP_APT_UPDATED=1 POWERUP_OS_UPDATED=1 \
-            bash "$WORK/csitoolsupdate.sh" '' "${tool_categories[@]}"
+            bash "$WORK/csitoolsupdate.sh" '' "${tool_categories[@]}" || child_status=$?
+        check_and_repair_packages
+        (( child_status == 0 )) || die "CSI category updater failed ($child_status). Package health was checked; the unknown child workflow was not automatically repeated."
     fi
     log 'Requested maintenance completed. Review remaining upgrades and reboot status above.'
+    if (( SERVICE_WARNINGS )); then
+        if reboot_required; then printf 'POWERUP_RESULT=reboot-with-warnings\n'; else printf 'POWERUP_RESULT=service-attention\n'; fi
+    elif reboot_required; then printf 'POWERUP_RESULT=reboot-required\n'; else printf 'POWERUP_RESULT=complete\n'; fi
+}
+
+# ------------------------- YAD desktop interface -------------------------
+# GTK styling is scoped to these dialogs; no desktop theme files are changed.
+gui_assets() {
+    cat > "$GUI_DIR/style.css" <<'CSS'
+window, dialog { background: #0b1220; color: #dbe7f2; font-family: "DejaVu Sans"; font-size: 12px; }
+#yad-dialog-label { color: #dbe7f2; padding: 4px 6px 20px 6px; }
+label { color: #c8d6e5; }
+button { background-image: none; background-color: #152339; color: #dbe7f2; border: 1px solid #30445f; border-radius: 7px; padding: 10px 18px; box-shadow: none; }
+button:hover { background-color: #203a50; border-color: #35c9dd; }
+button:focus { border-color: #53e1e6; }
+button.default { background-color: #104c61; color: #e4ffff; border-color: #26c6da; font-weight: bold; }
+button:disabled, entry:disabled { color: #62738a; background-color: #101a2a; }
+entry, combobox button { background: #111e31; color: #f2f8ff; border: 1px solid #34516c; border-radius: 6px; padding: 9px; min-height: 24px; }
+entry:focus { border-color: #35c9dd; }
+treeview.view { background-color: #101c2d; color: #dceaf6; border: 1px solid #253c56; padding: 12px; }
+treeview.view:selected { background-color: #16465c; color: #ffffff; }
+treeview header button { background: #14253a; color: #6ed8e5; font-size: 11px; font-weight: bold; border-radius: 0; padding: 10px; }
+textview, textview text { background: #0e1a2a; color: #d7e5f2; }
+textview { padding: 12px; }
+scrolledwindow { border: 1px solid #253c56; border-radius: 7px; }
+check, radio { background: #11243a; color: #4ce0dd; border: 1px solid #527a95; min-height: 18px; min-width: 18px; }
+check:checked, radio:checked { background: #087b91; color: #ffffff; }
+progressbar trough { background: #15253a; border-radius: 5px; min-height: 10px; }
+progressbar progress { background: #2ac8d7; border-radius: 5px; min-height: 10px; }
+selection { background: #15526a; color: #ffffff; }
+tooltip { background: #1b3046; color: #effbff; }
+CSS
+    cat > "$GUI_DIR/icon.svg" <<'SVG'
+<svg xmlns="http://www.w3.org/2000/svg" width="80" height="88" viewBox="0 0 80 88"><path d="M40 3L74 22V63L40 83L6 63V22Z" fill="#10283e" stroke="#2ecdd7" stroke-width="2"/><path d="M40 22V44" stroke="#8ef5ee" stroke-width="5" stroke-linecap="round"/><path d="M26 30a21 21 0 1 0 28 0" fill="none" stroke="#2ecdd7" stroke-width="4" stroke-linecap="round"/><path d="M1 33h10M69 51h10M40 79v9" stroke="#44738d" stroke-width="2"/><circle cx="40" cy="44" r="3" fill="#e1ffff"/></svg>
+SVG
+    # User-priority CSS is isolated to each YAD process. Older GTK3 YAD builds
+    # apply --gtkrc only to the top-level window, leaving child widgets unstyled.
+    install -d -m 700 "$GUI_DIR/config/gtk-3.0"
+    cp -- "$GUI_DIR/style.css" "$GUI_DIR/config/gtk-3.0/gtk.css"
+}
+
+gui_escape() {
+    local value=$1
+    value=${value//&/\&amp;}; value=${value//</\&lt;}; value=${value//>/\&gt;}
+    printf '%s' "$value"
+}
+
+gui_header() {
+    local title stage note=${3:-}
+    title=$(gui_escape "$1"); stage=$(gui_escape "$2")
+    printf '<span foreground="#65dce3" size="small" weight="bold">CSI LINUX  /  SYSTEM MAINTENANCE</span>\n<span size="xx-large" weight="bold" foreground="#f0f7ff">%s</span>\n<span foreground="#91a7be">%s</span>\n\n<span foreground="#54d5df">%s</span>' "$title" "$stage" "$note"
+    if (( GUI_DEMO )); then printf '\n<span foreground="#f6c66b" weight="bold">DEMO • Simulated system. No changes or authentication.</span>'; fi
+}
+
+gui_dialog() {
+    GTK_THEME=Adwaita:dark XDG_CONFIG_HOME="$GUI_DIR/config" \
+        yad --gtkrc="$GUI_DIR/style.css" --window-icon="$GUI_DIR/icon.svg" \
+        --image="$GUI_DIR/icon.svg" --keep-icon-size --center --width=930 --height=580 \
+        --borders=24 --buttons-layout=end --title='CSI Linux Powerup' "$@"
+}
+
+gui_capture() {
+    GUI_CODE=0
+    GUI_RESPONSE=$(gui_dialog "$@") || GUI_CODE=$?
+    return 0
+}
+
+gui_message() {
+    local title=$1 message=$2
+    gui_dialog --height=320 --text="$(gui_header "$title" 'CSI Linux Powerup' "$(gui_escape "$message")")" \
+        --button='Continue:0' >/dev/null || true
+}
+
+gui_help() {
+    usage > "$GUI_DIR/help.txt"
+    gui_dialog --text="$(gui_header 'Options & guidance' 'INFORMATION' 'Options are grouped so incompatible actions cannot be selected together.')" \
+        --text-info --filename="$GUI_DIR/help.txt" --fontname='Monospace 11' --wrap --button='Back:0' >/dev/null || true
+}
+
+gui_dashboard() {
+    local selected name enabled note
+    local -a rows=()
+    if [[ $BASE_CODENAME == noble ]]; then
+        note='NOBLE 24.04  →  RESOLUTE 26.04 LTS  •  Release upgrade required'
+        for name in release preview; do
+            enabled=FALSE; [[ $GUI_MODE == "$name" ]] && enabled=TRUE
+            if [[ $name == release ]]; then
+                rows+=("$enabled" release 'Upgrade to Ubuntu 26.04 LTS' "Prepare Noble, open Ubuntu's graphical upgrader, then reboot and resume.")
+            else rows+=("$enabled" preview 'Preview system and upgrade plan' 'Read-only overview. No downloads, installation, or administrator access.'); fi
+        done
+        note+=$'\nTool categories and archive refresh become available after the release upgrade.'
+    else
+        note='RESOLUTE 26.04 LTS  •  Ubuntu + Tor repositories  •  '"$ARCH"
+        for name in standard full preview; do
+            enabled=FALSE; [[ $GUI_MODE == "$name" ]] && enabled=TRUE
+            case $name in
+                standard) rows+=("$enabled" "$name" 'Standard system update' 'Refresh repositories and upgrade packages without removing installed packages.') ;;
+                full) rows+=("$enabled" "$name" 'Full package upgrade' 'Resolve dependency changes; package removals may be required.') ;;
+                preview) rows+=("$enabled" "$name" 'Preview system and update plan' 'Read-only overview. No downloads, installation, or administrator access.') ;;
+            esac
+        done
+    fi
+    if [[ -n ${GUI_HEALTH_REPORT:-} ]]; then note+=$'\nAUTOMATIC REPAIR PENDING • Package configuration will be repaired first.'; fi
+    while :; do
+        gui_capture --text="$(gui_header 'Powerup control center' '01  PLAN     /     02  SCOPE     /     03  VERIFY     /     04  REVIEW' "$note")" \
+            --list --radiolist --no-click --column='':RD --column='Key':HD --column='WORKFLOW' --column='WHAT TO EXPECT' \
+            --print-column=2 --separator='' --expand-column=4 --wrap-cols=4 --wrap-width=460 \
+            --button='Options and help:4' --button='About:6' --button='Close:1' --button='Continue:0' "${rows[@]}"
+        case $GUI_CODE in
+            0) selected=${GUI_RESPONSE//$'\n'/}; [[ -n $selected ]] || continue; GUI_MODE=$selected; return 0 ;;
+            4) gui_help ;;
+            6) gui_message 'About Powerup' "CSI Linux • csilinux.com • Jeremy Martin
+Revision $POWERUP_REV
+Bash updater with a native YAD interface.
+Ubuntu 26.04 LTS / Resolute Raccoon" ;;
+            *) return 1 ;;
+        esac
+    done
+}
+
+gui_scope() {
+    local -a values=()
+    local choices='System only!System + selected categories!System + all categories'
+    case $GUI_SCOPE in selected) choices='System only!^System + selected categories!System + all categories';;
+        all) choices='System only!System + selected categories!^System + all categories';; esac
+    gui_capture --height=480 --text="$(gui_header 'Choose your scope' '01  PLAN     /     02  SCOPE     /     03  VERIFY     /     04  REVIEW' 'System and repository maintenance is included in every update run.')" \
+        --form --separator=$'\x1f' --align=left \
+        --field='Update scope:CB' "$choices" \
+        --field='Refresh CSI tool archive:CHK' "$GUI_REFRESH" \
+        --field='Choose all categories or a selected subset; these are separate routes.:LBL' '' \
+        --field='Archive refresh backs up the current tool tree, then restores the CSI archive.:LBL' '' \
+        --button='Cancel:1' --button='Back:2' --button='Continue:0'
+    (( GUI_CODE == 0 )) || return "$GUI_CODE"
+    IFS=$'\x1f' read -r -a values <<< "$GUI_RESPONSE"
+    case ${values[0]} in
+        'System only') GUI_SCOPE=os ;;
+        'System + selected categories') GUI_SCOPE=selected ;;
+        'System + all categories') GUI_SCOPE=all ;;
+        *) return 2 ;;
+    esac
+    GUI_REFRESH=${values[1]:-FALSE}
+    [[ $GUI_REFRESH == TRUE ]] || GUI_TOOLS_HASH=''
+    if [[ $GUI_SCOPE == os ]]; then GUI_UPDATER='' GUI_UPDATER_HASH=''; fi
+}
+
+gui_categories() {
+    local name checked
+    local -a rows=()
+    for name in "${CATEGORIES[@]}"; do
+        [[ $name == os-update ]] && continue
+        checked=FALSE
+        [[ " ${GUI_CATEGORIES[*]} " == *" $name "* ]] && checked=TRUE
+        rows+=("$checked" "$name")
+    done
+    while :; do
+        gui_capture --text="$(gui_header 'Select tool categories' '02  SCOPE  /  SELECTED CATEGORIES' 'Choose one or more categories. OS maintenance runs first.')" \
+            --list --checklist --column='':CHK --column='CSI TOOL CATEGORY' --print-column=2 --separator='|' \
+            --button='Cancel:1' --button='Back:2' --button='Continue:0' "${rows[@]}"
+        (( GUI_CODE == 0 )) || return "$GUI_CODE"
+        local answer=${GUI_RESPONSE//|/ }
+        answer=${answer//$'\n'/ }
+        read -r -a GUI_CATEGORIES <<< "$answer"
+        (( ${#GUI_CATEGORIES[@]} )) && return 0
+        gui_message 'Select a category' 'Select at least one category, or go Back and choose System only.'
+    done
+}
+
+gui_integrity() {
+    local -a values=() fields=()
+    local source='CSI GitHub updater!Local production updater'
+    if [[ $GUI_SCOPE != os ]]; then
+        [[ $GUI_SOURCE != local ]] || source='CSI GitHub updater!^Local production updater'
+        gui_capture --height=420 --text="$(gui_header 'Choose updater source' '03  VERIFY  /  TOOL UPDATER' 'Use a production updater for your CSI tool categories.')" \
+            --form --separator=$'\x1f' --field='Updater source:CB' "$source" \
+            --field='The public file previously contained a placeholder; a production file may be required.:LBL' '' \
+            --button='Cancel:1' --button='Back:2' --button='Continue:0'
+        (( GUI_CODE == 0 )) || return "$GUI_CODE"
+        IFS=$'\x1f' read -r -a values <<< "$GUI_RESPONSE"
+        if [[ ${values[0]} == 'Local production updater' ]]; then GUI_SOURCE=local; else GUI_SOURCE=remote; GUI_UPDATER=''; fi
+    fi
+    [[ $GUI_SCOPE != os || $GUI_REFRESH == TRUE ]] || return 0
+    while :; do
+        fields=()
+        if [[ $GUI_SCOPE != os ]]; then
+            if [[ $GUI_SOURCE == local ]]; then fields+=(--field='Production updater file:FL' "$GUI_UPDATER"); fi
+            fields+=(--field='Updater SHA-256 (optional)' "$GUI_UPDATER_HASH")
+        fi
+        if [[ $GUI_REFRESH == TRUE ]]; then fields+=(--field='Archive SHA-256 (optional)' "$GUI_TOOLS_HASH"); fi
+        gui_capture --height=480 --text="$(gui_header 'Verify selected downloads' '03  VERIFY  /  INTEGRITY' 'Paste a trusted 64-character SHA-256, or leave it empty to use HTTPS transport trust.')" \
+            --form --separator=$'\x1f' --align=left "${fields[@]}" \
+            --button='Cancel:1' --button='Back:2' --button='Continue:0'
+        (( GUI_CODE == 0 )) || return "$GUI_CODE"
+        IFS=$'\x1f' read -r -a values <<< "$GUI_RESPONSE"
+        local index=0
+        if [[ $GUI_SCOPE != os ]]; then
+            if [[ $GUI_SOURCE == local ]]; then GUI_UPDATER=${values[index]:-}; index=$((index+1)); fi
+            GUI_UPDATER_HASH=${values[index]:-}; index=$((index+1))
+        fi
+        if [[ $GUI_REFRESH == TRUE ]]; then GUI_TOOLS_HASH=${values[index]:-}; fi
+        if [[ $GUI_SCOPE != os && $GUI_SOURCE == local && -z $GUI_UPDATER ]]; then
+            gui_message 'Select an updater' 'Choose your production csitoolsupdate.sh file, or go Back and choose the GitHub source.'
+            continue
+        fi
+        gui_build_plan
+        if validate_options; then return 0; fi
+        gui_message 'Check your settings' "$PLAN_ERROR"
+    done
+}
+
+gui_build_plan() {
+    CHECK_ONLY=0 FULL_UPGRADE=0 REFRESH_TOOLS=0 RELEASE_UI=text
+    TOOLS_SHA256=$GUI_TOOLS_HASH UPDATER_SHA256=$GUI_UPDATER_HASH UPDATER_FILE=$GUI_UPDATER
+    REQUESTED=(os-update)
+    case $GUI_MODE in
+        preview) CHECK_ONLY=1; TOOLS_SHA256='' UPDATER_SHA256='' UPDATER_FILE='';;
+        release) RELEASE_UI=gtk; TOOLS_SHA256='' UPDATER_SHA256='' UPDATER_FILE='';;
+        standard|full)
+            [[ $GUI_MODE != full ]] || FULL_UPGRADE=1
+            [[ $GUI_REFRESH != TRUE ]] || REFRESH_TOOLS=1
+            case $GUI_SCOPE in
+                all) REQUESTED=(all) ;;
+                selected) REQUESTED=(os-update "${GUI_CATEGORIES[@]}") ;;
+            esac ;;
+    esac
+    GUI_ARGS=()
+    (( ! CHECK_ONLY )) || GUI_ARGS+=(--check)
+    (( ! FULL_UPGRADE )) || GUI_ARGS+=(--full-upgrade)
+    (( ! REFRESH_TOOLS )) || GUI_ARGS+=(--refresh-tools)
+    [[ -z $TOOLS_SHA256 ]] || GUI_ARGS+=(--tools-sha256 "$TOOLS_SHA256")
+    [[ -z $UPDATER_FILE ]] || GUI_ARGS+=(--updater "$UPDATER_FILE")
+    [[ -z $UPDATER_SHA256 ]] || GUI_ARGS+=(--updater-sha256 "$UPDATER_SHA256")
+    [[ $RELEASE_UI != gtk ]] || GUI_ARGS+=(--release-ui=gtk)
+    GUI_ARGS+=("${REQUESTED[@]}")
+}
+
+gui_write_plan() {
+    {
+        printf 'YOUR MAINTENANCE PLAN\n\nCurrent system: Ubuntu base %s (%s)\nTarget: Ubuntu 26.04 LTS / Resolute\n\n' "$BASE_CODENAME" "$ARCH"
+        if (( GUI_DEMO )); then printf 'DEMONSTRATION — No system packages or repositories will change.\nDemo activity logs are saved.\n\n'; fi
+        case $GUI_MODE in
+            preview) printf 'READ-ONLY PREVIEW\nNo authentication. No downloads. No package or repository changes.\n\n' ;;
+            release) printf 'RELEASE UPGRADE\nFully update Noble, then open the Ubuntu graphical release upgrader.\nThird-party repositories are backed up and disabled for the transition.\nUbuntu will ask about package removals and configuration changes.\n\nREBOOT & RESUME\nA reboot may be needed before and after the release upgrade.\nReopen Powerup after reboot to finish Resolute and Tor maintenance.\nTool-category updates are available once this transition is complete.\n' ;;
+            *)
+                if [[ $GUI_MODE == full ]]; then printf 'FULL PACKAGE UPGRADE\nMay remove packages to resolve dependency changes.\n';
+                else printf 'STANDARD SYSTEM UPDATE\nUpgrade packages without removing installed packages.\n'; fi
+                case $GUI_SCOPE in
+                    os) printf '\nScope: System and repositories only\n';;
+                    selected) printf '\nScope: System and selected CSI categories\n';;
+                    all) printf '\nScope: System and all CSI categories\n';;
+                esac
+                [[ $GUI_SCOPE != selected ]] || printf 'Categories: %s\n' "${GUI_CATEGORIES[*]}"
+                [[ $GUI_SCOPE != all ]] || printf 'All 11 CSI tool categories are included.\n'
+                if [[ $GUI_REFRESH == TRUE ]]; then printf 'Refresh tool archive: Yes, with an existing-tree backup\n';
+                else printf 'Refresh tool archive: No\n'; fi
+                if [[ $GUI_SCOPE != os ]]; then
+                    printf 'Updater source: %s\n' "$GUI_SOURCE"
+                    [[ -z $GUI_UPDATER ]] || printf 'Updater file: %s\n' "$GUI_UPDATER"
+                    printf 'Updater checksum: %s\n' "${GUI_UPDATER_HASH:-Not supplied — HTTPS/local file trust}"
+                    printf 'Category success requires a functional production updater.\n'
+                fi
+                [[ $GUI_REFRESH != TRUE ]] || printf 'Archive checksum: %s\n' "${GUI_TOOLS_HASH:-Not supplied — HTTPS transport trust}"
+                ;;
+        esac
+        printf '\nFINAL REPOSITORIES\nUbuntu: resolute, updates, security, backports\nComponents: main, restricted, universe, multiverse\nTor Project: stable Resolute repository with fingerprint-checked signing key\n'
+        if (( CHECK_ONLY )); then printf '\nRECOVERY AVAILABLE DURING AN UPDATE (not run in Preview)\n'; else printf '\nAUTOMATIC RECOVERY\n'; fi
+        printf 'Finish pending package configuration and repair broken dependencies.\nRetry a failed package operation once; retain modified configuration files.\nA failed clamav-milter restart can be deferred during repair, then retried.\nUnresolved service problems remain visible in the final result.\n'
+        if [[ $GUI_MODE == standard ]]; then printf 'Automatic repair cannot remove packages in Standard mode.\n';
+        elif [[ $GUI_MODE != preview ]]; then printf 'Dependency repair may remove packages in this selected upgrade mode.\n'; fi
+        if [[ -n ${GUI_HEALTH_REPORT:-} ]]; then printf '\nPACKAGE HEALTH — AUTOMATIC REPAIR PENDING\n%s\n' "$GUI_HEALTH_REPORT"; fi
+        if [[ $BASE_CODENAME == noble ]]; then printf '\nNoble repositories remain in use until Ubuntu performs the release upgrade.\n'; fi
+        if (( ! CHECK_ONLY && ! GUI_DEMO )); then printf '\nBEFORE YOU START\nKeep power and network connected. Back up important data or take a VM snapshot.\nAdministrator authentication is requested only after Start.\n'; fi
+    } > "$GUI_DIR/plan.txt"
+}
+
+gui_cleanup() {
+    # A detached runner may still be finishing APT if this frontend is closed.
+    # Never kill it, remove its files, or show a false completion status.
+    if [[ -n ${GUI_JOB:-} && ! -f ${GUI_STATUS:-/nonexistent} ]]; then return; fi
+    [[ -z ${GUI_DIR:-} ]] || rm -rf -- "$GUI_DIR"
+}
+
+gui_feed_log() {
+    python3 -u - "$GUI_LOG" "$GUI_STATUS" "$GUI_JOB" <<'PY_GUI_LOG'
+import os, sys, time
+log, status, pid = sys.argv[1:]
+def running():
+    try:
+        os.kill(int(pid), 0)
+        return True
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+try:
+    with open(log, errors='replace') as stream:
+        while True:
+            line = stream.readline()
+            if line:
+                print('# ' + line.rstrip('\r\n'), flush=True)
+            elif os.path.exists(status) or not running():
+                print('100', flush=True)
+                break
+            else:
+                time.sleep(0.15)
+except BrokenPipeError:
+    pass
+PY_GUI_LOG
+}
+
+gui_run_plan() {
+    local self=$1 state_dir exit_code outcome response
+    local -a command=()
+    state_dir=${XDG_STATE_HOME:-$HOME/.local/state}/csi-linux/powerup
+    install -d -m 700 "$state_dir"
+    GUI_LOG=$(mktemp "$state_dir/powerup-$(date +%Y%m%d-%H%M%S).XXXXXX.log")
+    GUI_STATUS=$GUI_DIR/worker.status
+    cat > "$GUI_DIR/runner.sh" <<'RUNNER'
+#!/bin/bash
+set -u
+trap '' HUP
+status=$1; logfile=$2; shift 2
+"$@" </dev/null > "$logfile" 2>&1
+result=$?
+printf '%s\n' "$result" > "$status.tmp"
+mv -- "$status.tmp" "$status"
+exit "$result"
+RUNNER
+    if (( GUI_DEMO )); then
+        cat > "$GUI_DIR/demo.sh" <<'DEMO'
+#!/bin/bash
+printf 'DEMO — no system changes are being made.\n'
+for step in 'Checking the selected plan' 'Simulating repository verification' 'Simulating package maintenance' 'Preparing the result'; do
+    printf '%s…\n' "$step"
+    sleep 1
+done
+printf 'POWERUP_RESULT=demo-complete\n'
+DEMO
+        command=(/bin/bash "$GUI_DIR/demo.sh")
+    elif (( EUID == 0 )); then
+        command=(/bin/bash "$self" --cli "${GUI_ARGS[@]}")
+    else
+        # Some X11 sessions omit XAUTHORITY and rely on the user's home file.
+        if [[ -z ${XAUTHORITY:-} && -f $HOME/.Xauthority ]]; then export XAUTHORITY=$HOME/.Xauthority; fi
+        {
+            printf '#!/bin/bash\n'
+            printf 'exec env GTK_THEME=Adwaita:dark XDG_CONFIG_HOME=%q %q --gtkrc=%q --window-icon=%q --entry --hide-text --center --on-top --width=460 --title=%q --text=%q --button=%q --button=%q\n' \
+                "$GUI_DIR/config" "$(command -v yad)" "$GUI_DIR/style.css" "$GUI_DIR/icon.svg" 'CSI Linux — Authentication' \
+                'Enter your administrator password to start the reviewed plan.' 'Cancel:1' 'Authenticate:0'
+        } > "$GUI_DIR/askpass.sh"
+        chmod 700 "$GUI_DIR/askpass.sh"
+        command=(sudo -A '--preserve-env=DISPLAY,XAUTHORITY' -- /bin/bash "$self" --cli "${GUI_ARGS[@]}")
+    fi
+    SUDO_ASKPASS="$GUI_DIR/askpass.sh" setsid --wait /bin/bash "$GUI_DIR/runner.sh" "$GUI_STATUS" "$GUI_LOG" "${command[@]}" &
+    GUI_JOB=$!
+    gui_feed_log | gui_dialog --text="$(gui_header 'Maintenance in progress' 'EXECUTING YOUR REVIEWED PLAN' 'Live activity is shown below. Closing this monitor does not cancel package operations.')" \
+        --progress --pulsate --progress-text='Working — duration depends on downloads and package changes' \
+        --enable-log='Activity log' --log-expanded --log-height=300 --auto-close --no-buttons --no-escape >/dev/null || true
+    wait "$GUI_JOB" || true
+    if [[ -f $GUI_STATUS ]]; then read -r exit_code < "$GUI_STATUS"; else exit_code=125; fi
+    outcome=$(sed -n 's/^POWERUP_RESULT=//p' "$GUI_LOG" | tail -n 1)
+    local title detail
+    if [[ $exit_code != 0 ]]; then
+        title='Maintenance needs attention'
+        detail="The operation stopped with status $exit_code. Some earlier steps may have completed. Review the log before retrying."
+        local errors
+        errors=$(python3 - "$GUI_LOG" <<'PY_GUI_ERRORS'
+import re, sys
+from pathlib import Path
+lines = Path(sys.argv[1]).read_text(errors='replace').splitlines()
+matches = [line for line in lines if re.search(r'^(ERROR:|E:|dpkg: error)|^Job for .*failed', line)]
+print('\n'.join(dict.fromkeys(matches[-4:]))[:700])
+PY_GUI_ERRORS
+)
+        [[ -z $errors ]] || detail+=$'\n\n'"$errors"
+    else
+        case $outcome in
+            complete) title='Maintenance complete'; detail='The selected workflow completed. Review the activity log for any held or phased updates.' ;;
+            reboot-required) title='Reboot required'; detail='A restart is needed. Save your work, reboot normally, then reopen Powerup to continue or verify the system.' ;;
+            reboot-with-warnings) title='Reboot needed; service attention'; detail='Package work finished, but a deferred service restart did not recover. Review the log, save your work and reboot, then reopen Powerup. Mail filtering may be unavailable.' ;;
+            service-attention) title='Packages updated; service attention'; detail='Package maintenance finished, but clamav-milter is not confirmed active after recovery. Mail filtering may be unavailable. Review the service details in the log.' ;;
+            demo-complete) title='Demo complete'; detail='This was a simulated run. No system changes or authentication occurred.' ;;
+            *) title='Review the operation log'; detail='The process exited, but no final completion marker was received. Check the log before starting another run.' ;;
+        esac
+    fi
+    while :; do
+        gui_capture --height=400 --text="$(gui_header "$title" 'RESULT' "$(gui_escape "$detail")")" \
+            --form --field='Saved activity log:RO' "$GUI_LOG" --button='View log:2' --button='Save log as…:4' --button='Close:0'
+        response=$GUI_CODE
+        case $response in
+            2) gui_dialog --text="$(gui_header 'Operation log' 'RESULT / DETAILS' 'This log is retained in your local state directory.')" --text-info --filename="$GUI_LOG" --fontname='Monospace 10' --wrap --button='Back:0' >/dev/null || true ;;
+            4)
+                gui_capture --file --save --confirm-overwrite --filename="$HOME/powerup-report.txt" --button='Cancel:1' --button='Save:0'
+                if (( GUI_CODE == 0 )) && [[ -n $GUI_RESPONSE ]]; then cp -- "$GUI_LOG" "$GUI_RESPONSE" || gui_message 'Could not save log' 'Choose a writable destination.'; fi ;;
+            *) break ;;
+        esac
+    done
+}
+
+gui_main() {
+    local self code note
+    self=$(readlink -f -- "${BASH_SOURCE[0]}")
+    command -v yad >/dev/null || die 'YAD is required. Install it with: sudo apt install yad'
+    [[ -n ${DISPLAY:-}${WAYLAND_DISPLAY:-} ]] || die 'Open Powerup from a desktop session, or use --cli for terminal execution.'
+    command -v setsid >/dev/null || die 'setsid (util-linux) is required for the update worker.'
+    umask 077
+    GUI_DIR=$(mktemp -d "${TMPDIR:-/tmp}/csi-powerup-gui.XXXXXXXX")
+    GUI_JOB='' GUI_STATUS=''
+    trap gui_cleanup EXIT
+    gui_assets
+    GUI_HEALTH_REPORT=''
+    if (( GUI_DEMO )); then BASE_CODENAME=$GUI_DEMO_BASE; ARCH=amd64
+    else
+        # Platform errors are shown in a dialog; no privileged operation occurs.
+        if ! note=$( (validate_platform) 2>&1); then gui_message 'System not supported' "$note"; return 1; fi
+        validate_platform
+        GUI_HEALTH_REPORT=$(dpkg --audit 2>&1) || GUI_HEALTH_REPORT="Could not inspect package state: $GUI_HEALTH_REPORT"
+    fi
+    if ! parse_options "$@"; then gui_message 'Check your options' "$PLAN_ERROR"; return 1; fi
+    if ! validate_options; then gui_message 'Choose compatible options' "$PLAN_ERROR"; return 1; fi
+    GUI_MODE=standard; (( ! FULL_UPGRADE )) || GUI_MODE=full
+    [[ $BASE_CODENAME != noble ]] || GUI_MODE=release
+    (( ! CHECK_ONLY )) || GUI_MODE=preview
+    GUI_SCOPE=os GUI_REFRESH=FALSE GUI_SOURCE=remote
+    GUI_UPDATER=$UPDATER_FILE GUI_UPDATER_HASH=$UPDATER_SHA256 GUI_TOOLS_HASH=$TOOLS_SHA256
+    GUI_CATEGORIES=()
+    (( ! REFRESH_TOOLS )) || GUI_REFRESH=TRUE
+    [[ -z $GUI_UPDATER ]] || GUI_SOURCE=local
+    for note in "${REQUESTED[@]}"; do
+        if [[ $note == all ]]; then GUI_SCOPE=all
+        elif [[ $note != os-update ]]; then GUI_SCOPE=selected; GUI_CATEGORIES+=("$note"); fi
+    done
+    while :; do
+        if ! gui_dashboard; then return 0; fi
+        if [[ $GUI_MODE != preview ]] && (( ! GUI_DEMO )); then
+            GUI_HEALTH_REPORT=$(dpkg --audit 2>&1) || GUI_HEALTH_REPORT="Could not inspect package state: $GUI_HEALTH_REPORT"
+        fi
+        if [[ $GUI_MODE == standard || $GUI_MODE == full ]]; then
+            if gui_scope; then :; else code=$?; if (( code == 2 )); then continue; else return 0; fi; fi
+            if [[ $GUI_SCOPE == selected ]]; then
+                if gui_categories; then :; else code=$?; if (( code == 2 )); then continue; else return 0; fi; fi
+            fi
+            if gui_integrity; then :; else code=$?; if (( code == 2 )); then continue; else return 0; fi; fi
+        fi
+        gui_build_plan
+        if ! validate_options; then gui_message 'Check your settings' "$PLAN_ERROR"; continue; fi
+        gui_write_plan
+        if [[ $GUI_MODE == preview ]]; then
+            gui_dialog --text="$(gui_header 'System preview' 'READ ONLY' 'No changes made. No administrator access requested.')" --text-info --filename="$GUI_DIR/plan.txt" \
+                --fontname='Monospace 11' --wrap --button='Back to plans:0' >/dev/null || true
+            continue
+        fi
+        gui_capture --height=700 --text="$(gui_header 'Review before starting' '04  REVIEW' 'Only the choices below will be executed.')" --text-info --filename="$GUI_DIR/plan.txt" \
+            --fontname='Monospace 11' --wrap --button='Cancel:1' --button='Edit choices:2' --button='Start maintenance:0'
+        case $GUI_CODE in 2) continue;; 0) gui_run_plan "$self"; return;; *) return 0;; esac
+    done
+}
+
+main() {
+    local cli=0 gui=0 arg
+    local -a args=()
+    GUI_DEMO=0 GUI_DEMO_BASE=resolute
+    if (( $# == 1 )); then
+        case $1 in --help|-h) usage; return;; --version) printf 'POWERUP_REV=%s\n' "$POWERUP_REV"; return;; esac
+    fi
+    for arg in "$@"; do
+        case $arg in
+            --cli) cli=1 ;;
+            --gui) gui=1 ;;
+            --demo|--demo=resolute) GUI_DEMO=1 ;;
+            --demo=noble) GUI_DEMO=1; GUI_DEMO_BASE=noble ;;
+            *) args+=("$arg") ;;
+        esac
+    done
+    (( ! (cli && (gui || GUI_DEMO)) )) || die '--cli cannot be combined with --gui or --demo.'
+    if (( cli )); then backend_main "${args[@]}"; else gui_main "${args[@]}"; fi
 }
 
 if [[ ${BASH_SOURCE[0]} == "$0" ]]; then main "$@"; fi
