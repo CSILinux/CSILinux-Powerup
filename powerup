@@ -1,15 +1,21 @@
-#!/bin/bash
 # -----------------------------------------------------------------------------------
-# Script Name: powerup
-# Description: CSI Linux updater for Ubuntu 26.04 LTS (Resolute Raccoon).
+# Copyright (C) 2024-2026 CSI Linux. All rights reserved.
 # Author: Jeremy Martin
 # Website: https://csilinux.com
-# Copyright: (C) 2024 CSI Linux - csilinux.com
-# License: Closed Source
+# License: Proprietary / Closed Source
 #
-# This script is part of CSI Linux (https://csilinux.com). Unauthorized copying,
-# modification, distribution, or use of this script, without express approval from
-# CSI Linux, is strictly prohibited. This script is proprietary and confidential.
+# CSI Linux Powerup is proprietary software owned by CSI Linux.
+#
+# Source-code and repository rights: /opt/csitools/LICENSE
+# Installation, access, and use terms: /opt/csitools/EULA.txt
+#
+# Copying, modification, redistribution, sublicensing, or use is permitted only
+# as expressly authorized by the applicable license terms or by prior written
+# permission from CSI Linux. Public availability of this source code does not
+# grant additional rights.
+#
+# Third-party software, packages, and components retain their respective
+# copyrights and licenses. This notice does not alter those licenses.
 # -----------------------------------------------------------------------------------
 # Revision: 2026-11-15-5. Prioritize CSI applications and include them in system updates.
 # Uses Ubuntu's release upgrader; see README-powerup.md for reboot/resume steps.
