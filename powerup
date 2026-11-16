@@ -1,22 +1,22 @@
 #!/bin/bash
 # -----------------------------------------------------------------------------------
 # Script Name: powerup
-# Description: CSI Linux updater.
+# Description: CSI Linux updater for Ubuntu 26.04 LTS (Resolute Raccoon).
 # Author: Jeremy Martin
 # Website: https://csilinux.com
-# Copyright: (C) 2024-26 CSI Linux - csilinux.com
+# Copyright: (C) 2024 CSI Linux - csilinux.com
 # License: Closed Source
 #
 # This script is part of CSI Linux (https://csilinux.com). Unauthorized copying,
 # modification, distribution, or use of this script, without express approval from
 # CSI Linux, is strictly prohibited. This script is proprietary and confidential.
 # -----------------------------------------------------------------------------------
-# Revision: 2026-11-15-2. Verify confined release frontend hard links before guarded recovery.
+# Revision: 2026-11-15-5. Prioritize CSI applications and include them in system updates.
 # Uses Ubuntu's release upgrader; see README-powerup.md for reboot/resume steps.
 
 set -Eeuo pipefail
 
-readonly POWERUP_REV=2026-11-15-3
+readonly POWERUP_REV=2026-11-15-5
 # Consumed by the static metadata validator in PY_SELF_UPDATE.
 # shellcheck disable=SC2034
 readonly POWERUP_SELF_UPDATE_PROTOCOL=1
@@ -735,18 +735,22 @@ Standard-mode recovery does not remove packages; Full/Release modes permit it.
   --demo[=noble|resolute]     Explore the GUI with simulated work; no system changes
   --full-upgrade            Permit dependency-related package removals
                             (default: apt upgrade -y)
+  --update-csi-tools        Update CSI-created applications in /opt/csitools;
+                            keep the current Ubuntu release; no general OS upgrade
   --release-upgrade         Upgrade Ubuntu 24.04 to 26.04; remember and resume it
   --recover-release         Continue an interrupted approved Ubuntu upgrade
   --resume-release          Continue an already approved job (normally automatic)
   --test-packages           Check all category lists against local APT indexes;
                             no installs, removals or repairs; save missingpackages.txt
+  --repair-wallpaper        Back up and repair this user's CSI XFCE wallpaper;
+                            run without sudo; no package or release upgrade
   --install-categories ID ... Install/update every package in selected categories
   --remove-categories ID ...  Remove selected category tools; protect system/shared tools
   --update-tools PKG ...    Update selected installed APT tools; keep Ubuntu version
   --remove-tools PKG ...    Remove selected APT tools; retain configuration files
   --bios-target=/dev/DISK   Confirm a validated BIOS startup disk when its saved
                             target is missing and several disks are attached
-  --refresh-tools           Refresh /opt/csitools from the CSI archive
+  --refresh-tools           Legacy system-update alias; CSI apps are now included
   --help                    Show this help
   --version                 Show the installed Powerup revision
 
@@ -843,6 +847,13 @@ normalize_categories() {
 
 validate_options() {
     PLAN_ERROR=''
+    if (( ${CSI_TOOLS_ONLY:-0} )); then
+        if (( CHECK_ONLY || TEST_PACKAGES || FULL_UPGRADE || REFRESH_TOOLS || RELEASE_UPGRADE || ${RESUME_RELEASE:-0} || ${#REQUESTED[@]} )) ||
+            [[ -n ${TOOL_ACTION:-}${CATEGORY_ACTION:-} ]]; then
+            PLAN_ERROR='Choose Update CSI tools by itself, or Full system update which already includes it.'; return 1
+        fi
+        SELECTED=();return 0
+    fi
     if (( ${TEST_PACKAGES:-0} )); then
         if [[ -n ${TOOL_ACTION:-}${CATEGORY_ACTION:-} ]] || (( CHECK_ONLY || FULL_UPGRADE || REFRESH_TOOLS || RELEASE_UPGRADE || ${RESUME_RELEASE:-0} || ${#REQUESTED[@]} )); then
             PLAN_ERROR='Test packages is a separate read-only action.'; return 1
@@ -880,8 +891,8 @@ validate_options() {
     if (( CHECK_ONLY && (FULL_UPGRADE || REFRESH_TOOLS || tool_count) )); then
         PLAN_ERROR='Preview is read-only. Choose it without update or tool options.'; return 1
     fi
-    if [[ $BASE_CODENAME == noble ]] && (( FULL_UPGRADE || REFRESH_TOOLS || tool_count )); then
-        PLAN_ERROR='Use Update installed tools or Remove installed tools to stay on Ubuntu 24.04. CSI archive/category installation requires Resolute.'; return 1
+    if [[ $BASE_CODENAME == noble ]] && (( FULL_UPGRADE || tool_count )); then
+        PLAN_ERROR='Use Update CSI tools or package groups to stay on Ubuntu 24.04. Legacy category scripts and full package removals require Resolute.'; return 1
     fi
     # One operation profile: an archive restore is not a category update.
     if (( REFRESH_TOOLS && (FULL_UPGRADE || tool_count) )) || (( FULL_UPGRADE && tool_count )); then
@@ -2290,11 +2301,8 @@ PY_LTS
 # Persistent desktop protection is installed before any package configuration.
 # Each new run captures a pre-upgrade snapshot. Approved release continuations
 # reuse that snapshot; the first rescue baseline remains separately retained.
-desktop_prepare() {
-    local helper=/usr/local/libexec/csi-powerup-desktop-guard pending=0
-    audit_step 'Check boot mounts before saving original presentation' boot_mounts 0 || return 1
-    install -d -m 755 /usr/local/libexec || return 1
-    cat > "$WORK/desktop-guard" <<'PY_DESKTOP_GUARD'
+desktop_guard_code() {
+    cat <<'PY_DESKTOP_GUARD'
 #!/usr/bin/python3
 # CSI Linux Powerup desktop guard. Root-owned; never imports CSI tool code.
 import datetime, filecmp, json, os, pwd, re, shutil, stat, subprocess, sys, tempfile, uuid
@@ -2312,24 +2320,205 @@ CONFIGS = ('/etc/slim.conf','/etc/default/slim','/etc/pam.d/slim',
            '/etc/systemd/system/slim.service.d',
            '/etc/default/grub','/etc/default/grub.d','/etc/grub.d/40_custom',
            '/boot/grub/custom.cfg','/boot/grub/user.cfg')
-ASSETS = ('/usr/share/slim/themes','/usr/share/plymouth/themes','/usr/share/plymouth/ubuntu-logo.png','/boot/grub/themes','/usr/share/xfce4/backdrops')
+ASSETS = ('/usr/share/slim/themes','/usr/share/plymouth/themes','/usr/share/plymouth/ubuntu-logo.png','/boot/grub/themes','/usr/share/xfce4/backdrops',
+          '/opt/csitools/wallpaper/CSI-Linux-Dark.jpg')
 
 XFCE_WORKER = r'''
 # Runs after the parent drops all root credentials. Only fixed user config roots.
-import base64,json,os,stat,sys,tempfile,xml.etree.ElementTree as ET
+import base64,copy,json,os,re,stat,subprocess,sys,tempfile,xml.etree.ElementTree as ET
 from pathlib import Path
 ROOTS=('.config/xfce4','.config/Thunar','.config/gtk-3.0/settings.ini','.gtkrc-2.0')
+WALLPAPER=Path('/opt/csitools/wallpaper/CSI-Linux-Dark.jpg')
+DESKTOP_XML='.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-desktop.xml'
+
+def wallpaper_image_check():
+ if not WALLPAPER.parent.is_dir() or not os.access(WALLPAPER.parent,os.R_OK|os.X_OK):
+  raise RuntimeError('Wallpaper directory is unavailable to this user: '+str(WALLPAPER.parent))
+ if not WALLPAPER.is_file() or not os.access(WALLPAPER,os.R_OK):
+  raise RuntimeError('Default wallpaper is missing or unreadable: '+str(WALLPAPER))
+ if not 0<WALLPAPER.stat().st_size<=64*1024*1024:raise RuntimeError('Default wallpaper has an invalid size')
+ import gi
+ gi.require_version('GdkPixbuf','2.0')
+ from gi.repository import GdkPixbuf
+ image=GdkPixbuf.Pixbuf.new_from_file_at_scale(str(WALLPAPER),320,320,True)
+ if image.get_width()<1 or image.get_height()<1:raise RuntimeError('Default wallpaper cannot be decoded')
+
+def desktop_xml(content):
+ root=ET.fromstring(content) if content else ET.Element('channel',name='xfce4-desktop',version='1.0')
+ if root.tag!='channel' or root.get('name')!='xfce4-desktop':raise RuntimeError('Invalid XFCE desktop channel XML')
+ return root
+
+def xml_properties(root):
+ result={}
+ def visit(node,prefix=''):
+  for child in node.findall('property'):
+   name=child.get('name','')
+   if not name or '/' in name:raise RuntimeError('Invalid XFCE XML property name')
+   key=prefix+'/'+name;result[key]=child;visit(child,key)
+ visit(root);return result
+
+def xml_set(root,key,kind,value):
+ node=root
+ for part in key.strip('/').split('/'):
+  found=[p for p in node.findall('property') if p.get('name')==part]
+  if len(found)>1:raise RuntimeError('Duplicate XFCE desktop property: '+key)
+  node=found[0] if found else ET.SubElement(node,'property',name=part,type='empty')
+ node.set('type',kind);node.set('value',str(value).lower() if kind=='bool' else str(value))
+ for child in node.findall('value'):node.remove(child)
+
+def connected_monitors():
+ if not os.environ.get('DISPLAY') or os.environ.get('WAYLAND_DISPLAY'):return []
+ try:
+  result=subprocess.run(['/usr/bin/xrandr','--query'],capture_output=True,text=True,timeout=5)
+  if result.returncode:raise RuntimeError(result.stderr.strip())
+  screen='0';monitors=[]
+  for line in result.stdout.splitlines():
+   match=re.match(r'Screen (\d+):',line)
+   if match:screen=match[1]
+   match=re.match(r'([A-Za-z0-9_.:+-]+) connected\b',line)
+   if match:monitors.append('/backdrop/screen'+screen+'/monitor'+match[1])
+  return monitors
+ except (OSError,RuntimeError,subprocess.SubprocessError) as error:
+  print('XFCE monitor discovery unavailable; retaining known monitor paths: '+str(error),file=sys.stderr);return []
+
+def wallpaper_plan(keys,monitors=(),workspace_count=1):
+ groups={};pattern=re.compile(r'^(/backdrop/screen\d+/monitor[^/]+)(?:/workspace(\d+))?(?:/|$)')
+ for key in keys:
+  match=pattern.match(key)
+  if match:groups.setdefault(match[1],{0}).add(int(match[2] or 0))
+ for monitor in monitors:
+  if re.fullmatch(r'/backdrop/screen\d+/monitor[^/\s]+',monitor):groups.setdefault(monitor,{0})
+ if not groups:groups={'/backdrop/screen0/monitor0':{0}}
+ if len(groups)>128 or not 1<=workspace_count<=256:raise RuntimeError('Unsupported XFCE monitor/workspace count')
+ plan={}
+ for monitor,workspaces in groups.items():
+  if any(n>255 for n in workspaces):raise RuntimeError('Unsupported XFCE workspace number')
+  workspaces.update(range(workspace_count))
+  # The old image-path is XFCE's migration fallback. The folder picker uses
+  # the parent of last-image; there is no invented image-folder setting.
+  for prop in ('image-path','last-image','last-single-image'):plan[monitor+'/'+prop]=('string',str(WALLPAPER))
+  plan[monitor+'/image-show']=('bool',True)
+  for workspace in workspaces:
+   prefix=monitor+'/workspace'+str(workspace)
+   plan[prefix+'/last-image']=('string',str(WALLPAPER))
+   plan[prefix+'/image-style']=('int',5)
+   plan[prefix+'/backdrop-cycle-enable']=('bool',False)
+ return plan
+
+def write_wallpaper_xml(destination,content,mode=0o600):
+ for p in (destination,*destination.parents):
+  if p.is_symlink():raise RuntimeError('Refusing symlinked XFCE desktop configuration: '+str(p))
+ missing=[p for p in destination.parents if not p.exists()]
+ destination.parent.mkdir(parents=True,exist_ok=True)
+ for p in missing:os.chmod(p,0o755 if mode==0o644 else 0o700)
+ fd,tmp=tempfile.mkstemp(prefix='.powerup-wallpaper-',dir=destination.parent)
+ try:
+  with os.fdopen(fd,'wb') as stream:stream.write(content);stream.flush();os.fsync(stream.fileno())
+  os.chmod(tmp,mode);os.replace(tmp,destination)
+ finally:
+  if os.path.lexists(tmp):os.unlink(tmp)
+
+def apply_wallpaper(home,session=None):
+ wallpaper_image_check()
+ session=session or bus();channel='xfce4-desktop';destination=home/DESKTOP_XML
+ if session:
+  GLib,call=session
+  try:current=properties(session,channel)
+  except Exception as error:
+   if remote_error(error)!='org.xfce.Xfconf.Error.ChannelNotFound':raise
+   current={}
+  count=1
+  try:
+   raw=properties(session,'xfwm4').get('/general/workspace_count')
+   if raw:count=int(GLib.Variant.parse(None,raw,None,None).unpack())
+  except Exception as error:
+   if remote_error(error)!='org.xfce.Xfconf.Error.ChannelNotFound':raise
+  plan=wallpaper_plan(current,connected_monitors(),count)
+  types={'string':'s','int':'i','bool':'b'};expected={}
+  for name,(kind,value) in plan.items():
+   variant=GLib.Variant(types[kind],value);expected[name]=variant.print_(True)
+   if current.get(name)!=expected[name]:
+    print('XFCE_WALLPAPER_CHANGE='+json.dumps(dict(property=name,before=current.get(name),after=expected[name],phase='setting')),file=sys.stderr)
+    try:call('SetProperty',GLib.Variant('(ssv)',(channel,name,variant)))
+    except Exception as error:raise RuntimeError('Cannot set wallpaper property '+name+': '+str(error)) from error
+  actual=properties(session,channel)
+  wrong=[name for name,value in expected.items() if actual.get(name)!=value]
+  if wrong:raise RuntimeError('Wallpaper read-back failed: '+repr(wrong))
+  mode='live-xfconf'
+ else:
+  original=destination.read_bytes() if destination.exists() else b''
+  root=desktop_xml(original);plan=wallpaper_plan(xml_properties(root))
+  print('XFCE_WALLPAPER_PLAN='+json.dumps(dict(file=str(destination),properties=sorted(plan),image=str(WALLPAPER))),file=sys.stderr)
+  for key,(kind,value) in plan.items():xml_set(root,key,kind,value)
+  content=ET.tostring(root,encoding='utf-8',xml_declaration=True)
+  if content!=original:write_wallpaper_xml(destination,content)
+  actual=xml_properties(desktop_xml(destination.read_bytes()))
+  if any(actual[k].get('value')!=(str(v).lower() if t=='bool' else str(v)) or actual[k].get('type')!=t for k,(t,v) in plan.items()):
+   raise RuntimeError('Wallpaper XML read-back failed')
+  mode='offline-xml-next-login'
+ result=dict(image=str(WALLPAPER),folder=str(WALLPAPER.parent)+'/',properties=len(plan),verification=mode)
+ print('XFCE_WALLPAPER='+json.dumps(result),file=sys.stderr)
+ return result
 def permitted(name):
  p=Path(name)
  return not p.is_absolute() and '..' not in p.parts and any(name==r or name.startswith(r+'/') for r in ROOTS)
+
+def session_connection(address):
+ from gi.repository import Gio
+ return Gio.DBusConnection.new_for_address_sync(address,Gio.DBusConnectionFlags.AUTHENTICATION_CLIENT|Gio.DBusConnectionFlags.MESSAGE_BUS_CONNECTION,None,None)
+
+def session_bus_fallback():
+ # SLiM/Xfce sessions may use dbus-launch instead of /run/user/UID/bus.
+ # Inspect only this user's xfconfd environment after dropping root privileges.
+ candidates=set();running=False
+ supplied=os.environ.get('DBUS_SESSION_BUS_ADDRESS','')
+ if supplied.startswith('unix:') and ';' not in supplied:candidates.add(supplied)
+ for process in Path('/proc').iterdir():
+  if not process.name.isdigit():continue
+  identified=False
+  try:
+   if process.stat().st_uid!=os.getuid() or (process/'comm').read_text().strip()!='xfconfd':continue
+   identified=True
+   entries=(process/'environ').read_bytes().split(b'\0')
+   environment=dict(item.decode(errors='replace').split('=',1) for item in entries if b'=' in item)
+   if environment.get('HOME') and environment['HOME']!=str(Path.home()):continue
+   running=True
+   address=environment.get('DBUS_SESSION_BUS_ADDRESS','')
+   if address.startswith('unix:') and ';' not in address:candidates.add(address)
+   for name in ('DISPLAY','XAUTHORITY','WAYLAND_DISPLAY'):
+    if not os.environ.get(name) and environment.get(name):os.environ[name]=environment[name]
+  except (FileNotFoundError,ProcessLookupError):continue
+  except PermissionError:
+   if identified:raise RuntimeError('Cannot inspect the active XFCE settings session; offline overwrite refused')
+ if not candidates:
+  if running:raise RuntimeError('Active xfconfd has no accessible local session bus; offline overwrite refused')
+  return None
+ from gi.repository import Gio,GLib
+ sessions=[]
+ for address in sorted(candidates):
+  try:
+   connection=session_connection(address)
+   owner=connection.call_sync('org.freedesktop.DBus','/org/freedesktop/DBus','org.freedesktop.DBus','GetNameOwner',GLib.Variant('(s)',('org.xfce.Xfconf',)),None,Gio.DBusCallFlags.NO_AUTO_START,10000,None).unpack()[0]
+   identity=connection.get_guid()+':'+owner
+   if any(key==identity for key,_ in sessions):continue
+   def call(method,args,connection=connection):
+    return connection.call_sync('org.xfce.Xfconf','/org/xfce/Xfconf','org.xfce.Xfconf',method,args,None,Gio.DBusCallFlags.NO_AUTO_START,10000,None)
+   sessions.append((identity,(GLib,call)))
+  except GLib.Error:continue
+ if len(sessions)>1:raise RuntimeError('Multiple active XFCE settings sessions; no session was overwritten')
+ if sessions:
+  print('XFCE settings connected to the desktop session bus',file=sys.stderr);return sessions[0][1]
+ if running:raise RuntimeError('Active XFCE session could not be reached; offline overwrite refused')
+ return None
+
 def bus():
  p=Path('/run/user')/str(os.getuid())/'bus'
- if not p.exists():return None
+ if not p.exists():return session_bus_fallback()
  if not stat.S_ISSOCK(p.stat().st_mode) or p.stat().st_uid!=os.getuid():raise RuntimeError('Untrusted user session bus')
  from gi.repository import Gio,GLib
  connection=Gio.DBusConnection.new_for_address_sync('unix:path='+str(p),Gio.DBusConnectionFlags.AUTHENTICATION_CLIENT|Gio.DBusConnectionFlags.MESSAGE_BUS_CONNECTION,None,None)
  owner=connection.call_sync('org.freedesktop.DBus','/org/freedesktop/DBus','org.freedesktop.DBus','NameHasOwner',GLib.Variant('(s)',('org.xfce.Xfconf',)),None,Gio.DBusCallFlags.NO_AUTO_START,10000,None).unpack()[0]
- if not owner:return None
+ if not owner:return session_bus_fallback()
  def call(method,args):
   return connection.call_sync('org.xfce.Xfconf','/org/xfce/Xfconf','org.xfce.Xfconf',method,args,None,Gio.DBusCallFlags.NO_AUTO_START,10000,None)
  return GLib,call
@@ -2445,10 +2634,36 @@ def restore_channel(session,channel,settings):
  raise RuntimeError('Live XFCE settings verification failed for '+channel+
                     '; saved values not restored='+repr(mismatches)+'; unverified extras='+repr(unexpected))
 
-def restore_settings(home,data):
+def restore_settings(home,data,compatible_wallpaper=False):
  if data.get('schema')!=1 or not isinstance(data.get('files'),list):raise RuntimeError('Invalid XFCE backup')
- entries=data['files'];saved={entry['path'] for entry in entries}
+ entries=copy.deepcopy(data['files']);saved={entry['path'] for entry in entries}
  if len(saved)!=len(entries) or any(not permitted(name) for name in saved):raise RuntimeError('Invalid XFCE backup path')
+ session=bus();desktop_current={}
+ if compatible_wallpaper:
+  wallpaper_image_check()
+  saved.update((DESKTOP_XML,*[str(p) for p in Path(DESKTOP_XML).parents if str(p)!='.']))
+  if session:
+   try:desktop_current=properties(session,'xfce4-desktop')
+   except Exception as error:
+    if remote_error(error)!='org.xfce.Xfconf.Error.ChannelNotFound':raise
+   # Never overwrite a live daemon's desktop XML with an older serialization.
+  else:
+   destination=home/DESKTOP_XML
+   current=desktop_xml(destination.read_bytes()) if destination.exists() else desktop_xml(b'')
+   item=next((e for e in entries if e['path']==DESKTOP_XML),None)
+   if item and item['kind']!='file':raise RuntimeError('Cannot migrate a linked XFCE desktop snapshot')
+   root=desktop_xml(base64.b64decode(item['data'])) if item else current
+   def merge(target,source):
+    for prop in source.findall('property'):
+     old=next((p for p in target.findall('property') if p.get('name')==prop.get('name')),None)
+     if old is None:target.append(copy.deepcopy(prop))
+     else:merge(old,prop)
+   merge(root,current)
+   for key,(kind,value) in wallpaper_plan(xml_properties(root)).items():xml_set(root,key,kind,value)
+   if item:item['data']=base64.b64encode(ET.tostring(root,encoding='utf-8',xml_declaration=True)).decode()
+   else:
+    entries.append(dict(path=DESKTOP_XML,kind='file',mode=0o600,data=base64.b64encode(ET.tostring(root)).decode()))
+    saved.add(DESKTOP_XML)
  # Delete only added settings within the protected roots, as their owner.
  def prune(p):
   name=str(p.relative_to(home))
@@ -2460,6 +2675,7 @@ def restore_settings(home,data):
   p=home/name
   if p.exists() or p.is_symlink():prune(p)
  for item in entries:
+  if compatible_wallpaper and session and item['path']==DESKTOP_XML:continue
   p=home/item['path'];p.parent.mkdir(parents=True,exist_ok=True)
   if item['kind']=='dir':
    if p.is_symlink() or (p.exists() and not p.is_dir()):raise RuntimeError('XFCE directory was replaced: '+item['path'])
@@ -2479,10 +2695,17 @@ def restore_settings(home,data):
    finally:
     if os.path.lexists(tmp):os.unlink(tmp)
   else:raise RuntimeError('Invalid XFCE entry kind')
- session=bus();defaults_retained={}
+ defaults_retained={}
  if session:
-  GLib,call=session;wanted=data.get('channels')
+  GLib,call=session;wanted=copy.deepcopy(data.get('channels'))
   if wanted is None:wanted=xml_channels(data,GLib)
+  if compatible_wallpaper:
+   settings=desktop_current|wanted.get('xfce4-desktop',{})
+   types={'string':'s','int':'i','bool':'b'}
+   for key,(kind,value) in wallpaper_plan(settings,connected_monitors()).items():
+    settings[key]=GLib.Variant(types[kind],value).print_(True)
+   wanted['xfce4-desktop']=settings
+   print('XFCE_WALLPAPER_MIGRATION='+json.dumps(dict(image=str(WALLPAPER),folder=str(WALLPAPER.parent)+'/',retained_current_properties=sorted(desktop_current.keys()-data.get('channels',{}).get('xfce4-desktop',{}).keys()) if data.get('channels') else sorted(desktop_current))),file=sys.stderr)
   for channel,settings in wanted.items():
    inherited=restore_channel(session,channel,settings)
    if inherited:defaults_retained[channel]=inherited
@@ -2492,12 +2715,23 @@ def restore_settings(home,data):
   p=home/item['path']
   if item['kind']=='file' and not (session and '/xfconf/xfce-perchannel-xml/' in item['path']):
    if p.is_symlink() or p.read_bytes()!=base64.b64decode(item['data']):raise RuntimeError('XFCE file verification failed: '+item['path'])
- return dict(restored_files=len(entries),live_xfconf_verified=bool(session),inherited_defaults_retained=defaults_retained)
+ result=dict(restored_files=len(entries),live_xfconf_verified=bool(session),inherited_defaults_retained=defaults_retained)
+ if compatible_wallpaper:result['wallpaper']=apply_wallpaper(home,session)
+ return result
 
 def main():
  home=Path(sys.argv[2]);os.chdir(home)
  if sys.argv[1]=='capture':result=read_settings(home)
- elif sys.argv[1]=='restore':result=restore_settings(home,json.load(sys.stdin))
+ elif sys.argv[1]=='restore':result=restore_settings(home,json.load(sys.stdin),compatible_wallpaper=True)
+ elif sys.argv[1]=='wallpaper':
+  request=json.load(sys.stdin);backup=Path(request['backup']);parent=backup.parent
+  if parent.is_symlink() or parent.stat().st_uid!=os.getuid() or stat.S_IMODE(parent.stat().st_mode)!=0o700:
+   raise RuntimeError('Wallpaper backup must use the private Powerup session directory')
+  data=read_settings(home)
+  fd=os.open(backup,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
+  with os.fdopen(fd,'w') as output:json.dump(data,output);output.flush();os.fsync(output.fileno())
+  print('XFCE wallpaper backup saved: '+str(backup),file=sys.stderr)
+  result=apply_wallpaper(home)
  else:raise RuntimeError('Unknown XFCE settings operation')
  print(json.dumps(result))
 if __name__=='__main__':
@@ -2675,9 +2909,13 @@ def xfce_user_call(account,action,data=None):
     if os.geteuid()==0:
         credentials=dict(user=account.pw_uid,group=account.pw_gid,extra_groups=os.getgrouplist(account.pw_name,account.pw_gid))
     elif os.geteuid()!=account.pw_uid:raise RuntimeError('Cannot access another user without privilege separation')
+    environment={'PATH':'/usr/bin:/bin','HOME':account.pw_dir,'USER':account.pw_name,'LOGNAME':account.pw_name,'LANG':'C.UTF-8'}
+    if os.geteuid()==account.pw_uid or os.environ.get('SUDO_UID')==str(account.pw_uid):
+        for name in ('DISPLAY','XAUTHORITY','WAYLAND_DISPLAY','DBUS_SESSION_BUS_ADDRESS'):
+            if os.environ.get(name):environment[name]=os.environ[name]
     result=subprocess.run([sys.executable,'-I','-c',XFCE_WORKER,action,account.pw_dir],
         input=json.dumps(data) if data is not None else None,text=True,capture_output=True,timeout=180,
-        env={'PATH':'/usr/bin:/bin','HOME':account.pw_dir,'USER':account.pw_name,'LOGNAME':account.pw_name,'LANG':'C.UTF-8'},**credentials)
+        env=environment,**credentials)
     if result.stderr:print(result.stderr,file=sys.stderr,end='')
     if result.returncode:raise RuntimeError('XFCE '+action+' failed for uid '+str(account.pw_uid))
     return json.loads(result.stdout)
@@ -2746,12 +2984,29 @@ def load():
     return data
 def path_component(name):
     if 'grub' in name:return 'grub'
-    if 'xfce' in name:return 'xfce'
+    if 'xfce' in name or name.startswith('/opt/csitools/wallpaper/'):return 'xfce'
     if 'slim' in name:return 'slim'
     return 'plymouth'
 def file_component(item):
     if item.get('component') in ('grub','xfce','slim','plymouth'):return item['component']
     return path_component(item['path'])
+def wallpaper_defaults():
+    image=path('/opt/csitools/wallpaper/CSI-Linux-Dark.jpg')
+    if not image.is_file():
+        say('WARNING default wallpaper asset is missing; XFCE user migration will require that image');return
+    namespace={'__name__':'wallpaper_defaults'};exec(XFCE_WORKER,namespace)
+    # Do not load image/GTK libraries from a root APT pre-hook while libraries
+    # may be mid-upgrade. The user worker decodes and verifies the asset later.
+    for name in ('/etc/xdg/xfce4/xfconf/xfce-perchannel-xml/xfce4-desktop.xml',
+                 '/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-desktop.xml'):
+        destination=path(name)
+        root=namespace['desktop_xml'](destination.read_bytes() if destination.exists() else b'')
+        for key,(kind,value) in namespace['wallpaper_plan'](namespace['xml_properties'](root)).items():
+            namespace['xml_set'](root,key,kind,value)
+        content=namespace['ET'].tostring(root,encoding='utf-8',xml_declaration=True)
+        if not destination.exists() or destination.read_bytes()!=content:
+            namespace['write_wallpaper_xml'](destination,content,0o644)
+        say('VERIFIED CSI wallpaper defaults: '+name)
 def restore():
     failures=[]
     for component in ('grub','plymouth','slim','xfce'):
@@ -2852,6 +3107,7 @@ def restore_component(component):
         for name in COMPETITORS:
             services_changed=link(path('/etc/systemd/system/'+name+'.service'),'/dev/null') or services_changed
         if services_changed and path('/run/systemd/system').is_dir():run(['systemctl','daemon-reload'])
+    if component=='xfce':wallpaper_defaults()
     if grub_changed:atomic(GRUB_DIRTY,b'Original GRUB settings require menu regeneration.\n',0o600)
     if changed:atomic(DIRTY,b'Plymouth restoration requires startup image rebuild.\n',0o600)
     status=dict(timestamp=datetime.datetime.now(datetime.timezone.utc).isoformat(),baseline=str(BASE),
@@ -2939,6 +3195,11 @@ def commit_recovery():
     say('VERIFIED protected presentation restoration completed')
 
 def main():
+    if len(sys.argv)==3 and sys.argv[1]=='wallpaper-user':
+        if os.geteuid()==0:raise RuntimeError('Run wallpaper repair as the desktop user, without sudo')
+        account=pwd.getpwuid(os.getuid())
+        result=xfce_user_call(account,'wallpaper',dict(backup=sys.argv[2]))
+        say('VERIFIED CSI wallpaper '+json.dumps(result));return
     if os.geteuid()!=0:raise RuntimeError('Desktop protection requires root')
     global BASE
     action=sys.argv[1] if len(sys.argv)>1 else ''
@@ -2960,6 +3221,25 @@ if __name__=='__main__':
     except (OSError,ValueError,KeyError,RuntimeError,subprocess.SubprocessError) as error:
         say('FAILURE '+str(error));sys.exit(1)
 PY_DESKTOP_GUARD
+}
+
+wallpaper_repair_command() (
+    (( $# == 0 && EUID != 0 )) || { printf 'Run powerup --repair-wallpaper as the desktop user, without sudo or other actions.\n' >&2; return 64; }
+    [[ -n ${POWERUP_SESSION_LOG:-} ]] || { printf 'Wallpaper repair requires the Powerup session log.\n' >&2; return 74; }
+    local staging status=0
+    staging=$(mktemp -d /tmp/powerup-wallpaper.XXXXXXXX) || return 1
+    trap 'rm -rf -- "$staging"' EXIT
+    desktop_guard_code > "$staging/desktop-guard" || return 1
+    audit_step 'Back up XFCE settings and repair the CSI wallpaper' /usr/bin/python3 -I "$staging/desktop-guard" \
+        wallpaper-user "${POWERUP_SESSION_LOG%/*}/wallpaper-before.json" || status=$?
+    return "$status"
+)
+
+desktop_prepare() {
+    local helper=/usr/local/libexec/csi-powerup-desktop-guard pending=0
+    audit_step 'Check boot mounts before saving original presentation' boot_mounts 0 || return 1
+    install -d -m 755 /usr/local/libexec || return 1
+    desktop_guard_code > "$WORK/desktop-guard" || return 1
     python3 -c 'import ast,sys; ast.parse(open(sys.argv[1]).read())' "$WORK/desktop-guard" || return 1
     local context="run-${BACKUP##*/}"
     local -a resume_args=()
@@ -4852,7 +5132,7 @@ install_csi_tools() {
     if command -v 7zz >/dev/null; then sevenzip=7zz
     elif command -v 7z >/dev/null; then sevenzip=7z
     else
-        apt_run install --no-install-recommends --no-remove -y 7zip
+        apt_run install --no-install-recommends --no-remove -y 7zip || return $?
         if command -v 7zz >/dev/null; then sevenzip=7zz
         elif command -v 7z >/dev/null; then sevenzip=7z
         else die '7zip installed, but neither 7zz nor 7z is available.'
@@ -4865,11 +5145,11 @@ install_csi_tools() {
         if download "$url" "$WORK/csitools.7z"; then success=1; break; fi
     done
     (( success )) || die 'All CSI tools download mirrors failed.'
-    audit_step 'Extract CSI archive tar payload' "$sevenzip" x -so "$WORK/csitools.7z" csitools.tar > "$WORK/csitools.tar"
+    audit_step 'Extract CSI archive tar payload' "$sevenzip" x -so "$WORK/csitools.7z" csitools.tar > "$WORK/csitools.tar" || return $?
     [[ -s $WORK/csitools.tar ]] || die 'Archive does not contain csitools.tar.'
     # Restore only the tool tree, not arbitrary /etc, /usr, or root-home files.
     # Preserve supplied executable bits; do not chmod every file or dos2unix binaries.
-    python3 - "$WORK/csitools.tar" "$WORK/payload" "${ARCH:-$(dpkg --print-architecture)}" <<'PY_ARCHIVE'
+    python3 - "$WORK/csitools.tar" "$WORK/payload" "${ARCH:-$(dpkg --print-architecture)}" <<'PY_ARCHIVE' || return $?
 import copy, posixpath, sys, tarfile
 from pathlib import Path
 archive, destination = sys.argv[1:3]
@@ -4911,15 +5191,24 @@ with tarfile.open(archive) as tar:
     Path(destination).mkdir(mode=0o700)
     tar.extractall(destination, members=selected, filter='data')
 PY_ARCHIVE
+    # Change ownership only in the validated payload. Never recursively chown
+    # the installed tree: Powerup and unrelated local files are not payload.
+    if id csi >/dev/null 2>&1; then chown -R csi:"$(id -gn csi)" "$WORK/payload/opt/csitools" || return $?; fi
+    [[ ! -L /opt/csitools ]] || die '/opt/csitools must not be a symlink.'
     if [[ -d /opt/csitools ]]; then
         log "Backing up the existing tool tree to $BACKUP/csitools.tar"
-        audit_step 'Back up the existing CSI tool tree' tar -cpf "$BACKUP/csitools.tar" -C /opt csitools
+        audit_step 'Back up the existing CSI tool tree' tar -cpf "$BACKUP/csitools.tar" -C /opt csitools || return $?
     fi
-    [[ ! -L /opt/csitools ]] || die '/opt/csitools must not be a symlink.'
-    install -d -m 755 /opt/csitools
-    audit_step 'Install validated CSI tool files' cp -a --remove-destination -- "$WORK/payload/opt/csitools/." /opt/csitools/
-    if id csi >/dev/null 2>&1; then chown -R csi:"$(id -gn csi)" /opt/csitools; fi
-    log 'CSI tools restored. Existing executable modes preserved.'
+    install -d -m 755 /opt/csitools || return $?
+    audit_step 'Install validated CSI application files' cp -a --remove-destination -- "$WORK/payload/opt/csitools/." /opt/csitools/ || return $?
+    log 'CSI applications updated. Supplied executable modes preserved.'
+}
+
+update_csi_applications() {
+    # Explicit app updates and full system updates must not skip a nonempty
+    # /opt/csitools. Download once per selected maintenance operation.
+    local REFRESH_TOOLS=1
+    install_csi_tools
 }
 
 run_category_updater() {
@@ -5501,7 +5790,7 @@ cleanup() {
 parse_options() {
     FORWARD=()
     CHECK_ONLY=0 TEST_PACKAGES=0 RELEASE_UI=text
-    FULL_UPGRADE=0 REFRESH_TOOLS=0
+    FULL_UPGRADE=0 REFRESH_TOOLS=0 CSI_TOOLS_ONLY=0
     RELEASE_UPGRADE=0 RESUME_RELEASE=0 RECOVER_RELEASE=0 TOOL_ACTION='' TOOL_PACKAGES=() CATEGORY_ACTION='' PACKAGE_CATEGORIES=() BIOS_TARGET='' BOOT_UI=text
     REQUESTED=() SELECTED=()
     while (( $# )); do
@@ -5526,6 +5815,7 @@ parse_options() {
                 if [[ $1 == --update-tools ]]; then TOOL_ACTION=update; else TOOL_ACTION=remove; fi
                 FORWARD+=("$1") ;;
             --full-upgrade) FULL_UPGRADE=1; FORWARD+=("$1") ;;
+            --update-csi-tools) CSI_TOOLS_ONLY=1; FORWARD+=("$1") ;;
             --refresh-tools) REFRESH_TOOLS=1; FORWARD+=("$1") ;;
             --tools-sha256|--updater-sha256|--updater)
                 PLAN_ERROR='Custom updater and checksum options were removed. Powerup uses the configured CSI resources automatically.'; return 1 ;;
@@ -5534,7 +5824,7 @@ parse_options() {
         esac
         shift
     done
-    if (( ! ${#REQUESTED[@]} )) && [[ -z $TOOL_ACTION && -z $CATEGORY_ACTION && $TEST_PACKAGES == 0 ]]; then REQUESTED=(os-update); fi
+    if (( ! ${#REQUESTED[@]} && ! CSI_TOOLS_ONLY )) && [[ -z $TOOL_ACTION && -z $CATEGORY_ACTION && $TEST_PACKAGES == 0 ]]; then REQUESTED=(os-update); fi
     if (( RESUME_RELEASE && RELEASE_UPGRADE )); then PLAN_ERROR='Choose a new release upgrade or resume the saved one.'; return 1; fi
     return 0
 }
@@ -5604,6 +5894,7 @@ backend_main() {
         printf 'POWERUP_REV=%s\n' "$POWERUP_REV"
         printf 'Platform: Ubuntu base %s (%s)\n' "$BASE_CODENAME" "$ARCH"
         printf 'Release upgrade: opt-in with --release-upgrade; never implied by os-update.\n'
+        printf 'Full system updates also back up and refresh CSI-created apps in /opt/csitools.\n'
         if [[ $BASE_CODENAME == noble ]]; then
             printf 'Default plan: retain Ubuntu 24.04, run apt update and apt upgrade -y.\n'
         else
@@ -5651,10 +5942,10 @@ backend_main() {
     printf '\n========================================\nPOWERUP_REV=%s\n========================================\n' "$POWERUP_REV"
     printf 'Running powerup script: %s\n' "$(readlink -f -- "${BASH_SOURCE[0]}")"
     log "CSI Linux Powerup — current base $BASE_CODENAME / $ARCH; release-upgrade selected: $RELEASE_UPGRADE"
-    log "Selected: ${SELECTED[*]}"
+    if (( ${CSI_TOOLS_ONLY:-0} )); then log 'Selected: Update CSI tools (applications only)'; else log "Selected: ${SELECTED[*]}"; fi
     audit_init backend
     audit_step 'Record starting positions for package logs' powerup_log_files checkpoint "$LOG_FILE"
-    audit_event plan '' '' '' 'Validated maintenance plan' "release_upgrade=$RELEASE_UPGRADE" "resume_release=$RESUME_RELEASE" "full_upgrade=$FULL_UPGRADE" "refresh_tools=$REFRESH_TOOLS" "tool_action=$TOOL_ACTION" "${SELECTED[@]}" "${TOOL_PACKAGES[@]}"
+    audit_event plan '' '' '' 'Validated maintenance plan' "release_upgrade=$RELEASE_UPGRADE" "resume_release=$RESUME_RELEASE" "full_upgrade=$FULL_UPGRADE" "refresh_tools=$REFRESH_TOOLS" "csi_apps_only=${CSI_TOOLS_ONLY:-0}" "tool_action=$TOOL_ACTION" "${SELECTED[@]}" "${TOOL_PACKAGES[@]}"
     audit_step 'Wait for other package work to finish' package_wait_idle
     audit_step 'Refresh installed platform after package recovery' validate_platform
     if (( RELEASE_UPGRADE && ! RESUME_RELEASE )) && [[ $BASE_CODENAME == resolute ]]; then
@@ -5731,6 +6022,15 @@ backend_main() {
         audit_step 'Maintain selected CSI package categories' maintain_package_categories
         return
     fi
+    if (( ${CSI_TOOLS_ONLY:-0} )); then
+        audit_step 'Update CSI applications from the published archive' update_csi_applications
+        audit_step 'Check and repair package health' check_and_repair_packages
+        audit_step 'Finalize desktop restoration and boot verification' finish_upgrade_safely
+        if (( SERVICE_WARNINGS )); then
+            if reboot_required; then POWERUP_FINAL_RESULT=reboot-with-warnings; else POWERUP_FINAL_RESULT=service-attention; fi
+        elif reboot_required; then POWERUP_FINAL_RESULT=reboot-required; else POWERUP_FINAL_RESULT=complete; fi
+        return
+    fi
     STOP_AFTER_RELEASE=0
     if (( RECOVER_RELEASE )) && [[ $BASE_CODENAME == resolute ]]; then
         audit_step 'Finish interrupted Ubuntu 26.04 package configuration' check_and_repair_packages
@@ -5753,25 +6053,22 @@ backend_main() {
     fi
     if [[ $BASE_CODENAME == noble ]]; then audit_step 'Update packages on the current Ubuntu release' maintain_current_release; else audit_step 'Maintain Resolute repositories and packages' maintain_system; fi
     audit_step 'Check and repair package health' check_and_repair_packages
+    for option in "${SELECTED[@]}"; do
+        [[ $option == os-update ]] || tool_categories+=("$option")
+    done
+    if (( ${#tool_categories[@]} )); then audit_step 'Prepare the published CSI category updater' prepare_updater; fi
+    audit_step 'Update CSI applications from the published archive' update_csi_applications
+    if (( ${#tool_categories[@]} )); then
+        BOOT_VERIFIED=0
+        audit_step 'Update selected CSI categories' run_category_updater "${tool_categories[@]}"
+    fi
+    audit_step 'Check and repair package health' check_and_repair_packages
     audit_step 'Finalize desktop restoration and boot verification' finish_upgrade_safely
     if [[ ${RELEASE_JOB_ACTIVE:-0} == 1 && $BASE_CODENAME == resolute ]]; then
         if (( SERVICE_WARNINGS )); then release_job_checkpoint paused
         else release_job_checkpoint complete resolute; fi
     fi
     rm -f -- "$RELEASE_STATE_DIR/upgrade-boot-id"
-    for option in "${SELECTED[@]}"; do
-        [[ $option == os-update ]] || tool_categories+=("$option")
-    done
-    if (( ${#tool_categories[@]} )); then audit_step 'Prepare the published CSI category updater' prepare_updater; fi
-    if (( ${#tool_categories[@]} || REFRESH_TOOLS )); then audit_step 'Install or restore CSI tool archive' install_csi_tools; fi
-    if (( ${#tool_categories[@]} )); then
-        BOOT_VERIFIED=0
-        audit_step 'Update selected CSI categories' run_category_updater "${tool_categories[@]}"
-    fi
-    if (( ${#tool_categories[@]} || REFRESH_TOOLS )); then
-        audit_step 'Check and repair package health' check_and_repair_packages
-        audit_step 'Finalize desktop restoration and boot verification' finish_upgrade_safely
-    fi
     log 'Requested maintenance completed. Review remaining upgrades and reboot status above.'
     if (( SERVICE_WARNINGS )); then
         if reboot_required; then POWERUP_FINAL_RESULT=reboot-with-warnings; else POWERUP_FINAL_RESULT=service-attention; fi
@@ -5935,36 +6232,37 @@ gui_repository_state() {
 
 gui_dashboard() {
     local note selected name
-    local -a rows=() profiles=(standard categories-install categories-remove test-packages)
+    local -a rows=() profiles=(csi-apps standard categories-install categories-remove test-packages)
     if [[ $BASE_CODENAME == noble ]]; then
-        profiles=(release standard categories-install categories-remove test-packages)
-        note='UBUNTU 24.04 LTS • Stay on this version, manage installed tools, or choose the optional 26.04 upgrade.'
+        profiles=(csi-apps standard release categories-install categories-remove test-packages)
+        note='UBUNTU 24.04 LTS • Update CSI-created apps first, or include system packages.'
+        note+=$'\nBoth update choices keep Ubuntu 24.04. The 26.04 release upgrade is optional.'
     else
-        note='UBUNTU 26.04 LTS • System updates include Ubuntu and Tor repositories.'
-        note+=$'\nChoose system maintenance or a whole CSI tool category.'
+        note='UBUNTU 26.04 LTS • CSI tools are the applications created by CSI Linux.'
+        note+=$'\nFull system update includes these apps, Ubuntu packages and repository maintenance.'
     fi
     if [[ ${GUI_RECOVERABLE:-0} == 1 ]]; then
-        profiles=(recover standard categories-install categories-remove test-packages)
+        profiles=(recover csi-apps standard categories-install categories-remove test-packages)
         note+=$'\nAn approved release upgrade was interrupted. Continue it to repair packages and finish the saved upgrade.'
     fi
     if [[ -n ${GUI_HEALTH_REPORT:-} ]]; then note+=$'\nPending package problems will be repaired before installation.'; fi
     if (( ${GUI_READ_ONLY:-0} )); then profiles=(preview); fi
     for name in "${profiles[@]}"; do
         case $name in
+            csi-apps) rows+=("$name" 'Update CSI tools (recommended)' 'Download and refresh CSI-created applications in /opt/csitools. Keep the current Ubuntu release.') ;;
             standard)
-                if [[ $BASE_CODENAME == noble ]]; then rows+=("$name" 'Keep Ubuntu 24.04 — update packages' 'Retain this Ubuntu release; update packages and validate startup files.')
-                else rows+=("$name" 'Update system (recommended)' 'Update installed packages, then check kernel startup files and GRUB.'); fi ;;
+                rows+=("$name" 'Full system update — OS + CSI tools' 'Update packages on this Ubuntu release, refresh CSI applications, and verify boot and theme settings.') ;;
             recover) rows+=("$name" 'Continue interrupted upgrade' 'Keep the saved job and original backups; repair packages and complete Ubuntu 26.04.') ;;
             test-packages) rows+=("$name" 'Test packages' 'Check all category lists against local APT indexes; open missingpackages.txt. No installation.') ;;
-            categories-install) rows+=("$name" 'Install or update tool categories' 'Choose whole CSI categories, such as Encryption or Computer Forensics.') ;;
-            categories-remove) rows+=("$name" 'Remove tool categories' 'Remove category tools while keeping required system and shared packages.') ;;
+            categories-install) rows+=("$name" 'Install or update package groups' 'Choose package lists such as Encryption or Computer Forensics. Separate from CSI-created apps.') ;;
+            categories-remove) rows+=("$name" 'Remove package groups' 'Remove category packages while keeping required system and shared packages.') ;;
             tools-update) rows+=("$name" 'Update installed tools — keep current Ubuntu' 'Choose installed tool packages. Use existing repositories; no OS release upgrade.') ;;
             tools-remove) rows+=("$name" 'Remove installed tools — keep current Ubuntu' 'Choose installed tool packages to remove. Keep configuration and unrelated packages.') ;;
             all) rows+=("$name" 'Update system + all CSI tools' 'Include every CSI tool category using the published CSI updater.') ;;
             selected) rows+=("$name" 'Update system + selected CSI tools' 'Choose tool categories on the next screen. System updates are included.') ;;
             refresh) rows+=("$name" 'Restore CSI tool files' 'Update the system, back up the tool folder, and restore the CSI archive.') ;;
             full) rows+=("$name" 'Full package upgrade' 'Allow package removals needed to resolve dependency changes.') ;;
-            release) rows+=("$name" 'Upgrade to Ubuntu 26.04 LTS (recommended)' 'Prepare, upgrade, and continue after required reboots. Boot and theme checks included.') ;;
+            release) rows+=("$name" 'Upgrade to Ubuntu 26.04 LTS' 'Optional release upgrade. Continue after required reboots, then refresh CSI applications.') ;;
             preview) rows+=("$name" 'Preview maintenance plan' 'Read-only overview. No system changes or administrator access.') ;;
         esac
     done
@@ -6026,10 +6324,11 @@ gui_package_categories() {
 }
 
 gui_build_plan() {
-    CHECK_ONLY=0 TEST_PACKAGES=0 FULL_UPGRADE=0 REFRESH_TOOLS=0 RELEASE_UI=text
+    CHECK_ONLY=0 TEST_PACKAGES=0 FULL_UPGRADE=0 REFRESH_TOOLS=0 CSI_TOOLS_ONLY=0 RELEASE_UI=text
     RELEASE_UPGRADE=0 RESUME_RELEASE=0 RECOVER_RELEASE=0 TOOL_ACTION='' TOOL_PACKAGES=() CATEGORY_ACTION='' PACKAGE_CATEGORIES=()
     REQUESTED=(os-update)
     case $GUI_PROFILE in
+        csi-apps) CSI_TOOLS_ONLY=1; REQUESTED=() ;;
         preview) CHECK_ONLY=1 ;;
         test-packages) TEST_PACKAGES=1; REQUESTED=() ;;
         release) RELEASE_UI=gtk; RELEASE_UPGRADE=1 ;;
@@ -6045,6 +6344,7 @@ gui_build_plan() {
         *) die 'Unknown wizard action.' ;;
     esac
     GUI_ARGS=()
+    (( ! CSI_TOOLS_ONLY )) || GUI_ARGS+=(--update-csi-tools)
     (( ! TEST_PACKAGES )) || GUI_ARGS+=(--test-packages)
     [[ $CATEGORY_ACTION != install ]] || GUI_ARGS+=(--install-categories)
     [[ $CATEGORY_ACTION != remove ]] || GUI_ARGS+=(--remove-categories)
@@ -6071,6 +6371,7 @@ gui_write_plan() {
         printf 'Ubuntu base: %s • %s\n\n' "$BASE_CODENAME" "$ARCH"
         if (( GUI_DEMO )); then printf 'DEMONSTRATION: simulated work; no system changes.\n\n'; fi
         case $GUI_PROFILE in
+            csi-apps) printf 'UPDATE CSI TOOLS\nDownload the published CSI archive and refresh CSI-created applications\nin /opt/csitools, even when they are already installed.\nBack up the existing folder; retain the running Powerup script.\nKeep this Ubuntu release. No general OS package upgrade is requested.\nRepair dependencies and install extraction support if needed.\n' ;;
             recover) printf 'CONTINUE THE INTERRUPTED UBUNTU UPGRADE\nKeep the original job and pre-upgrade backups. Wait for existing package work,\nrepair pending configuration, then finish the approved upgrade.\nSLiM remains running and existing local configuration files are retained.\n' ;;
             test-packages) printf 'TEST ALL CSI PACKAGE CATEGORIES\nCheck current local APT indexes without installing, removing or repairing packages.\nDownloads the published category lists. No administrator password is needed.\nAn exact-name missingpackages.txt report opens automatically when finished.\nRun system update first if you need refreshed repository indexes.\n' ;;
             preview) printf 'READ-ONLY PREVIEW\nNo downloads, package changes or authentication.\n\nUpdate runs would repair dependencies, maintain Ubuntu/Tor repositories,\nupdate packages and check kernel startup files and GRUB.\n' ;;
@@ -6092,9 +6393,9 @@ gui_write_plan() {
             all) printf 'SYSTEM + ALL CSI TOOLS\nUpdate the system and all 11 CSI tool categories.\n' ;;
             *)
                 if [[ $BASE_CODENAME == noble ]]; then
-                    printf 'UPDATE UBUNTU 24.04 PACKAGES\nKeep Ubuntu 24.04 and the existing repositories.\nRepair dependencies; run apt update and apt upgrade -y.\nNo release upgrade is requested.\n'
+                    printf 'FULL SYSTEM UPDATE — OS + CSI TOOLS\nKeep Ubuntu 24.04 and maintain its repositories.\nRepair dependencies; run apt update and apt upgrade -y.\nBack up /opt/csitools and refresh CSI-created applications.\nNo release upgrade is requested.\n'
                 else
-                    printf 'SYSTEM UPDATE\nRepair dependencies, refresh Ubuntu/Tor repositories,\nand run apt update followed by apt upgrade -y.\n'
+                    printf 'FULL SYSTEM UPDATE — OS + CSI TOOLS\nRepair dependencies, refresh Ubuntu/Tor repositories,\nand run apt update followed by apt upgrade -y.\nBack up /opt/csitools and refresh CSI-created applications.\n'
                 fi ;;
         esac
         if [[ $GUI_PROFILE == release && $pending_route == wait ]]; then
@@ -6642,6 +6943,7 @@ gui_main() {
     [[ ${CATEGORY_ACTION:-} != install ]] || { GUI_PROFILE="categories-install"; GUI_CATEGORIES=("${PACKAGE_CATEGORIES[@]}"); }
     [[ ${CATEGORY_ACTION:-} != remove ]] || { GUI_PROFILE="categories-remove"; GUI_CATEGORIES=("${PACKAGE_CATEGORIES[@]}"); }
     case $GUI_PROFILE in full|refresh|all|selected) GUI_PROFILE=standard;; esac
+    (( ! ${CSI_TOOLS_ONLY:-0} )) || GUI_PROFILE=csi-apps
     (( ! ${TEST_PACKAGES:-0} )) || GUI_PROFILE=test-packages
     (( ! CHECK_ONLY )) || GUI_PROFILE=preview
     while :; do
@@ -6996,12 +7298,16 @@ main() {
             --cli) cli=1 ;;
             --gui) gui=1 ;;
             --check|--test-packages) read_only=1; args+=("$arg") ;;
+            --repair-wallpaper) cli=1; args+=("$arg") ;;
             --demo|--demo=resolute) GUI_DEMO=1 ;;
             --demo=noble) GUI_DEMO=1; GUI_DEMO_BASE=noble ;;
             *) args+=("$arg") ;;
         esac
     done
     (( ! (cli && (gui || GUI_DEMO)) )) || die '--cli cannot be combined with --gui or --demo.'
+    if [[ " ${args[*]} " == *' --repair-wallpaper '* ]]; then
+        (( ${#args[@]} == 1 )) || die '--repair-wallpaper is a separate desktop repair action.'
+    fi
     if (( ! GUI_DEMO && ! read_only )) && [[ -z $checked ]]; then
         local startup_status=0
         startup_self_update "$self" "$cli" "$@" || startup_status=$?
@@ -7013,6 +7319,7 @@ main() {
         fi
         (( startup_status == 0 )) || return "$startup_status"
     fi
+    if [[ ${args[0]:-} == --repair-wallpaper ]]; then wallpaper_repair_command "${args[@]:1}"; return; fi
     if (( cli )); then backend_main "${args[@]}"; else gui_main "${args[@]}"; fi
 }
 
