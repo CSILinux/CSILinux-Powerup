@@ -18,15 +18,17 @@
 # Third-party software, packages, and components retain their respective
 # copyrights and licenses. This notice does not alter those licenses.
 # -----------------------------------------------------------------------------------
-# Revision: 2026-11-15-5. Prioritize CSI applications and include them in system updates.
+# Revision: 2026-11-17-7. Keep the session transcript visible through the result screen.
 # Uses Ubuntu's release upgrader; see README-powerup.md for reboot/resume steps.
 
 set -Eeuo pipefail
 
-readonly POWERUP_REV=2026-11-15-5
+readonly POWERUP_REV=2026-11-17-7
 # Consumed by the static metadata validator in PY_SELF_UPDATE.
 # shellcheck disable=SC2034
 readonly POWERUP_SELF_UPDATE_PROTOCOL=1
+# shellcheck disable=SC2034
+readonly POWERUP_STARTUP_CHECK_PROTOCOL=1
 readonly POWERUP_SELF_UPDATE_URL=https://raw.githubusercontent.com/CSILinux/CSILinux-Powerup/refs/heads/main/powerup
 SELF_CHECKED_REV=''
 POWERUP_LOCK_HELD=0
@@ -720,7 +722,7 @@ powerup_launch() {
 usage() {
     cat <<'HELP'
 CSI Linux Powerup — Ubuntu 26.04 / Resolute
-Usage: bash powerup.sh [--gui | --cli] [OPTIONS] [os-update | CATEGORY ... | all]
+Usage: bash powerup [--gui | --cli] [OPTIONS] [os-update | CATEGORY ... | all]
 
 On Ubuntu 24.04, os-update retains 24.04 and updates its installed packages.
 Choose --release-upgrade explicitly to use Ubuntu's supported 26.04 upgrader.
@@ -762,13 +764,13 @@ Standard-mode recovery does not remove packages; Full/Release modes permit it.
   --version                 Show the installed Powerup revision
 
 Examples:
-  bash powerup.sh --check
-  bash powerup.sh os-update
-  bash powerup.sh --release-upgrade os-update
-  bash powerup.sh --update-tools nmap tshark
-  bash powerup.sh --remove-tools nmap
-  bash powerup.sh --cli --full-upgrade os-update
-  bash powerup.sh all
+  bash powerup --check
+  bash powerup os-update
+  bash powerup --release-upgrade os-update
+  bash powerup --update-tools nmap tshark
+  bash powerup --remove-tools nmap
+  bash powerup --cli --full-upgrade os-update
+  bash powerup all
 
 GUI release upgrades use Ubuntu's graphical upgrader. --cli uses its text UI.
 Target: Ubuntu 26.04 LTS, as requested. No development or interim release upgrade.
@@ -6190,11 +6192,29 @@ gui_progress_close() {
         exec {GUI_PROGRESS_FD}>&-
         GUI_PROGRESS_FD=''
     fi
+    if [[ ${1:-} == drain && -n ${GUI_LOG_FEEDER:-} ]]; then
+        : > "$GUI_DIR/progress.finished"
+        # Give a responsive reader time to deliver the final burst, including
+        # a large backlog. A frozen YAD must never hold up the result dialog.
+        local idle=0 bytes previous='' attempt
+        while kill -0 "$GUI_LOG_FEEDER" 2>/dev/null && kill -0 "$GUI_PROGRESS_PID" 2>/dev/null; do
+            bytes=$(awk '/^wchar:/ {print $2}' "/proc/$GUI_LOG_FEEDER/io" 2>/dev/null) || bytes=''
+            if [[ $bytes != "$previous" ]]; then idle=0; previous=$bytes; fi
+            (( idle < 30 )) || break
+            idle=$((idle+1))
+            sleep 0.1
+        done
+        # Auto-close lets GTK consume the last pipe buffer before teardown.
+        for (( attempt=0; attempt<10; attempt++ )); do
+            kill -0 "$GUI_PROGRESS_PID" 2>/dev/null || break
+            sleep 0.05
+        done
+    fi
     gui_stop_monitor_child "${GUI_PROGRESS_PID:-}"
     GUI_PROGRESS_PID=''
     gui_stop_monitor_child "${GUI_LOG_FEEDER:-}" TERM
     GUI_LOG_FEEDER=''
-    [[ -z ${GUI_DIR:-} ]] || rm -f -- "$GUI_DIR/progress.fifo"
+    [[ -z ${GUI_DIR:-} ]] || rm -f -- "$GUI_DIR/progress.fifo" "$GUI_DIR/progress.finished"
 }
 
 gui_capture() {
@@ -6424,52 +6444,78 @@ gui_cleanup() {
 }
 
 gui_feed_log() {
-    # Called only in its own background subshell. Exec gives us the actual
-    # feeder PID, so cleanup cannot leave an orphan holding the pipe open.
-    exec python3 -u - "$GUI_LOG" "$GUI_STATUS" "$GUI_JOB" "${GUI_LOG_OFFSET:-0}" <<'PY_GUI_LOG'
-import json, os, sys, time
-log, status, pid = sys.argv[1:4]
-offset=int(sys.argv[4]) if len(sys.argv)>4 else 0
-seen=set()
-def running():
-    try:
-        os.kill(int(pid), 0)
-        return True
-    except ProcessLookupError:
-        return False
-    except PermissionError:
-        return True
+    # Only the display process writes to YAD. A blocked or closed display never
+    # takes part in writing the session log or running the package transaction.
+    exec python3 - "$1" "$GUI_DIR/progress.finished" "$2" "${3:-progress}" <<'PY_GUI_LOG'
+import codecs, io, os, sys, time
+
+log, finished, parent, view = sys.argv[1:]
+parent = int(parent)
+decoder = io.IncrementalNewlineDecoder(codecs.getincrementaldecoder('utf-8')('replace'), True)
+partial = []
+
+def display(text, final=False):
+    # GTK strings end at NUL. YAD's text viewer interprets a form feed as
+    # a request to erase the buffer. Show both characters as visible escapes.
+    text = text.replace('\0', r'\0').replace('\f', r'\f')
+    if view == 'text':
+        if text:
+            sys.stdout.write(text)
+            sys.stdout.flush()
+        return
+    lines = text.split('\n')
+    if len(lines) > 1:
+        lines[0] = ''.join(partial) + lines[0]
+        partial.clear()
+    last = lines.pop()
+    if last:
+        partial.append(last)
+    if final and partial:
+        lines.append(''.join(partial))
+        partial.clear()
+    if lines:
+        # Every log line is a YAD log record, even one containing just "100".
+        sys.stdout.write(''.join('# ' + line + '\n' for line in lines))
+        sys.stdout.flush()
+
 try:
-    with open(log, errors='replace') as stream:
-        stream.seek(offset)
+    with open(log, 'rb') as stream:
+        finishing = False
         while True:
-            line = stream.readline()
-            if line:
-                if line.startswith('POWERUP_LOCK_STATUS='):
-                    try:notice=json.loads(line.partition('=')[2])
-                    except (ValueError,TypeError):continue
-                    if not isinstance(notice,dict) or notice.get('schema')!=1 or notice.get('phase') not in ('waiting','stopping','attempt','deferred','released','busy') or not isinstance(notice.get('message'),str):continue
-                    print('# '+''.join(c for c in notice['message'] if c.isprintable())[:1600],flush=True)
-                    continue
-                # Positive whitelist plus lock status: raw errors stay in the log.
-                if not line.startswith('POWERUP_EVENT='):continue
-                try:event=json.loads(line[len('POWERUP_EVENT='):])
-                except (ValueError,TypeError):continue
-                if not isinstance(event,dict) or event.get('schema')!=1:continue
-                label=event.get('label')
-                if event.get('kind')!='success' or event.get('status')!=0 or not isinstance(label,str):continue
-                if label in seen:continue
-                seen.add(label)
-                label=''.join(c for c in label if c.isprintable())[:240]
-                print('# Completed: ' + label, flush=True)
-            elif os.path.exists(status) or not running():
-                print('100', flush=True)
+            block = stream.read(65536)
+            if block:
+                display(decoder.decode(block))
+            elif finishing:
+                display(decoder.decode(b'', final=True), final=True)
+                if view == 'progress':
+                    print('100', flush=True)
                 break
             else:
-                time.sleep(0.15)
+                # Check EOF again after publication of the finish marker to
+                # catch the last writes even if the worker finished between reads.
+                finishing = os.getppid() != parent or (view == 'progress' and os.path.exists(finished))
+                time.sleep(0.12)
 except BrokenPipeError:
-    pass
+    os._exit(0)
+except OSError as error:
+    notice = f'Unable to display {log}: {error}'
+    print(notice, file=sys.stderr)
+    try:
+        display(notice + '\n', final=True)
+    except BrokenPipeError:
+        os._exit(0)
 PY_GUI_LOG
+}
+
+gui_progress_follow() {
+    local owner=$BASHPID
+    [[ -n ${1:-} ]] || return 0
+    (
+        exec 1>&"$GUI_PROGRESS_FD"
+        exec {GUI_PROGRESS_FD}>&-
+        gui_feed_log "$1" "$owner"
+    ) &
+    GUI_LOG_FEEDER=$!
 }
 
 gui_verify_release_plan() (
@@ -6555,44 +6601,55 @@ DEMO
     SUDO_ASKPASS="$GUI_DIR/askpass.sh" setsid --wait /bin/bash "$GUI_DIR/runner.sh" "$GUI_STATUS" "$GUI_LOG" "$self" "${command[@]}" &
     GUI_JOB=$!
     POWERUP_PHASE='running the maintenance worker'
-    if gui_progress_open --text="$(gui_header 'Maintenance in progress' 'EXECUTING YOUR REVIEWED PLAN' 'Completed steps and package-lock wait status appear below. Detailed diagnostics are saved automatically. Closing this monitor does not cancel package operations.')" \
+    if gui_progress_open --text="$(gui_header 'Maintenance in progress' 'EXECUTING YOUR REVIEWED PLAN' 'Follow session.log below. The bar pulses while Powerup waits for more output. Closing this window leaves the worker running.')" \
         --progress --pulsate --progress-text='Working — duration depends on downloads and package changes' \
         --enable-log='Progress and completed steps' --log-expanded --log-height=300 --auto-close --no-buttons --no-escape; then
-        (
-            exec 1>&"$GUI_PROGRESS_FD"
-            exec {GUI_PROGRESS_FD}>&-
-            gui_feed_log
-        ) &
-        GUI_LOG_FEEDER=$!
+        gui_progress_follow "$GUI_LOG"
     fi
     # Completion is tied to the worker, not to GTK handling "100" or EOF.
     # A manually closed monitor also leaves the worker running normally.
     wait "$GUI_JOB" || true
-    gui_progress_close
     POWERUP_PHASE='displaying the maintenance result'
     if [[ -f $GUI_STATUS ]]; then read -r exit_code < "$GUI_STATUS"; else exit_code=125; fi
     [[ $exit_code =~ ^[0-9]+$ ]] || exit_code=125
     printf 'Worker exit status: %s\nWorker log saved: %s\n' "$exit_code" "$GUI_LOG"
     audit_event worker-exit '' "$exit_code" '' 'Detached maintenance worker returned' "log=$GUI_LOG"
+    gui_progress_close drain
     outcome=$(tail -c "+$((GUI_LOG_OFFSET+1))" -- "$GUI_LOG" | sed -n 's/^POWERUP_RESULT=//p' | tail -n 1)
     if [[ -e $GUI_DIR/auth.cancel || $outcome == cancelled ]]; then
         if [[ ${GUI_PROFILE:-} == resume ]]; then release_job_store defer || true; fi
         return 0
     fi
-    if [[ $outcome == packages-tested && $exit_code == 0 ]]; then
-        local report_path
-        report_path=$(sed -n 's/^POWERUP_MISSING_FILE=//p' "$GUI_LOG" | tail -n 1)
-        if [[ -f $report_path ]]; then
-            gui_dialog --title='missingpackages.txt — CSI Linux Powerup' --text="$(gui_header 'Package test complete' 'MISSING PACKAGES' 'Names absent from the current APT candidates appear below. An empty file means no exact package names were missing; wildcard details are in diagnostics.zip.')" \
-                --text-info --filename="$report_path" --fontname='DejaVu Sans Mono 11' --button='Close:0' >/dev/null || true
-        fi
-        return 0
-    fi
     gui_show_result "$self" "$exit_code" "$outcome"
 }
 
+gui_result_transcript() {
+    local title=$1 detail=$2 report=$3 owner=$BASHPID input reader heading label
+    shift 3
+    local -a viewer=(--text-info --wrap --fontname='DejaVu Sans Mono 10')
+    label='Progress and completed steps'
+    if [[ -n $report ]]; then
+        # Open the original package report first, then append the session in
+        # the same scrollable view. No extra window or transcript copy is needed.
+        viewer+=(--filename="$report" --listen)
+        label='missingpackages.txt'
+    else
+        viewer+=(--tail)
+    fi
+    heading=$(gui_header "$title" 'RESULT' "$detail")
+    heading+=$'\n\n<b>'"$label"$'</b>\n<small>'"$(gui_escape "$GUI_LOG")"'</small>'
+    exec {input}< <(
+        if [[ -n $report ]]; then printf '\nProgress and completed steps\n'; fi
+        gui_feed_log "$GUI_LOG" "$owner" text
+    )
+    reader=$!
+    gui_capture --height=640 --text="$heading" "${viewer[@]}" "$@" <&"$input"
+    exec {input}<&-
+    gui_stop_monitor_child "$reader" TERM
+}
+
 gui_show_result() {
-    local self=$1 exit_code=$2 outcome=$3 title detail response restart_status default_button=0
+    local self=$1 exit_code=$2 outcome=$3 title detail response restart_status default_button=0 report=''
     local -a buttons=()
     if [[ $outcome == category-partial ]]; then
         title='Available category packages processed'
@@ -6614,6 +6671,14 @@ gui_show_result() {
         detail='Completed steps have been saved. Diagnostic details are available in the support log. Keep this system running until the result has been reviewed.'
     else
         case $outcome in
+            packages-tested)
+                title='Package test complete'
+                if [[ -r ${GUI_LOG%/*}/missingpackages.txt ]]; then
+                    report=${GUI_LOG%/*}/missingpackages.txt
+                    detail='Missing package names appear first, followed by the session log. An empty list means no exact package names were missing.'
+                else
+                    detail='The package report is unavailable. Review the session log below.'
+                fi ;;
             complete) title='Maintenance complete'; detail='The selected workflow completed. Review the activity log for any held or phased updates.' ;;
             tools-complete) title='Tool maintenance complete'; detail='The selected installed tool packages were processed using your existing repositories. Your Ubuntu release was retained. This tools-only result does not certify firmware boot readiness.' ;;
             reboot-required) title='Reboot required'; detail='A restart is needed. Save your work, reboot normally, then reopen Powerup to continue or verify the system.' ;;
@@ -6636,8 +6701,7 @@ gui_show_result() {
             buttons=(--button='Restart later:1' --button='Save support log…:4' --button='Restart now:2')
             default_button=1
         fi
-        gui_capture --height=400 --text="$(gui_header "$title" 'RESULT' "$(gui_escape "$detail")")" \
-            --form --field='Saved support log:RO' "$GUI_LOG" "${buttons[@]}" "--default-button=$default_button"
+        gui_result_transcript "$title" "$detail" "$report" "${buttons[@]}" "--default-button=$default_button"
         response=$GUI_CODE
         case $response in
             2)
@@ -6810,7 +6874,7 @@ gui_request_restart() {
     restart_dir=$(mktemp -d "$GUI_DIR/restart.XXXXXXXX") || return 1
     # A fresh auth directory prevents a previous Cancel/failed password marker
     # from leaking into this independent, user-requested action.
-    local GUI_DIR=$restart_dir GUI_STATUS=$restart_dir/restart.status GUI_JOB='' GUI_LOG_OFFSET
+    local GUI_DIR=$restart_dir GUI_STATUS=$restart_dir/restart.status GUI_JOB=''
     local GUI_PROGRESS_PID='' GUI_PROGRESS_FD='' GUI_LOG_FEEDER=''
     local -a command=()
     gui_assets
@@ -6823,22 +6887,20 @@ gui_request_restart() {
             /bin/bash "$self" --internal-request-restart)
     fi
     audit_event restart-selected '' '' '' 'User selected Restart now'
-    GUI_LOG_OFFSET=$(stat -c %s -- "$GUI_LOG") || return 1
     # Reuse the detached runner and the current session's single log stream.
     setsid --wait /bin/bash "$restart_dir/../runner.sh" "$GUI_STATUS" "$GUI_LOG" "$self" "${command[@]}" &
     GUI_JOB=$!
     if gui_progress_open --text="$(gui_header 'Preparing to restart' 'PACKAGE AND SHUTDOWN CHECKS' 'Please wait. Active package work is monitored; eligible stalled work is recovered before repairs. Shutdown inhibitors remain in force. Closing this monitor does not stop the request.')" \
         --progress --pulsate --progress-text='Checking package activity and restart readiness' \
         --enable-log='Progress and completed steps' --log-expanded --log-height=300 --auto-close --no-buttons --no-escape; then
-        ( exec 1>&"$GUI_PROGRESS_FD"; exec {GUI_PROGRESS_FD}>&-; gui_feed_log ) &
-        GUI_LOG_FEEDER=$!
+        gui_progress_follow "$GUI_LOG"
     fi
     wait "$GUI_JOB" || true
-    gui_progress_close
     if [[ -f $GUI_STATUS ]]; then read -r status < "$GUI_STATUS"; else status=125; fi
     [[ $status =~ ^[0-9]+$ ]] || status=125
     [[ ! -e $GUI_DIR/auth.cancel ]] || status=130
     audit_event restart-return '' "$status" '' 'Restart worker returned' "log=$GUI_LOG"
+    gui_progress_close drain
     rm -rf -- "$restart_dir"
     return "$status"
 }
@@ -7011,7 +7073,7 @@ def revision(data):
         raise ValueError('Powerup download is empty, oversized or contains NUL bytes')
     text = data.decode('utf-8')
     if not text.startswith('#!/bin/bash\n'):
-        raise ValueError('Expected a Bash script, not an HTML/error response')
+        raise ValueError('Expected #!/bin/bash at byte zero followed by a Unix newline')
     assignments = re.findall(r'^(?:readonly )?POWERUP_REV=.*$', text, re.M)
     if len(assignments) != 1:
         raise ValueError('Expected exactly one literal POWERUP_REV assignment')
@@ -7026,7 +7088,7 @@ def validate(data, require_protocol=False):
     env = {k: v for k, v in os.environ.items() if k not in ('BASH_ENV', 'ENV', 'SHELLOPTS', 'BASHOPTS')}
     result = subprocess.run(['/bin/bash', '-n'], input=data, capture_output=True, env=env, timeout=15)
     if result.returncode:
-        raise ValueError('Downloaded Powerup failed Bash syntax validation: ' + result.stderr.decode(errors='replace')[:500])
+        raise ValueError('Powerup failed Bash syntax validation: ' + result.stderr.decode(errors='replace')[:500])
     if require_protocol and ('\nreadonly POWERUP_SELF_UPDATE_PROTOCOL=1\n' not in text or not (text.rstrip().endswith(CURRENT_END) or text.rstrip().endswith(CURRENT_END.replace(' || $# == 4','')) or text.rstrip().splitlines()[-1] == END)):
         raise ValueError('Newer Powerup lacks the supported restart protocol or complete entry point')
     return key, label
@@ -7039,6 +7101,9 @@ def read_regular(path):
             raise ValueError('Powerup must be a regular file')
         data = handle.read(LIMIT + 1)
     return data, info
+
+class PublishedUpdateError(Exception):
+    pass
 
 def download(path):
     # No redirected host, cleartext transport, unverified TLS or stale fallback.
@@ -7070,14 +7135,17 @@ def download(path):
                 delay=attempt
             print('Temporary Powerup download failure; retry '+str(attempt+1)+' of 3',file=sys.stderr,flush=True)
             time.sleep(delay)
-        key, label = validate(data)
-        # Caller creates a private directory. Exclusive creation refuses links.
-        with open(path, 'xb') as handle:
-            os.chmod(path, 0o600)
-            handle.write(data)
-        return key, label, data
+        key, label = validate(data, require_protocol=True)
+    except Exception as error:
+        raise PublishedUpdateError(str(error)) from error
     finally:
         signal.alarm(0)
+
+    # Staging errors are local failures and must remain visible to the launcher.
+    with open(path, 'xb') as handle:
+        os.chmod(path, 0o600)
+        handle.write(data)
+    return key, label, data
 
 def install(target, candidate, old_revision, new_revision):
     old, info = read_regular(target)
@@ -7132,7 +7200,7 @@ try:
     action, *args = sys.argv[1:]
     if action == 'inspect':
         data, _ = read_regular(args[0])
-        _, label = validate(data)
+        _, label = validate(data, require_protocol=True)
         print(label)
     elif action == 'download':
         _, label, data = download(args[0])
@@ -7151,8 +7219,11 @@ try:
         install(*args)
     else:
         raise ValueError('Unknown self-update operation')
+except PublishedUpdateError as error:
+    print(f'Published Powerup at {URL}: {error}', file=sys.stderr)
+    sys.exit(75)
 except Exception as error:
-    print('ERROR: Self-update: ' + str(error), file=sys.stderr)
+    print(f'ERROR: Powerup {action} ({args[0]}): {error}', file=sys.stderr)
     sys.exit(1)
 PY_SELF_UPDATE
 }
@@ -7179,26 +7250,58 @@ self_update_root_install() (
     self_update_program install "$self" "$staging/powerup" "$1" "$2"
 )
 
+# This entry point also lets newer installed launchers test a staged copy offline.
+powerup_startup_check() {
+    (( $# == 0 )) || return 64
+    local name
+    for name in main powerup_launch gui_main backend_main self_update_program release_job_store; do
+        declare -F "$name" >/dev/null || return 70
+    done
+    /usr/bin/python3 - "${BASH_SOURCE[0]}" <<'PY_STARTUP_CHECK' || return 70
+import ast, re, sys
+from pathlib import Path
+text = Path(sys.argv[1]).read_text(encoding='utf-8')
+blocks = re.findall(r"(?m)^[^\n]*<<'(PY_[A-Z0-9_]+)'[^\n]*\n(.*?)^\1$", text, re.S)
+if not blocks:
+    raise SystemExit('Missing Powerup helpers')
+for label, code in blocks:
+    ast.parse(code, filename=label)
+PY_STARTUP_CHECK
+    printf 'POWERUP_STARTUP_OK=%s\n' "$POWERUP_REV"
+}
+
 self_update_prepare() (
-    local self=$1 cli=$2 staging meta old_revision new_revision newer status
+    local self=$1 cli=$2 staging old_revision new_revision newer status
     local GUI_PROGRESS_PID='' GUI_PROGRESS_FD='' GUI_LOG_FEEDER='' GUI_DIR=''
     powerup_log_arguments
     umask 077
     staging=$(mktemp -d "${TMPDIR:-/tmp}/powerup-startup.XXXXXXXX") || return 1
-    trap 'gui_progress_close; rm -rf -- "$staging"' EXIT
+    trap 'gui_progress_close drain; rm -rf -- "$staging"' EXIT
     if (( ! cli )) && command -v yad >/dev/null && [[ -n ${DISPLAY:-}${WAYLAND_DISPLAY:-} ]]; then
         GUI_DIR=$staging
         gui_assets || return 1
-        gui_progress_open --height=300 --text="$(gui_header 'Checking for Powerup updates' 'STARTUP / GITHUB' 'Checking the latest published revision before opening the control center.')" \
+        gui_progress_open --height=480 --text="$(gui_header 'Checking for Powerup updates' 'STARTUP / GITHUB' 'Checking the latest published revision before opening the control center.')" \
             --progress --pulsate --progress-text='Checking GitHub — validating the published revision' \
+            --enable-log='Progress and completed steps' --log-expanded --log-height=220 \
             --auto-close --no-buttons --no-escape || return 1
+        gui_progress_follow "${POWERUP_SESSION_LOG:-}"
     fi
     printf 'Checking Powerup: %s\n' "$POWERUP_SELF_UPDATE_URL"
-    if meta=$(self_update_program inspect "$self" 2>"$staging/error") &&
-        read -r old_revision <<< "$meta" &&
-        meta=$(self_update_program download "$staging/powerup" 2>"$staging/error") &&
-        read -r new_revision <<< "$meta" &&
-        newer=$(self_update_program newer "$staging/powerup" "$self" 2>"$staging/error"); then
+    old_revision=$(self_update_program inspect "$self") || return 1
+    [[ $old_revision == "$POWERUP_REV" ]] || { printf 'Local script revision changed before update check: %s\n' "$self" >&2; return 1; }
+    status=0
+    new_revision=$(self_update_program download "$staging/powerup") || status=$?
+    if (( status == 75 )); then
+        # Only a fetch or remote-content rejection can defer the online check.
+        # Recheck the local file and its embedded helpers before doing any work.
+        old_revision=$(self_update_program inspect "$self") || return 1
+        [[ $old_revision == "$POWERUP_REV" ]] || { printf 'Local script revision changed during update check: %s\n' "$self" >&2; return 1; }
+        powerup_startup_check >/dev/null || { printf 'Local Powerup failed its startup check: %s\n' "$self" >&2; return 1; }
+        printf 'Online self-update deferred. Continuing with verified local Powerup %s.\n' "$old_revision"
+        return 75
+    fi
+    (( status == 0 )) || return 1
+    if newer=$(self_update_program newer "$staging/powerup" "$self" 2>"$staging/error"); then
         if [[ $newer == no ]]; then
             [[ $(self_revision "$self") == "$old_revision" ]] || { printf 'Powerup changed during startup. Reopen it.\n' > "$staging/error"; newer=error; }
         fi
@@ -7211,7 +7314,7 @@ self_update_prepare() (
             return 0
         elif [[ $newer == yes ]]; then
             printf 'New Powerup %s found; installed revision is %s.\n' "$new_revision" "$old_revision"
-            gui_progress_close
+            gui_progress_close drain
             status=0
             if (( EUID == 0 )); then
                 self_update_root_install "$old_revision" "$new_revision" >"$staging/install.log" 2>&1 || status=$?
@@ -7234,7 +7337,7 @@ self_update_prepare() (
             else cp -- "$staging/install.log" "$staging/error"; fi
         fi
     fi
-    gui_progress_close
+    gui_progress_close drain
     cat "$staging/error" >&2
     if [[ -n $GUI_DIR ]]; then
         gui_message 'Powerup needs a version check' 'No package maintenance was started. Diagnostic details have been saved to the support log. Check connectivity or the published script, then reopen Powerup.'
@@ -7254,6 +7357,7 @@ startup_self_update() {
             printf 'Restarting the updated Powerup with the original options.\n'
             powerup_log_arguments
             exec /bin/bash "$self" "${POWERUP_LOG_ARGS[@]}" "--internal-self-update-revision=$SELF_CHECKED_REV" "$@" ;;
+        75) audit_end 75 deferred; SELF_CHECKED_REV=$POWERUP_REV ;;
         130) audit_end 130 cancelled; return 130 ;;
         *) audit_end "$status"; return "$status" ;;
     esac
@@ -7332,6 +7436,7 @@ main() {
 
 if [[ ${BASH_SOURCE[0]} == "$0" ]]; then
     case ${1:-} in
+        --internal-startup-check) shift; powerup_startup_check "$@" ;;
         --internal-request-restart) [[ $# == 1 ]] || exit 64; shift; restart_root_request "$@" ;;
         --internal-repair-log-storage) [[ $# == 1 ]] || exit 64; (( EUID == 0 )) || exit 77; powerup_log_storage_prepare ;;
         --internal-log-stream) [[ $# == 2 || $# == 3 || $# == 4 ]] || exit 64; shift; powerup_log_files stream "$@" ;;
